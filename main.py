@@ -43,6 +43,7 @@ class Patch:
         if not (is_rectangle(rect_coords)):
             raise Exception("Input is not a rectangle! Might be a trapezoid or parallelogram")
 
+        print("Input is rectangle...")
         # 3d coordinates corresponding to a rectangle
         self.coords = rect_coords
         # a point on the plane, used for SDF
@@ -87,16 +88,22 @@ Modification: A combination of a shrinkage and a number of hinges
 
 
 class Modification:
-    def __init__(self, region):
-        self.cost = 0
-        self.projected_region = region
+    def __init__(self, num_hinges, scale, cost):
+        self.cost = cost
 
         # Shrinking variables
-        self.scale = 1
-        self.position = np.array([0, 0, 0])
+        self.scale = scale
+        # self.position = pos
 
         # Hinge variables
-        self.numSplits = 0
+        self.numSplits = num_hinges
+
+        # region
+        self.projected_region = self.calc_region()
+
+    def calc_region(self):
+        print("calc_region: implement me")
+        return -1
 
 
 """
@@ -131,10 +138,15 @@ FoldOption: An object that contains a modification and the associated fold trans
 
 
 class FoldOption:
-    def __init__(self):
-        self.modification = None
-        self.foldTransform = None
+    def __init__(self, isleft, mod):
+        self.modification = mod
+        self.isleft = isleft
+        self.fold_transform = []
 
+    def gen_fold_transform(self):
+        print("gen_fold_transform: implement me!")
+        # Based on the modification, generate start angle and end angle
+        # TODO: Di or David
 
 """
 BasicScaff: Parent class for TBasicScaff and HBasicScaff
@@ -142,9 +154,8 @@ BasicScaff: Parent class for TBasicScaff and HBasicScaff
 
 
 class BasicScaff():
-    def __init__(self, fold_options):
-        self.fold_options = fold_options
-
+    def __init__(self):
+        self.fold_options = []
 
 """
 TBasicScaff: A basic scaffold of type T
@@ -153,23 +164,31 @@ TBasicScaff: A basic scaffold of type T
 
 class TBasicScaff(BasicScaff):
     def __init__(self, f_patch, b_patch):
-        super.__init__(None)
+        super().__init__()
         self.f_patch = f_patch
         self.b_patch = b_patch
 
-    def gen_fold_options(self, ns, nh):
+    def gen_fold_options(self, ns, nh, alpha):
         # Generates all possible fold solutions for TBasicScaff
         # ns: max number of patch cuts
         # nh: max number of hinges, let's enforce this to be an odd number for now
-        print("genFoldOptions: implement me")
+        print("gen_fold_options...")
         options = []
-        # TODO: David
+        for i in range(0, nh):
+            for j in range(0, ns):
+                if (i % 2 != 0):
+                    # if odd number of hinges
+                    cost = alpha * i / nh + (1 - alpha) / ns
+                    mod = Modification(i, j, cost)
+                    fo_left = FoldOption(True, mod)
+                    fo_right = FoldOption(False, mod)
 
-    def gen_cuts(self, ns):
-        print("gen_cuts: implement me")
+                    # generate the fold transform from start to end?
+                    fo_left.gen_fold_transform()
+                    fo_right.gen_fold_transform()
 
-    def gen_hinges(self, nh):
-        print("gen_hinges: implement me")
+                    self.fold_options.append(fo_left)
+                    self.fold_options.append(fo_right)
 
 
 """
@@ -226,48 +245,16 @@ def patch_test():
     print(rect2.calc_area())
     print(rect2.calc_normal())
 
-    # print("creating rectangle 2... should throw an error")
-    # coords2 = np.array([(3, 0, 2), (0, 4, 2), (1, 4, 0), (4, 0, 0)])
-    # rect2 = Patch(coords2)
-    # print(rect2.calc_area())
-    # print(rect2.calc_normal())
 
+def basic_t_scaffold():
+    # coords1 = np.array([(-1, 2, 2), (-1, 2, 0), (1, 2, 0), (1, 2, 2)]) # top base patch
+    coords2 = np.array([(-1, 0, 2), (-1, 0, 0), (1, 0, 0), (1, 0, 2)]) # bottom base patch
+    coords3 = np.array([(0, 0, 2), (0, 2, 2), (0, 2, 0), (0, 0, 0)]) # foldable patch
 
-def intersection_test():
+    foldable = Patch(coords3)
+    base = Patch(coords2)
 
-    # print("creating rectangle 1...")
-    coords = np.array([(0, 0, 0), (0, 4, 0), (4, 4, 0), (4, 0, 0)])
-    rect = Patch(coords)
-    print(rect.calc_area())  # expected 2 * root(20) = 8.944
-    print(rect.calc_normal())  # expected 4/root(70), 0, -8/root(70)
+    tscaff = TBasicScaff(foldable, base)
+    tscaff.gen_fold_options(1, 1)
 
-    print("creating rectangle 2...")
-    coords2 = np.array([(0, 2, 0), (4, 2, 0), (4, 2, 4), (0, 2, 4)])
-    rect2 = Patch(coords2)
-    print(rect2.calc_area())
-    print(rect2.calc_normal())
-
-    rect.calc_intersection(rect2)
-
-def has_intersection(foldable, base, thr):
-
-    def get_distance(foldable, base):
-        # unexpectedly complicated and difficult for two finite planes
-        print("get_distance: figure me out")
-
-    if get_distance(foldable, base) > thr:
-        return False
-
-    left_end = np.inf
-    right_end = -np.inf
-
-    for p in foldable.get_corner_pts():
-        sd = base.signed_distance_to(p)
-        left_end = min(left_end, sd)
-        right_end = max(right_end, sd)
-
-    if left_end * right_end >= 0:
-        return False
-    else:
-        shorter_end = min(abs(left_end), abs(right_end))
-        return shorter_end > thr
+basic_t_scaffold()
