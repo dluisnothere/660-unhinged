@@ -5,7 +5,12 @@ from shapely.geometry import Polygon
 import numpy as np
 import Geometry3D
 from scipy.spatial import ConvexHull
+from enum import Enum
 
+class Axis(Enum):
+    X = [1,0,0]
+    Y = [0,1,0]
+    Z = [0,0,1]
 
 """
 Static helper functions for linear algebra
@@ -115,7 +120,7 @@ Notes: May not actually need this as a class
 class FoldConfig:
     def __init__(self):
         # A list of i angles corresponding to i hinges
-        self.angles = None  # think of it as an empty numpy array
+        self.angles = []  # think of it as an empty numpy array
         self.time = 0
 
 
@@ -138,16 +143,59 @@ FoldOption: An object that contains a modification and the associated fold trans
 
 
 class FoldOption:
-    def __init__(self, isleft, mod):
+    def __init__(self, isleft, mod, patch_list):
         self.modification = mod
         self.isleft = isleft
-        self.fold_transform = []
+        self.fold_transform = None
+        self.rot_axis = []
+
+        # this patch list should be at least size 2
+        self.patch_list = patch_list
 
     def gen_fold_transform(self):
         print("gen_fold_transform: implement me!")
         # Based on the modification, generate start angle and end angle
         # TODO: Di or David
 
+        #crossing the normals of base patch and normal patch
+        self.rot_axis = np.cross(self.patch_list[1].calc_normal(), self.patch_list[0].calc_normal())
+
+        #using patch_list to determine t or h scaffold
+        num_hinges = self.modification.numSplits + len(self.patch_list) - 1
+
+        start_config = FoldConfig()
+        end_config = FoldConfig()
+
+        for i in range(0, num_hinges):
+            
+            start_ang = 0.0
+            end_and = 0.0
+            #first base patch and foldable patch connection
+            if i is 0:
+                start_ang = 0.0
+                end_ang = 90.0
+
+            #final hinge, different based on if t or h
+            elif i is num_hinges - 1 and len(self.patch_list) is 3:
+                start_ang = 0.0
+                end_ang = -90.0
+            #even hinges
+            elif i % 2 is 0:
+                start_ang = 0.0
+                end_ang = 180.0
+            #odd hinges
+            else:
+                start_ang = 0.0
+                end_ang = -180.0
+            
+            if not self.isleft:
+                start_ang *= -1
+                end_and *= -1
+
+            start_config.angles.append(start_ang)
+            end_config.angles.append(end_ang)
+
+        self.fold_transform = FoldTransform(start_config, end_config)
 """
 BasicScaff: Parent class for TBasicScaff and HBasicScaff
 """
@@ -173,15 +221,49 @@ class TBasicScaff(BasicScaff):
         # ns: max number of patch cuts
         # nh: max number of hinges, let's enforce this to be an odd number for now
         print("gen_fold_options...")
-        options = []
+        patch_list = [self.f_patch, self.b_patch]
         for i in range(0, nh):
             for j in range(0, ns):
                 if (i % 2 != 0):
                     # if odd number of hinges
                     cost = alpha * i / nh + (1 - alpha) / ns
                     mod = Modification(i, j, cost)
-                    fo_left = FoldOption(True, mod)
-                    fo_right = FoldOption(False, mod)
+                    fo_left = FoldOption(True, mod, patch_list)
+                    fo_right = FoldOption(False, mod, patch_list)
+
+                    # generate the fold transform from start to end?
+                    fo_left.gen_fold_transform()
+                    fo_right.gen_fold_transform()
+
+                    self.fold_options.append(fo_left)
+                    self.fold_options.append(fo_right)
+
+"""
+HBasicScaff: A basic scaffold of type H
+"""
+
+
+class HBasicScaff(BasicScaff):
+    def __init__(self, f_patch, b_patch_low, b_patch_high):
+        super().__init__()
+        self.f_patch = f_patch
+        self.b_patch_low = b_patch_low
+        self.b_patch_high = b_patch_high
+
+    def gen_fold_options(self, ns, nh, alpha):
+        # Generates all possible fold solutions for TBasicScaff
+        # ns: max number of patch cuts
+        # nh: max number of hinges, let's enforce this to be an odd number for now
+        print("gen_fold_options...")
+        patch_list = [self.f_patch, self.b_patch_low, self.b_patch_high]
+        for i in range(0, nh):
+            for j in range(0, ns):
+                if (i % 2 != 0):
+                    # if odd number of hinges
+                    cost = alpha * i / nh + (1 - alpha) / ns
+                    mod = Modification(i, j, cost)
+                    fo_left = FoldOption(True, mod, patch_list)
+                    fo_right = FoldOption(False, mod, patch_list)
 
                     # generate the fold transform from start to end?
                     fo_left.gen_fold_transform()
