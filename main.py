@@ -1,4 +1,5 @@
 # Unhinged main.py
+import networkx
 import networkx as nx
 import shapely as sp
 from shapely.geometry import Polygon
@@ -44,6 +45,7 @@ Patch: Our proxy for a rectangle and only contains a rectangle
 
 
 class Patch:
+    id_incr = 0
     def __init__(self, rect_coords):
         if not (is_rectangle(rect_coords)):
             raise Exception("Input is not a rectangle! Might be a trapezoid or parallelogram")
@@ -57,6 +59,11 @@ class Patch:
         self.normal = self.calc_normal()
         # calculate area
         self.area = self.calc_area()
+
+        # id for debug purposes
+        self.id = self.id_incr
+        self.id_incr += 1
+
 
     def calc_area(self):
         # calculates the area of the patch
@@ -296,7 +303,10 @@ class InputScaff:
     def __init__(self, p):
         self.patches = p
         self.hinge_graph = None
-        self.mid_scaffs = None
+        self.mid_scaffs = []
+
+        # debug purposes for ease of our test algorithm
+        self.basic_scaffs = []
 
     def gen_scaffs(self):
         # TODO: Di
@@ -306,7 +316,19 @@ class InputScaff:
 
     def gen_hinge_graph(self):
         # TODO: Di
-        print("gen_hinge_graph: implement me")
+        print("gen_hinge_graph...")
+        self.hinge_graph = networkx.Graph()
+        for bs in self.basic_scaffs:
+            self.hinge_graph.add_node(bs.f_patch.id)
+            if (bs.b_patch_low): # if this exists, then H scaffold
+                self.hinge_graph.add_node(bs.b_patch_low.id)
+                self.hinge_graph.add_edge(bs.f_patch.id, bs.b_patch_low.id)
+
+                self.hinge_graph.add_node(bs.b_patch_high.id)
+                self.hinge_graph.add_edge(bs.f_patch.id, bs.b_patch_high.id)
+            else: # otherwise, T scaffold
+                self.hinge_graph.add_node(bs.b_patch.id)
+                self.hinge_graph.add_edge(bs.f_patch.id, bs.b_patch.id)
 
 
 def patch_test():
@@ -338,5 +360,6 @@ def basic_t_scaffold():
 
     tscaff = TBasicScaff(foldable, base)
     tscaff.gen_fold_options(1, 1)
+    
 
 basic_t_scaffold()
