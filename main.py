@@ -306,13 +306,16 @@ class InputScaff:
         self.mid_scaffs = []
 
         # debug purposes for ease of our test algorithm
+        # for now we manually define basic scaffolds
         self.basic_scaffs = []
 
     def gen_scaffs(self):
         # TODO: Di
         # generates basic scaffolds
+        # generates hinge graph
         # generates mid-level scaffolds
         print("gen_scaffs: implement me")
+        
 
     def gen_hinge_graph(self):
         # TODO: Di
@@ -360,6 +363,6 @@ def basic_t_scaffold():
 
     tscaff = TBasicScaff(foldable, base)
     tscaff.gen_fold_options(1, 1)
-    
+
 
 basic_t_scaffold()
