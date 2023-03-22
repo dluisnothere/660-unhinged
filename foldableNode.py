@@ -1,5 +1,6 @@
 import sys
 import random
+import math
 
 import maya.OpenMaya as OpenMaya
 import maya.OpenMayaAnim as OpenMayaAnim
@@ -45,21 +46,18 @@ class foldableNode(OpenMayaMPx.MPxNode):
     # inMeshPosZ = OpenMaya.MObject()
     # inMeshPos = OpenMaya.MObject()
 
+    inPivX = OpenMaya.MObject()
+    inPivY = OpenMaya.MObject()
+    inPivZ = OpenMaya.MObject()
+    inPiv = OpenMaya.MObject()
+
     # debug proof of concept: rotate given object around some given axis by a given degree over time
-    # inRotX = OpenMaya.MObject()
-    # inRotY = OpenMaya.MObject()
-    # inRotZ = OpenMaya.MObject()
-    # inRot = OpenMaya.MObject()
-    #
-    # inRotAngle = OpenMaya.MObject()
+    inRotX = OpenMaya.MObject()
+    inRotY = OpenMaya.MObject()
+    inRotZ = OpenMaya.MObject()
+    inRot = OpenMaya.MObject()
 
-    ## debug proof of concept: move object around
-    inTransX = OpenMaya.MObject()
-    inTransY = OpenMaya.MObject()
-    inTransZ = OpenMaya.MObject()
-    inTrans = OpenMaya.MObject()
-
-    inStepSize = OpenMaya.MObject()
+    inRotAngle = OpenMaya.MObject()
 
     inTime = OpenMaya.MObject() # duration of movement
 
@@ -77,67 +75,52 @@ class foldableNode(OpenMayaMPx.MPxNode):
         #         be generated. Your node should output an MFnArrayAttrsData
         #         object containing the random points. Consult the homework
         #         sheet for how to deal with creating the MFnArrayAttrsData.
-        if (plug == self.outPoint):
-            # # get all handles for input attributes
-            # pushDirData = data.inputValue(self.inPushDir)
-            # pushDir = pushDirData.asFloat3()
-            #
-            # numHingesData = data.inputValue(self.inNumHinges)
-            # numHinges = numHingesData.asLong()
-            #
-            # numShrinkData = data.inputValue(self.inNumShrinks)
-            # numShrink = numShrinkData.asLong()
 
-            # meshPosData = data.inputValue(self.inMeshPos)
-            # pos = meshPosData.asFloat3()
-            #
-            # rotAxisData = data.inputValue(self.inRot)
-            # rotAxis = rotAxisData.asFloat3()
-            #
-            # rotAxisAngle = data.inputValue(self.inRotAngle)
-            # angle = rotAxisAngle.asFloat()
+        rotAxisData = data.inputValue(self.inRot)
+        rotAxis = rotAxisData.asFloat3()
 
-            transData = data.inputValue(self.inTrans)
-            translate = transData.asFloat3()
+        rotAxisAngle = data.inputValue(self.inRotAngle)
+        angle = rotAxisAngle.asFloat()
 
-            timeData = data.inputValue(self.inTime)
-            time = timeData.asInt()
+        pivData = data.inputValue(self.inPiv)
+        piv = pivData.asFloat3()
 
-            stepSizeData = data.inputValue(self.inStepSize)
-            stepSize = stepSizeData.asFloat()
+        timeData = data.inputValue(self.inTime)
+        time = timeData.asInt()
 
-            pointData = data.outputValue(foldableNode.outPoint)  # the MDataHandle
-            pointAAD = OpenMaya.MFnArrayAttrsData()  # the MFnArrayAttrsData
-            pointObject = pointAAD.create()  # the MObject
+        # debug hard code translation for visibility
+        pos = OpenMaya.MVector(4, 0, 0)
 
-            # Create the vectors for “position” and “id”. Names and types must match
-            # the table above.
-            positionArray = pointAAD.vectorArray("position")
-            # translationArray = pointAAD.vectorArray("translation")
-            # rotationArray = pointAAD.vectorArray("rotation")
-            # each point has ID
-            # idArray = pointAAD.doubleArray("id")
+        pivotPoint = OpenMaya.MPoint(piv[0], piv[1], piv[2])
 
-            # generate position outputs over time, similar to processPy\
-            pos = OpenMaya.MVector(0, 0, 0)
-            # rot = OpenMaya.MVector(0, 0, 0)
+        #  Create a new cube if one doesn't exist
+        if not cmds.objExists('rotCube1'):
+            transform_node, shape_node = cmds.polyCube(n="rotCube1")
 
-            for i in range(0, time):
-                pos += OpenMaya.MVector(stepSize * translate[0], stepSize * translate[1], stepSize * translate[2])
-                # rot += OpenMaya.MVector(angle * rotAxis[0], angle * rotAxis[1], angle * rotAxis[2])
+        # select the object from hierarchy
+        selection_list = OpenMaya.MSelectionList()
+        selection_list.add("rotCube1")
 
-            print("pos: ")
-            print(pos)
-            positionArray.append(pos)
+        # find the world transform from DAG. If we don't select it from the DAG,
+        # we can't apply any world transforms to it
+        transform_dag_path = OpenMaya.MDagPath()
+        status = selection_list.getDagPath(0, transform_dag_path)
+        helper = OpenMaya.MFnTransform(transform_dag_path)
 
-            # rotationArray.append(rot)
-            #
-            # translation = pos - rot
-            # trans = OpenMaya.MVector(translation[0], translation[1], translation[2])
-            # translationArray.append(trans)
+        # Reset entire cube to start from clean state
+        # helper.setRotation(OpenMaya.MQuaternion.identity, OpenMaya.MSpace.kObject)
+        helper.setRotation(OpenMaya.MQuaternion.identity, OpenMaya.MSpace.kWorld)
+        helper.setRotatePivot(OpenMaya.MPoint(0, 0, 0), OpenMaya.MSpace.kWorld, False)
+        helper.setScalePivot(OpenMaya.MPoint(0, 0, 0), OpenMaya.MSpace.kWorld, False)
 
-            # Finally set the output data handle pointsData.setMObject(pointsObject)
-            pointData.setMObject(pointObject)
+        # Set translate (if necessary)
+        helper.setTranslation(pos, OpenMaya.MSpace.kWorld)
+        # Set pivot point to the hinge
+        helper.setRotatePivot(pivotPoint, OpenMaya.MSpace.kWorld, False)
+
+        # Rotate the helper object around the pivot point
+        q = OpenMaya.MQuaternion(math.radians(angle * time), OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2]))
+        helper.rotateBy(q, OpenMaya.MSpace.kTransform)
 
         data.setClean(plug)
 
@@ -151,44 +134,29 @@ def nodeInitializer():
 
     try:
         print("Initialization!\n")
-        foldableNode.inTransX = nAttr.create("transX", "tx", OpenMaya.MFnNumericData.kFloat)
+        foldableNode.inPivX = nAttr.create("pivX", "px", OpenMaya.MFnNumericData.kFloat)
         MAKE_INPUT(nAttr)
-        foldableNode.inTransY = nAttr.create("transY", "ty", OpenMaya.MFnNumericData.kFloat)
+        foldableNode.inPivY = nAttr.create("pivY", "py", OpenMaya.MFnNumericData.kFloat)
         MAKE_INPUT(nAttr)
-        foldableNode.inTransZ = nAttr.create("transZ", "tz", OpenMaya.MFnNumericData.kFloat)
+        foldableNode.inPivZ = nAttr.create("pivZ", "pz", OpenMaya.MFnNumericData.kFloat)
         MAKE_INPUT(nAttr)
-
-        foldableNode.inStepSize = nAttr.create("step", "s", OpenMaya.MFnNumericData.kFloat)
-        MAKE_INPUT(nAttr)
-
-        foldableNode.inTrans = nAttr.create("transVec", "it", foldableNode.inTransX, foldableNode.inTransY,
-                                            foldableNode.inTransZ)
+        foldableNode.inPiv = nAttr.create("pivPos", "pv", foldableNode.inPivX, foldableNode.inPivY,
+                                            foldableNode.inPivZ)
         MAKE_INPUT(nAttr)
 
-        # foldableNode.inMeshPosX = nAttr.create("posX", "px", OpenMaya.MFnNumericData.kFloat)
-        # MAKE_INPUT(nAttr)
-        # foldableNode.inMeshPosY = nAttr.create("posY", "py", OpenMaya.MFnNumericData.kFloat)
-        # MAKE_INPUT(nAttr)
-        # foldableNode.inMeshPosZ = nAttr.create("posZ", "pz", OpenMaya.MFnNumericData.kFloat)
-        # MAKE_INPUT(nAttr)
-        #
-        # foldableNode.inMeshPos = nAttr.create("posVec", "pv", foldableNode.inMeshPosX, foldableNode.inMeshPosY,
-        #                                       foldableNode.inMeshPosZ)
-        # MAKE_INPUT(nAttr)
-        #
-        # foldableNode.inRotX = nAttr.create("rotX", "rx", OpenMaya.MFnNumericData.kFloat)
-        # MAKE_INPUT(nAttr)
-        # foldableNode.inRotY = nAttr.create("rotY", "ry", OpenMaya.MFnNumericData.kFloat)
-        # MAKE_INPUT(nAttr)
-        # foldableNode.inRotZ = nAttr.create("rotZ", "rz", OpenMaya.MFnNumericData.kFloat)
-        # MAKE_INPUT(nAttr)
-        #
-        # foldableNode.inRotAxis = nAttr.create("rotVec", "rv", foldableNode.inRotX, foldableNode.inRotY,
-        #                                     foldableNode.inRotZ)
-        # MAKE_INPUT(nAttr)
-        #
-        # foldableNode.inRotAngle = nAttr.create("angle", "a", OpenMaya.MFnNumericData.kFloat)
-        # MAKE_INPUT(nAttr)
+        foldableNode.inRotX = nAttr.create("rotX", "rx", OpenMaya.MFnNumericData.kFloat)
+        MAKE_INPUT(nAttr)
+        foldableNode.inRotY = nAttr.create("rotY", "ry", OpenMaya.MFnNumericData.kFloat)
+        MAKE_INPUT(nAttr)
+        foldableNode.inRotZ = nAttr.create("rotZ", "rz", OpenMaya.MFnNumericData.kFloat)
+        MAKE_INPUT(nAttr)
+
+        foldableNode.inRot = nAttr.create("rotVec", "rv", foldableNode.inRotX, foldableNode.inRotY,
+                                            foldableNode.inRotZ)
+        MAKE_INPUT(nAttr)
+
+        foldableNode.inRotAngle = nAttr.create("angle", "a", OpenMaya.MFnNumericData.kFloat)
+        MAKE_INPUT(nAttr)
 
         foldableNode.inTime = nAttr.create("inTime", "t", OpenMaya.MFnNumericData.kInt, 1)
         MAKE_INPUT(nAttr)
@@ -204,16 +172,15 @@ def nodeInitializer():
         # TODO:: add the attributes to the node and set up the
         #         attributeAffects (addAttribute, and attributeAffects)
 
-        foldableNode.addAttribute(foldableNode.inTrans)
-        foldableNode.addAttribute(foldableNode.inStepSize)
-
-        # foldableNode.addAttribute(foldableNode.inRotAxis)
-        # foldableNode.addAttribute(foldableNode.inRotAngle)
+        foldableNode.addAttribute(foldableNode.inPiv)
+        foldableNode.addAttribute(foldableNode.inRot)
+        foldableNode.addAttribute(foldableNode.inRotAngle)
         foldableNode.addAttribute(foldableNode.inTime)
         foldableNode.addAttribute(foldableNode.outPoint)
 
-        foldableNode.attributeAffects(foldableNode.inTrans, foldableNode.outPoint)
-        foldableNode.attributeAffects(foldableNode.inStepSize, foldableNode.outPoint)
+        foldableNode.attributeAffects(foldableNode.inPiv, foldableNode.outPoint)
+        foldableNode.attributeAffects(foldableNode.inRot, foldableNode.outPoint)
+        foldableNode.attributeAffects(foldableNode.inRotAngle, foldableNode.outPoint)
         foldableNode.attributeAffects(foldableNode.inTime, foldableNode.outPoint)
 
     except Exception as e:
@@ -238,6 +205,9 @@ def initializePlugin(mobject):
 # uninitialize the script plug-in
 def uninitializePlugin(mobject):
     mplugin = OpenMayaMPx.MFnPlugin(mobject)
+
+    OpenMaya.MGlobal.executeCommand("source \"" + mplugin.loadPath() + "/removeMenu.mel\"")
+
     try:
         mplugin.deregisterNode( foldableNodeId )
     except:

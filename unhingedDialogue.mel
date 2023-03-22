@@ -1,19 +1,25 @@
 global proc int genFoldNode()
-{
-    polyCube -n pCube1;
-    
+{    
     instancer -n instancer1;
     
     createNode foldableNode -n foldableNode1;
     
     connectAttr time1.outTime foldableNode1.inTime; 
-    connectAttr pCube1.matrix instancer1.inputHierarchy[0];
-    connectAttr foldableNode1.outPoint instancer1.inputPoints;
+    //connectAttr pCube1.matrix instancer1.inputHierarchy[0]; 
+    connectAttr foldableNode1.outPoint instancer1.inputPoints; 
+    
     return true;
+}
+
+{
+    if(`menu -exists FoldableMenu`)
+    {
+        deleteUI FoldableMenu;
+    }
 }
 
 {   
     global string $gMainWindow;
-    string $lsystemMenu = `menu -p $gMainWindow -label "Unhinged"`;
-    menuItem -label "Create" -command "genFoldNode";
+    string $lsystemMenu = `menu -p $gMainWindow -label "Unhinged" FoldableMenu`;
+    menuItem -label "Create" -command "genFoldNode" MyMenuItem;
 }

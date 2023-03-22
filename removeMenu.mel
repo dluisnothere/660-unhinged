@@ -1,0 +1,4 @@
+if(`menu -exists FoldableMenu`)
+{
+    deleteUI FoldableMenu;
+}
