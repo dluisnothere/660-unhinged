@@ -5,8 +5,7 @@ global proc int genFoldNode()
     createNode foldableNode -n foldableNode1;
     
     connectAttr time1.outTime foldableNode1.inTime; 
-    //connectAttr pCube1.matrix instancer1.inputHierarchy[0]; 
-    connectAttr foldableNode1.outPoint instancer1.inputPoints; 
+    connectAttr foldableNode1.outPoint instancer1.inputPoints;
     
     return true;
 }
