@@ -61,9 +61,9 @@ def setUpVertBasicScene():
     pBaseBottom = getObjectTransformFromDag("pBaseBottomH")
 
     # Set the translation for pBottom to 0, 0, 0 and pTop to 0, 1, 0.
-    pFold.setTranslation(OpenMaya.MVector(0, 0.5, 5), OpenMaya.MSpace.kWorld)
-    pBaseTop.setTranslation(OpenMaya.MVector(0, 1, 5), OpenMaya.MSpace.kWorld)
-    pBaseBottom.setTranslation(OpenMaya.MVector(0, 0, 5), OpenMaya.MSpace.kWorld)
+    pFold.setTranslation(OpenMaya.MVector(0, 1.5, 5), OpenMaya.MSpace.kWorld)
+    pBaseTop.setTranslation(OpenMaya.MVector(0, 2, 5), OpenMaya.MSpace.kWorld)
+    pBaseBottom.setTranslation(OpenMaya.MVector(0, 1, 5), OpenMaya.MSpace.kWorld)
 
     # # Set the rotation for both to 0, 0, -90. Keep in mind that EulerRotation is in radians.
     pFold.setRotation(OpenMaya.MEulerRotation(0, 0, math.radians(-90)))
@@ -354,7 +354,8 @@ def generateNewPatches(original_patch: str, num_hinges: int):
     for i in range(0, numPatches):
         # TODO: Based on the axis we shrink, either width or height will be the original patch's scale
         # This command generates a new polyplane in the scene
-        newPatch = cmds.polyPlane(name=original_patch + "_" + str(i), width=newPatchScale, height=originalScale, subdivisionsX=1,
+        newPatch = cmds.polyPlane(name=original_patch + "_" + str(i), width=newPatchScale, height=originalScale,
+                                  subdivisionsX=1,
                                   subdivisionsY=1)
         newPatches.append(newPatch[0])
 
@@ -366,30 +367,60 @@ def generateNewPatches(original_patch: str, num_hinges: int):
     # Translate the patches along the direction it has been scaled in (but that is local)
     # TODO: Axis of scaling is hard coded
     originalTranslation = cmds.getAttr(original_patch + ".translate")
-    print("original Translation")
-    print(originalTranslation)
 
     # Get the world location of the bottom of the original patch
     # TODO: hard coded for the Y direction
     originalPatchBottom = originalTranslation[0][1] - originalScale * 0.5
+    newPatchPositions = []
     for i in range(0, len(newPatches)):
-        #  TODO: Might not work for patches that are higher than ground level
-        cmds.setAttr(newPatches[i] + ".translate", originalTranslation[0][0],
-                     originalPatchBottom + newPatchScale * (i + 0.5), originalTranslation[0][2])
+        newTrans = [originalTranslation[0][0], originalPatchBottom + newPatchScale * (i + 0.5),
+                    originalTranslation[0][2]]
+        newPatchPositions.append(newTrans)
+        cmds.setAttr(newPatches[i] + ".translate", newTrans[0], newTrans[1], newTrans[2])
 
-    # # TODO: deal with this later
     # Pivot the patches.
-    # for i in range(0, len(newPatches)):
-    #     # Set the pivot location
-    #     patchPivot = cmds.xform(newPatches[i], query=True, rotatePivot=True, worldSpace=True)
-    #     cmds.move(0, 0, patchPivot, newPatches[i] + ".scalePivot", newPatches[i] + ".rotatePivot",
-    #               relative=True)
+    for i in range(0, len(newPatches)):
+        # Set the pivot location to the bottom of the patch
+        # TODO: check what their generated code does
+        newPivot = [newPatchScale * 0.5, 0, 0]
+        transform = getObjectTransformFromDag(newPatches[i])
+        transform.setRotatePivot(OpenMaya.MPoint(newPivot[0], newPivot[1], newPivot[2]), OpenMaya.MSpace.kTransform, True)
 
     return newPatches
 
 
 def foldKeyframe(time, shape_traverse_order, fold_solution):
     print("Entered foldKeyframe...")
+
+    start_angles = fold_solution.fold_transform.startAngles
+    end_angles = fold_solution.fold_transform.endAngles
+    num_hinges = fold_solution.modification.num_hinges
+
+    t = time  # dictate that the end time is 90 frames hard coded for now
+
+    # Since we are hard coded only to get 1 angel out so far, try that one
+    angle = t * (end_angles[0] - start_angles[0]) / 90  # The angle we fold at this particular time is time / 90 *
+    rotAxis = (0, 0, 1)
+
+    print("angle based on t: " + str(angle))
+    print("t: " + str(t))
+
+    # Update the list of shape_traverse_order to include the new patches where the old patch was
+    if (num_hinges > 0):
+        foldable_patch = shape_traverse_order[
+            0]  # TODO: make more generic, currently assumes foldable patch is at the center
+        new_patches = generateNewPatches(foldable_patch, num_hinges)
+        f_idx = 1
+
+        # Remove the foldable_patch by deleting it.
+        cmds.delete(foldable_patch)
+        shape_traverse_order.remove(foldable_patch)
+
+        for i in range(0, len(new_patches)):
+            shape_traverse_order.insert(f_idx * i, new_patches[i])
+
+        # return
+
     # Loop through the patches and get all of their pivots.
     patchPivots = []
     for shape in shape_traverse_order:
@@ -438,34 +469,6 @@ def foldKeyframe(time, shape_traverse_order, fold_solution):
     print("endAngles: ")
     print(fold_solution.fold_transform.endAngles)
 
-    start_angles = fold_solution.fold_transform.startAngles
-    end_angles = fold_solution.fold_transform.endAngles
-    num_hinges = fold_solution.modification.num_hinges
-
-    t = time  # dictate that the end time is 90 frames hard coded for now
-
-    # Since we are hard coded only to get 1 angel out so far, try that one
-    angle = t * (end_angles[0] - start_angles[0]) / 90  # The angle we fold at this particular time is time / 90 *
-    rotAxis = (0, 0, 1)
-
-    print("angle based on t: " + str(angle))
-    print("t: " + str(t))
-
-    # Update the list of shape_traverse_order to include the new patches where the old patch was
-    if (num_hinges):
-        foldable_patch = shape_traverse_order[0] # TODO: make more generic, currently assumes foldable patch is at the center
-        new_patches = generateNewPatches(foldable_patch, num_hinges)
-        f_idx = 1
-
-        # Remove the foldable_patch by deleting it.
-        cmds.delete(foldable_patch)
-
-        for i in range(0, len(new_patches)):
-            shape_traverse_order.insert(f_idx * i, new_patches[i])
-
-        # TODO: TEST ONLY, REMOVE THIS STATEMENT AFTER SPLIT LOGIC
-        return
-
     # Perform rotations at once, but do not rotate the last patch
     patchTransforms = []
     for i in range(0, len(shape_traverse_order)):
@@ -474,6 +477,7 @@ def foldKeyframe(time, shape_traverse_order, fold_solution):
         patchTransforms.append(pTransform)
         if (i == len(shape_traverse_order) - 1):  # TODO: fix this bc it won't work for T scaffolds
             break
+        print("Now rotating shape: " + shape)
         q = OpenMaya.MQuaternion(math.radians(angle), OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2]))
         print("angle" + str(angle))
         pTransform.rotateBy(q, OpenMaya.MSpace.kTransform)
