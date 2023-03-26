@@ -393,38 +393,7 @@ class FoldManager:
 
         return fo
 
-# def patch_test():
-#     # TODO: Di
-#     # Create the input Scaffold
-#     # Generate patches from the input mesh, for testing purposes, just generate some rectangles
-#     # They have to be around the polygon in the right order.
-#
-#     print("creating rectangle 1...")
-#     coords = np.array([(0, 0, 0), (0, 2, 0), (4, 2, 2), (4, 0, 2)])
-#     rect = Patch(coords)
-#     print(rect.calc_area())  # expected 2 * root(20) = 8.944
-#     print(rect.calc_normal())  # expected 4/root(70), 0, -8/root(70)
-#
-#     print("creating rectangle 3...")
-#     coords2 = np.array([(0, 0, 2), (0, 4, 2), (2, 4, 0), (2, 0, 0)])
-#     rect2 = Patch(coords2)
-#     print(rect2.calc_area())
-#     print(rect2.calc_normal())
-#
-#
-# def basic_t_scaffold():
-#     # coords1 = np.array([(-1, 2, 2), (-1, 2, 0), (1, 2, 0), (1, 2, 2)]) # top base patch
-#     coords2 = np.array([(-1, 0, 2), (-1, 0, 0), (1, 0, 0), (1, 0, 2)]) # bottom base patch
-#     coords3 = np.array([(0, 0, 2), (0, 2, 2), (0, 2, 0), (0, 0, 0)]) # foldable patch
-#
-#     foldable = Patch(coords3)
-#     base = Patch(coords2)
-#
-#     tscaff = TBasicScaff(foldable, base)
-#     tscaff.gen_fold_options(1, 1)
-#
-#
-# basic_t_scaffold()
+
 
 def basic_t_scaffold():
     coords1 = np.array([(-1, 2, 2), (-1, 2, 0), (1, 2, 0), (1, 2, 2)]) # top base patch
@@ -466,6 +435,7 @@ def basic_h_scaffold():
         print(scaff.modification.range_end)
         print(scaff.modification.num_pieces)
         print('------------------------------')
-
+        
+# basic_t_scaffold()
 basic_h_scaffold()
 
