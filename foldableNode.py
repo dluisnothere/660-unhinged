@@ -431,7 +431,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
         shape_vertices.append(list(vertices_list.values()))
 
         # Repeat the procedure for the remaining patches
-        for shape in self.shape_traverse_order:
+        for shape in self.original_shapes:
             print("Shape: {}".format(shape))
             vertices_list = getObjectVerticeNamesAndPositions(shape)
             shape_vertices.append(list(vertices_list.values()))
