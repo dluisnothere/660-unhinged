@@ -1,4 +1,5 @@
 # Unhinged main.py
+
 # import networkx
 # import networkx as nx
 # import shapely as sp
@@ -23,11 +24,19 @@ def normalize(vec1):
     len = np.linalg.norm(vec1)
     return vec1 / len
 
-
+# Might not even need this for now
 def is_rectangle(coords):
+    print("Checking if input is a rectangle...")
+    print("coords1:")
+    print(coords[1])
+    print("coords0:")
+    print(coords[0])
+    print("coords3:")
+    print(coords[3])
+
     # Check if coordinates actually create a rectangle shape
-    hvec = coords[1] - coords[0]
-    wvec = coords[3] - coords[0]
+    hvec = np.array(coords[1]) - np.array(coords[0])
+    wvec = np.array(coords[3]) - np.array(coords[0])
 
     dotprod = np.dot(normalize(hvec), normalize(wvec))
 
@@ -48,11 +57,11 @@ Patch: Our proxy for a rectangle and only contains a rectangle
 class Patch:
     id_incr = 0
     def __init__(self, rect_coords):
-        if not (is_rectangle(rect_coords)):
-            raise Exception("Input is not a rectangle! Might be a trapezoid or parallelogram")
-
-        print("Input is rectangle...")
+        # if not (is_rectangle(rect_coords)):
+        #     raise Exception("Input is not a rectangle! Might be a trapezoid or parallelogram")
+        # print("Input is rectangle...")
         # 3d coordinates corresponding to a rectangle
+
         self.coords = rect_coords
         # a point on the plane, used for SDF
         self.constant = np.mean(rect_coords, axis=0)
@@ -101,15 +110,17 @@ Modification: A combination of a shrinkage and a number of hinges
 
 
 class Modification:
-    def __init__(self, num_hinges, scale, cost):
+    def __init__(self, num_hinges, num_splits, cost):
         self.cost = cost
 
         # Shrinking variables
-        self.scale = scale
-        # self.position = pos
+        # self.scale = scale
+        # num_splits is a substitute for scale, but for me it makes more sense for now.
+        self.num_splits = num_splits
+        # self.position = pos, NOTE: may need to put this back
 
         # Hinge variables
-        self.numSplits = num_hinges
+        self.num_hinges = num_hinges
 
         # region
         self.projected_region = self.calc_region()
@@ -161,7 +172,7 @@ class FoldOption:
         self.patch_list = patch_list
 
     def gen_fold_transform(self):
-        print("gen_fold_transform: implement me!")
+        print("Entered gen_fold_transform...")
         # Based on the modification, generate start angle and end angle
         # TODO: Di or David
 
@@ -169,12 +180,15 @@ class FoldOption:
         self.rot_axis = np.cross(self.patch_list[1].calc_normal(), self.patch_list[0].calc_normal())
 
         #using patch_list to determine t or h scaffold
-        num_hinges = self.modification.numSplits + len(self.patch_list) - 1
+        # num_hinges = self.modification.numSplits + len(self.patch_list) - 1
+        num_hinges = self.modification.num_hinges
 
-        start_config = FoldConfig()
-        end_config = FoldConfig()
+        start_config = [] # FoldConfig()
+        end_config = [] # FoldConfig()
 
-        for i in range(0, num_hinges):
+        # When num_hinges is 0, it means we still have the hinge at the base patch(es)
+        # meaning we always have 1 more than we expect
+        for i in range(0, num_hinges + 1):
             
             start_ang = 0.0
             end_ang = 0.0
@@ -202,6 +216,14 @@ class FoldOption:
             else:
                 start_config.angles.append(start_ang)
                 end_config.angles.append(end_ang)
+
+            # start_config.angles.append(start_ang)
+            # end_config.angles.append(end_ang)
+
+        # If isHScaff is True, then we need to add the final hinge
+        # if isHScaff:
+        #     start_config.append(0.0)
+        #     end_config.append(-90.0)
 
         self.fold_transform = FoldTransform(start_config, end_config)
 """
@@ -240,12 +262,13 @@ class TBasicScaff(BasicScaff):
                     fo_left = FoldOption(True, mod, patch_list)
                     fo_right = FoldOption(False, mod, patch_list)
 
-                    # generate the fold transform from start to end?
-                    fo_left.gen_fold_transform()
-                    fo_right.gen_fold_transform()
 
-                    self.fold_options.append(fo_left)
-                    self.fold_options.append(fo_right)
+                # generate the fold transform from start to end?
+                fo_left.gen_fold_transform()
+                fo_right.gen_fold_transform()
+
+                self.fold_options.append(fo_left)
+                self.fold_options.append(fo_right)
 
 """
 HBasicScaff: A basic scaffold of type H
@@ -274,13 +297,13 @@ class HBasicScaff(BasicScaff):
                     fo_left = FoldOption(True, mod, patch_list)
                     fo_right = FoldOption(False, mod, patch_list)
 
-                    # generate the fold transform from start to end?
-                    fo_left.gen_fold_transform()
-                    fo_right.gen_fold_transform()
 
-                    self.fold_options.append(fo_left)
-                    self.fold_options.append(fo_right)
+                # generate the fold transform from start to end?
+                fo_left.gen_fold_transform()
+                fo_right.gen_fold_transform()
 
+                self.fold_options.append(fo_left)
+                self.fold_options.append(fo_right)
 
 """
 MidScaff: a mid level folding unit that contains basic scaffolds
@@ -302,14 +325,17 @@ InputScaff: The full input scaff
 
 
 class InputScaff:
-    def __init__(self, p):
-        self.patches = p
+    def __init__(self, patch_list):
+        self.patch_list = patch_list
         self.hinge_graph = None
         self.mid_scaffs = []
 
         # debug purposes for ease of our test algorithm
         # for now we manually define basic scaffolds
         self.basic_scaffs = []
+
+        # Decomposes self and generates scaffolds
+        self.gen_scaffs()
 
     def gen_scaffs(self):
         # TODO: Di
@@ -335,33 +361,40 @@ class InputScaff:
                 self.hinge_graph.add_node(bs.b_patch.id)
                 self.hinge_graph.add_edge(bs.f_patch.id, bs.b_patch.id)
 
+'''
+FoldManager: debug class for now, probalby won't actually use it.
+Purpose is to serve as a mini inputScaffold for now.
+'''
 
-def patch_test():
-    # TODO: Di
-    # Create the input Scaffold
-    # Generate patches from the input mesh, for testing purposes, just generate some rectangles
-    # They have to be around the polygon in the right order.
+class FoldManager:
+    def __init__(self):
+        self.h_basic_scaff = None # For now a hard coded H scaffold
 
-    print("creating rectangle 1...")
-    coords = np.array([(0, 0, 0), (0, 2, 0), (4, 2, 2), (4, 0, 2)])
-    rect = Patch(coords)
-    print(rect.calc_area())  # expected 2 * root(20) = 8.944
-    print(rect.calc_normal())  # expected 4/root(70), 0, -8/root(70)
+    def generate_h_basic_scaff(self, bottom_patch: list, fold_patch: list, top_patch: list):
+        print("generate_h_basic_scaff...")
+        print("bottom patch")
+        bPatch = Patch(bottom_patch)
+        print("top patch")
+        tPatch = Patch(top_patch)
+        print("fold patch")
+        fPatch = Patch(fold_patch)
 
-    print("creating rectangle 3...")
-    coords2 = np.array([(0, 0, 2), (0, 4, 2), (2, 4, 0), (2, 0, 0)])
-    rect2 = Patch(coords2)
-    print(rect2.calc_area())
-    print(rect2.calc_normal())
+        scaff = HBasicScaff(fPatch, bPatch, tPatch)
+        self.h_basic_scaff = scaff
 
+    def mainFold(self) -> FoldOption:
+        print("entered mainFold...")
+        # Outputs a hard coded fold option for now
 
-def basic_t_scaffold():
-    # coords1 = np.array([(-1, 2, 2), (-1, 2, 0), (1, 2, 0), (1, 2, 2)]) # top base patch
-    coords2 = np.array([(-1, 0, 2), (-1, 0, 0), (1, 0, 0), (1, 0, 2)]) # bottom base patch
-    coords3 = np.array([(0, 0, 2), (0, 2, 2), (0, 2, 0), (0, 0, 0)]) # foldable patch
+        # Experiment with alpha values
+        alpha = 0.5
+        cost1 = alpha * 0 / 1 + (1 - alpha) / 1
+        mod1 = Modification(6, 1, cost1)
+        patch_list = [self.h_basic_scaff.f_patch, self.h_basic_scaff.b_patch_low, self.h_basic_scaff.b_patch_high]
+        fo = FoldOption(True, mod1, patch_list)
+        fo.gen_fold_transform()
 
-    foldable = Patch(coords3)
-    base = Patch(coords2)
+        return fo
 
     tscaff = TBasicScaff(foldable, base)
     tscaff.gen_fold_options(1, 1, .5)
@@ -395,3 +428,4 @@ def basic_h_scaffold():
         print('------------------------------')
 
 basic_h_scaffold()
+

@@ -2,17 +2,19 @@ import maya.cmds as cmds
 import maya.mel as mel
 import maya.OpenMaya as OpenMaya
 import math
+import foldMain as fold
+import numpy as np
 
 
 # Resets the whole scene to the original layout, undoing any translation or rotation.
 def setUpVertScene():
-    pMiddle = getObjectTransformFroMDag("pMiddle")
-    pMiddle2 = getObjectTransformFroMDag("pMiddle2")
-    pBottom = getObjectTransformFroMDag("pBottom")
-    pTop = getObjectTransformFroMDag("pTop")
+    pMiddle = getObjectTransformFromDag("pMiddle")
+    pMiddle2 = getObjectTransformFromDag("pMiddle2")
+    pBottom = getObjectTransformFromDag("pBottom")
+    pTop = getObjectTransformFromDag("pTop")
 
-    pBaseTop = getObjectTransformFroMDag("pBaseTop")
-    pBaseBottom = getObjectTransformFroMDag("pBaseBottom")
+    pBaseTop = getObjectTransformFromDag("pBaseTop")
+    pBaseBottom = getObjectTransformFromDag("pBaseBottom")
 
     # Set the translation for pBottom to 0, 0, 0 and pTop to 0, 1, 0.
     pBottom.setTranslation(OpenMaya.MVector(3, 0, 0), OpenMaya.MSpace.kWorld)
@@ -32,11 +34,12 @@ def setUpVertScene():
     pBaseTop.setRotation(OpenMaya.MEulerRotation(0, 0, math.radians(0)))
     pBaseBottom.setRotation(OpenMaya.MEulerRotation(0, 0, math.radians(0)))
 
+
 def setUpHorizScene():
-    pLeft = getObjectTransformFroMDag("pLeft")
-    pRight = getObjectTransformFroMDag("pRight")
-    pHMid = getObjectTransformFroMDag("pHMid")
-    pHMid2 = getObjectTransformFroMDag("pHMid2")
+    pLeft = getObjectTransformFromDag("pLeft")
+    pRight = getObjectTransformFromDag("pRight")
+    pHMid = getObjectTransformFromDag("pHMid")
+    pHMid2 = getObjectTransformFromDag("pHMid2")
 
     # Set the translation for pBottom to 0, 0, 0 and pTop to 0, 1, 0.
     pLeft.setTranslation(OpenMaya.MVector(-3, 0, 0), OpenMaya.MSpace.kWorld)
@@ -51,7 +54,24 @@ def setUpHorizScene():
     pHMid2.setRotation(OpenMaya.MEulerRotation(0, 0, math.radians(-90)))
 
 
-def getObjectTransformFroMDag(name: str) -> OpenMaya.MFnTransform:
+def setUpVertBasicScene():
+    print("setUpVertScene: BASIC")
+    pFold = getObjectTransformFromDag("pFoldH")
+    pBaseTop = getObjectTransformFromDag("pBaseTopH")
+    pBaseBottom = getObjectTransformFromDag("pBaseBottomH")
+
+    # Set the translation for pBottom to 0, 0, 0 and pTop to 0, 1, 0.
+    pFold.setTranslation(OpenMaya.MVector(0, 1.5, 5), OpenMaya.MSpace.kWorld)
+    pBaseTop.setTranslation(OpenMaya.MVector(0, 2, 5), OpenMaya.MSpace.kWorld)
+    pBaseBottom.setTranslation(OpenMaya.MVector(0, 1, 5), OpenMaya.MSpace.kWorld)
+
+    # # Set the rotation for both to 0, 0, -90. Keep in mind that EulerRotation is in radians.
+    pFold.setRotation(OpenMaya.MEulerRotation(0, 0, math.radians(-90)))
+    pBaseTop.setRotation(OpenMaya.MEulerRotation(0, 0, 0))
+    pBaseBottom.setRotation(OpenMaya.MEulerRotation(0, 0, 0))
+
+
+def getObjectTransformFromDag(name: str) -> OpenMaya.MFnTransform:
     selection_list = OpenMaya.MSelectionList()
     selection_list.add(name)
     transform_dag_path = OpenMaya.MDagPath()
@@ -97,28 +117,30 @@ def checkScaffoldConnection(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVect
         print("Error: Distance is not 0. Patches are not connected")
         exit(1)
 
-def centerPivotHelper():
-    sel = cmds.ls(sl=True)[0]  # Get selection.
 
-    # mel.eval(
-    #     "CenterPivot;")  # Center its pivot. Comment this out if you don't want to force it to center and use the pivot as-is.
-    pivots = cmds.xform(sel, q=True, piv=True)[:3]  # Get its pivot values.
-    old_tm = cmds.xform(sel, q=True, ws=True, m=True)  # Get its transform matrix.
+# def centerPivotHelper():
+#     sel = cmds.ls(sl=True)[0]  # Get selection.
+#
+#     # mel.eval(
+#     #     "CenterPivot;")  # Center its pivot. Comment this out if you don't want to force it to center and use the pivot as-is.
+#     pivots = cmds.xform(sel, q=True, piv=True)[:3]  # Get its pivot values.
+#     old_tm = cmds.xform(sel, q=True, ws=True, m=True)  # Get its transform matrix.
+#
+#     temp_nul = cmds.createNode("transform")  # Create a temporary transform.
+#     cmds.xform(temp_nul, ws=True, m=old_tm)  # Align it to the matrix.
+#     cmds.xform(temp_nul, os=True, r=True, t=pivots)  # Move it to include the pivot offsets.
+#     new_tm = cmds.xform(temp_nul, q=True, ws=True, m=True)  # Store it's transform matrix to align to later.
+#
+#     try:
+#         cmds.xform(sel, piv=[0, 0, 0])  # Zero-out object's pivot values.
+#         cmds.move(-pivots[0], -pivots[1], -pivots[2], "{}.vtx[*]".format(sel), os=True,
+#                   r=True)  # Negate and move object via its old pivot values.
+#         cmds.xform(sel, ws=True,
+#                    m=new_tm)  # Align the object back to the temporary transform, to maintain its old position.
+#     finally:
+#         cmds.delete(temp_nul)  # Delete temporary transform.
+#         cmds.select(sel)  # Restore old selection.
 
-    temp_nul = cmds.createNode("transform")  # Create a temporary transform.
-    cmds.xform(temp_nul, ws=True, m=old_tm)  # Align it to the matrix.
-    cmds.xform(temp_nul, os=True, r=True, t=pivots)  # Move it to include the pivot offsets.
-    new_tm = cmds.xform(temp_nul, q=True, ws=True, m=True)  # Store it's transform matrix to align to later.
-
-    try:
-        cmds.xform(sel, piv=[0, 0, 0])  # Zero-out object's pivot values.
-        cmds.move(-pivots[0], -pivots[1], -pivots[2], "{}.vtx[*]".format(sel), os=True,
-                  r=True)  # Negate and move object via its old pivot values.
-        cmds.xform(sel, ws=True,
-                   m=new_tm)  # Align the object back to the temporary transform, to maintain its old position.
-    finally:
-        cmds.delete(temp_nul)  # Delete temporary transform.
-        cmds.select(sel)  # Restore old selection.
 
 def foldVertScene():
     t = 0
@@ -128,7 +150,7 @@ def foldVertScene():
     # Loop through the patches and get all of their pivots.
     patchPivots = []
     for shape in shape_traverse_order:
-        pivot = getObjectTransformFroMDag(shape).rotatePivot(OpenMaya.MSpace.kWorld)
+        pivot = getObjectTransformFromDag(shape).rotatePivot(OpenMaya.MSpace.kWorld)
         patchPivots.append(pivot)
         print("Pivot: {:.6f}, {:.6f}, {:.6f}".format(pivot[0], pivot[1], pivot[2]))
 
@@ -173,7 +195,7 @@ def foldVertScene():
     patchTransforms = []
     for i in range(0, len(shape_traverse_order)):
         shape = shape_traverse_order[i]
-        pTransform = getObjectTransformFroMDag(shape)
+        pTransform = getObjectTransformFromDag(shape)
         patchTransforms.append(pTransform)
         if (i == len(shape_traverse_order) - 1):
             break
@@ -193,7 +215,8 @@ def foldVertScene():
             vertexPoint = OpenMaya.MVector(vertexPoint[0], vertexPoint[1], vertexPoint[2])
             dist = OpenMaya.MVector(childPivot - vertexPoint).length()
             newClosestVertices[i][j] = (
-            vertex_name, dist, vertexPoint)  # change my vertices to the new one, with such distance to the child pivot.
+                vertex_name, dist,
+                vertexPoint)  # change my vertices to the new one, with such distance to the child pivot.
 
             # Print new location and distance.
             print("Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(newClosestVertices[i][j][0],
@@ -223,7 +246,7 @@ def foldHorizScene():
     # Loop through the patches and get all of their pivots.
     patchPivots = []
     for shape in shape_traverse_order:
-        pivot = getObjectTransformFroMDag(shape).rotatePivot(OpenMaya.MSpace.kWorld)
+        pivot = getObjectTransformFromDag(shape).rotatePivot(OpenMaya.MSpace.kWorld)
         patchPivots.append(pivot)
         print("Pivot: {:.6f}, {:.6f}, {:.6f}".format(pivot[0], pivot[1], pivot[2]))
 
@@ -269,7 +292,7 @@ def foldHorizScene():
     patchTransforms = []
     for i in range(0, len(shape_traverse_order)):
         shape = shape_traverse_order[i]
-        pTransform = getObjectTransformFroMDag(shape)
+        pTransform = getObjectTransformFromDag(shape)
         patchTransforms.append(pTransform)
         q = OpenMaya.MQuaternion(math.radians(angle * t), OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2]))
         pTransform.rotateBy(q, OpenMaya.MSpace.kTransform)
@@ -287,7 +310,8 @@ def foldHorizScene():
             vertexPoint = OpenMaya.MVector(vertexPoint[0], vertexPoint[1], vertexPoint[2])
             dist = OpenMaya.MVector(childPivot - vertexPoint).length()
             newClosestVertices[i][j] = (
-            vertex_name, dist, vertexPoint)  # change my vertices to the new one, with such distance to the child pivot.
+                vertex_name, dist,
+                vertexPoint)  # change my vertices to the new one, with such distance to the child pivot.
 
             # Print new location and distance.
             print("Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(newClosestVertices[i][j][0],
@@ -309,14 +333,226 @@ def foldHorizScene():
         childPatchTransform = patchTransforms[i + 1]
         childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
 
-# Reset everything.
-setUpVertScene()
-foldVertScene()
+
+# # Reset everything.
+# setUpVertScene()
+# foldVertScene()
 
 # Reset everything.
 # setUpHorizScene()
 # foldHorizScene()
 
+def generateNewPatches(original_patch: str, num_hinges: int):
+    # Compute the new patch scale values based on original_patch's scale and num_patches
+    # TODO: Hard coded for split in the x Direction, but need to be more general later on.
+    numPatches = num_hinges + 1
+    originalScale = cmds.getAttr(original_patch + ".scaleX")
+    newPatchScale = originalScale / numPatches
+
+    # Generate new patches.
+    newPatches = []
+    for i in range(0, numPatches):
+        # TODO: Based on the axis we shrink, either width or height will be the original patch's scale
+        # This command generates a new polyplane in the scene
+        newPatch = cmds.polyPlane(name=original_patch + "_" + str(i), width=newPatchScale, height=originalScale,
+                                  subdivisionsX=1,
+                                  subdivisionsY=1)
+        newPatches.append(newPatch[0])
+
+    # Rotate the new patches with the same rotation as the original_patch
+    originalRotation = cmds.getAttr(original_patch + ".rotate")
+    for i in range(0, len(newPatches)):
+        cmds.setAttr(newPatches[i] + ".rotate", originalRotation[0][0], originalRotation[0][1], originalRotation[0][2])
+
+    # Translate the patches along the direction it has been scaled in (but that is local)
+    # TODO: Axis of scaling is hard coded
+    originalTranslation = cmds.getAttr(original_patch + ".translate")
+
+    # Get the world location of the bottom of the original patch
+    # TODO: hard coded for the Y direction
+    originalPatchBottom = originalTranslation[0][1] - originalScale * 0.5
+    newPatchPositions = []
+    for i in range(0, len(newPatches)):
+        newTrans = [originalTranslation[0][0], originalPatchBottom + newPatchScale * (i + 0.5),
+                    originalTranslation[0][2]]
+        newPatchPositions.append(newTrans)
+        cmds.setAttr(newPatches[i] + ".translate", newTrans[0], newTrans[1], newTrans[2])
+
+    # Pivot the patches.
+    for i in range(0, len(newPatches)):
+        # Set the pivot location to the bottom of the patch
+        # TODO: check what their generated code does
+        newPivot = [newPatchScale * 0.5, 0, 0]
+        transform = getObjectTransformFromDag(newPatches[i])
+        transform.setRotatePivot(OpenMaya.MPoint(newPivot[0], newPivot[1], newPivot[2]), OpenMaya.MSpace.kTransform, True)
+
+    return newPatches
 
 
+def foldKeyframe(time, shape_traverse_order, fold_solution):
+    print("Entered foldKeyframe...")
 
+    start_angles = fold_solution.fold_transform.startAngles
+    end_angles = fold_solution.fold_transform.endAngles
+    num_hinges = fold_solution.modification.num_hinges
+
+    t = time  # dictate that the end time is 90 frames hard coded for now
+
+    # Since we are hard coded only to get 1 angel out so far, try that one
+    angle = t * (end_angles[0] - start_angles[0]) / 90  # The angle we fold at this particular time is time / 90 *
+    rotAxis = (0, 0, 1)
+
+    print("angle based on t: " + str(angle))
+    print("t: " + str(t))
+
+    # Update the list of shape_traverse_order to include the new patches where the old patch was
+    if (num_hinges > 0):
+        foldable_patch = shape_traverse_order[
+            0]  # TODO: make more generic, currently assumes foldable patch is at the center
+        new_patches = generateNewPatches(foldable_patch, num_hinges)
+        f_idx = 1
+
+        # Remove the foldable_patch by deleting it.
+        cmds.delete(foldable_patch)
+        shape_traverse_order.remove(foldable_patch)
+
+        for i in range(0, len(new_patches)):
+            shape_traverse_order.insert(f_idx * i, new_patches[i])
+
+        # return
+
+    # Loop through the patches and get all of their pivots.
+    patchPivots = []
+    for shape in shape_traverse_order:
+        pivot = getObjectTransformFromDag(shape).rotatePivot(OpenMaya.MSpace.kWorld)
+        patchPivots.append(pivot)
+        print("Pivot: {:.6f}, {:.6f}, {:.6f}".format(pivot[0], pivot[1], pivot[2]))
+
+    print("Setting up closest vertices...")
+    closestVertices = []
+    midPoints = []
+    for i in range(0, len(shape_traverse_order) - 1):
+        # For each parent patch, get their vertices.
+        shape = shape_traverse_order[i]
+        bottomVertices = getObjectVerticeNamesAndPositions(shape)
+
+        childPivot = patchPivots[i + 1]
+
+        # find two vertices that are closest to childPivot. Print their name, location, and distance.
+        vertId = len(closestVertices)
+        currentClosest = getClosestVertices(bottomVertices, childPivot, 2)
+        closestVertices.append(currentClosest)
+        print("Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(closestVertices[vertId][0][0],
+                                                                                  closestVertices[vertId][0][1],
+                                                                                  closestVertices[vertId][0][2][0],
+                                                                                  closestVertices[vertId][0][2][1],
+                                                                                  closestVertices[vertId][0][2][2]))
+        print("Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(closestVertices[vertId][1][0],
+                                                                                  closestVertices[vertId][1][1],
+                                                                                  closestVertices[vertId][1][2][0],
+                                                                                  closestVertices[vertId][1][2][1],
+                                                                                  closestVertices[vertId][1][2][2]))
+
+        # Get the middle point between the two vertices.
+        verticeDist = closestVertices[vertId][0][2] + closestVertices[vertId][1][2]
+        middlePoint = (verticeDist * 0.5)
+        print("Middle Point: {:.6f}, {:.6f}, {:.6f}".format(middlePoint[0], middlePoint[1], middlePoint[2]))
+
+        midPoints.append(middlePoint)
+        # Ensure the parent and child are actually connected
+        checkScaffoldConnection(childPivot, middlePoint)
+
+    # Main Foldabilization Output generation
+    print("Getting start and end angles...")
+    print("startAngles: ")
+    print(fold_solution.fold_transform.startAngles)
+    print("endAngles: ")
+    print(fold_solution.fold_transform.endAngles)
+
+    # Perform rotations at once, but do not rotate the last patch
+    patchTransforms = []
+    for i in range(0, len(shape_traverse_order)):
+        shape = shape_traverse_order[i]
+        pTransform = getObjectTransformFromDag(shape)
+        patchTransforms.append(pTransform)
+        if (i == len(shape_traverse_order) - 1):  # TODO: fix this bc it won't work for T scaffolds
+            break
+        print("Now rotating shape: " + shape)
+        q = OpenMaya.MQuaternion(math.radians(angle), OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2]))
+        print("angle" + str(angle))
+        pTransform.rotateBy(q, OpenMaya.MSpace.kTransform)
+        angle = -angle
+
+    # Update location of closest vertices now that you've rotated each patch.
+    newClosestVertices = closestVertices.copy()
+    newMidPoints = midPoints.copy()
+    for i in range(0, len(patchPivots) - 1):
+        childPivot = patchPivots[i + 1]
+        for j in range(0, len(newClosestVertices[
+                                  i])):  # index and use information from updated vertex positions. There should only be 2 verts here
+            vertex_name, dist, vertexPoint = newClosestVertices[i][j]
+            vertexPoint = cmds.pointPosition(vertex_name, world=True)
+            vertexPoint = OpenMaya.MVector(vertexPoint[0], vertexPoint[1], vertexPoint[2])
+            dist = OpenMaya.MVector(childPivot - vertexPoint).length()
+            newClosestVertices[i][j] = (
+                vertex_name, dist,
+                vertexPoint)  # change my vertices to the new one, with such distance to the child pivot.
+
+            # Print new location and distance.
+            print("Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(newClosestVertices[i][j][0],
+                                                                                      newClosestVertices[i][j][1],
+                                                                                      newClosestVertices[i][j][2][
+                                                                                          0],
+                                                                                      newClosestVertices[i][j][2][
+                                                                                          1],
+                                                                                      newClosestVertices[i][j][2][
+                                                                                          2]))
+
+        verticeDistNew = newClosestVertices[i][0][2] + newClosestVertices[i][1][2]
+        middlePointNew = (verticeDistNew * 0.5)
+        print(
+            "Middle Point: {:.6f}, {:.6f}, {:.6f}".format(middlePointNew[0], middlePointNew[1], middlePointNew[2]))
+
+        # Get the translation from the old middle point to the new middle point.
+        ogMidPoint = midPoints[i]
+        translation = middlePointNew - ogMidPoint
+        print("Middle point translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1],
+                                                                        translation[2]))
+
+        # Translate pTop by the translation.
+        childPatchTransform = patchTransforms[i + 1]
+        childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
+
+
+# Fold test for non hard coded transforms: Part 1 of the logic from foldTest
+def foldGeneric():
+    shape_traverse_order = ["pFoldH", "pBaseTopH"]
+    shape_bases = ["pBaseBottomH"]
+
+    shape_vertices = []
+
+    # First insert the pBaseBottom's vertices into shape_vertices.
+    vertices_list = getObjectVerticeNamesAndPositions(shape_bases[0])
+    shape_vertices.append(list(vertices_list.values()))
+
+    # Repeat the procedure for the remaining patches
+    for shape in shape_traverse_order:
+        print("Shape: {}".format(shape))
+        vertices_list = getObjectVerticeNamesAndPositions(shape)
+        shape_vertices.append(list(vertices_list.values()))
+
+    shape_vertices = np.array(shape_vertices)
+    print("shape_vertices:")
+    print(shape_vertices)
+
+    # Create a Fold Manager
+    manager = fold.FoldManager()
+    manager.generate_h_basic_scaff(shape_vertices[0], shape_vertices[1], shape_vertices[2])
+    solution = manager.mainFold()
+
+    # Call the keyframe funtion
+    foldKeyframe(60, shape_traverse_order, solution)
+
+
+setUpVertBasicScene()
+foldGeneric()
