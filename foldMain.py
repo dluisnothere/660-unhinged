@@ -180,8 +180,8 @@ class FoldOption:
         self.rot_axis = np.cross(self.patch_list[1].calc_normal(), self.patch_list[0].calc_normal())
 
         #using patch_list to determine t or h scaffold
-        # num_hinges = self.modification.numSplits + len(self.patch_list) - 1
-        num_hinges = self.modification.num_hinges
+        num_hinges = self.modification.numSplits + len(self.patch_list) - 1
+        #num_hinges = self.modification.num_hinges
 
         start_config = [] # FoldConfig()
         end_config = [] # FoldConfig()
@@ -211,11 +211,11 @@ class FoldOption:
                 end_ang = -180.0
             
             if not self.isleft:
-                start_config.angles.append(start_ang * -1)
-                end_config.angles.append(end_ang * -1)
+                start_config.append(start_ang * -1)
+                end_config.append(end_ang * -1)
             else:
-                start_config.angles.append(start_ang)
-                end_config.angles.append(end_ang)
+                start_config.append(start_ang)
+                end_config.append(end_ang)
 
             # start_config.angles.append(start_ang)
             # end_config.angles.append(end_ang)
@@ -254,7 +254,6 @@ class TBasicScaff(BasicScaff):
         patch_list = [self.f_patch, self.b_patch]
         for i in range(0, nh + 1):
             for j in range(0, ns + 1):
-                if (i % 2 != 0) and (i <= j):
                     print("start")
                     # if odd number of hinges
                     cost = alpha * i / nh + (1 - alpha) / ns
@@ -263,12 +262,12 @@ class TBasicScaff(BasicScaff):
                     fo_right = FoldOption(False, mod, patch_list)
 
 
-                # generate the fold transform from start to end?
-                fo_left.gen_fold_transform()
-                fo_right.gen_fold_transform()
+                    # generate the fold transform from start to end?
+                    fo_left.gen_fold_transform()
+                    fo_right.gen_fold_transform()
 
-                self.fold_options.append(fo_left)
-                self.fold_options.append(fo_right)
+                    self.fold_options.append(fo_left)
+                    self.fold_options.append(fo_right)
 
 """
 HBasicScaff: A basic scaffold of type H
@@ -290,7 +289,6 @@ class HBasicScaff(BasicScaff):
         patch_list = [self.f_patch, self.b_patch_low, self.b_patch_high]
         for i in range(0, nh + 1):
             for j in range(0, ns + 1):
-                if (i % 2 != 0) and (i <= j):
                     # if odd number of hinges
                     cost = alpha * i / nh + (1 - alpha) / ns
                     mod = Modification(i, j, cost)
@@ -298,12 +296,12 @@ class HBasicScaff(BasicScaff):
                     fo_right = FoldOption(False, mod, patch_list)
 
 
-                # generate the fold transform from start to end?
-                fo_left.gen_fold_transform()
-                fo_right.gen_fold_transform()
+                    # generate the fold transform from start to end?
+                    fo_left.gen_fold_transform()
+                    fo_right.gen_fold_transform()
 
-                self.fold_options.append(fo_left)
-                self.fold_options.append(fo_right)
+                    self.fold_options.append(fo_left)
+                    self.fold_options.append(fo_right)
 
 """
 MidScaff: a mid level folding unit that contains basic scaffolds
@@ -396,14 +394,21 @@ class FoldManager:
 
         return fo
 
+def basic_t_scaffold():
+    coords1 = np.array([(-1, 2, 2), (-1, 2, 0), (1, 2, 0), (1, 2, 2)]) # top base patch
+    coords2 = np.array([(-1, 0, 2), (-1, 0, 0), (1, 0, 0), (1, 0, 2)]) # bottom base patch
+    coords3 = np.array([(0, 0, 2), (0, 2, 2), (0, 2, 0), (0, 0, 0)]) # foldable patch
+
+    foldable = Patch(coords3)
+    base = Patch(coords2)
     tscaff = TBasicScaff(foldable, base)
     tscaff.gen_fold_options(1, 1, .5)
     print("Begin test")
 
     for scaff in tscaff.fold_options:
-        for start in scaff.fold_transform.startAngles.angles:
+        for start in scaff.fold_transform.startAngles:
             print(start)
-        for end in scaff.fold_transform.endAngles.angles:
+        for end in scaff.fold_transform.endAngles:
             print(end)
         print('------------------------------')
 
@@ -417,13 +422,13 @@ def basic_h_scaffold():
     top = Patch(coords1)
 
     tscaff = HBasicScaff(foldable, base, top)
-    tscaff.gen_fold_options(3, 3, .5)
+    tscaff.gen_fold_options(3, 1, .5)
     print("Begin test")
 
     for scaff in tscaff.fold_options:
-        for start in scaff.fold_transform.startAngles.angles:
+        for start in scaff.fold_transform.startAngles:
             print(start)
-        for end in scaff.fold_transform.endAngles.angles:
+        for end in scaff.fold_transform.endAngles:
             print(end)
         print('------------------------------')
 
