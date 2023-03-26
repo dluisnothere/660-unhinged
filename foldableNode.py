@@ -123,6 +123,9 @@ class foldableNode(OpenMayaMPx.MPxNode):
     # duration of movement
     inTime = OpenMaya.MObject()
 
+    # number of hinges
+    inNumHinges = OpenMaya.MObject()
+
     # Dummy output plug that can be connected to the input of an instancer node
     # so our node can "live" somewhere.
     outPoint = OpenMaya.MObject()
@@ -251,7 +254,13 @@ class foldableNode(OpenMayaMPx.MPxNode):
             transform.setRotatePivot(OpenMaya.MPoint(newPivot[0], newPivot[1], newPivot[2]), OpenMaya.MSpace.kTransform,
                                      True)
 
-        return [newPatches, new_transforms]
+        print("RETURNING NEW PATCHES:")
+        print(newPatches)
+
+        newPatches.reverse()
+        new_transforms.reverse()
+
+        return newPatches, new_transforms
 
     # Splits the foldTest function into two parts.
     def foldKeyframe(self, time, shape_traverse_order, fold_solution, recreate_patches):
@@ -272,21 +281,27 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
         # Update the list of shape_traverse_order to include the new patches where the old patch was
         if (num_hinges > 0 and recreate_patches == True):
-            foldable_patch = shape_traverse_order[
-                0]  # TODO: make more generic, currently assumes foldable patch is at the center
-            new_patches, new_transforms = self.generateNewPatches(foldable_patch, num_hinges)
-            f_idx = 1
+            for j in range(0, len(shape_traverse_order) - 1): # every patch except last guy is foldable
+                foldable_patch = shape_traverse_order[j]  # TODO: make more generic, currently assumes foldable patch is at the center
+                f_idx = j # TODO: if this logic works replace fidx with j subsequently
+                shape_traverse_order.remove(foldable_patch)
+                del self.shape_reset_transforms[foldable_patch]
+
+                new_patches, new_transforms = self.generateNewPatches(foldable_patch, num_hinges)
 
             # Remove the foldable_patch by deleting it.
             # cmds.delete(foldable_patch)
-            shape_traverse_order.remove(foldable_patch)
-            del self.shape_reset_transforms[foldable_patch]
-            for i in range(0, len(new_patches)):
-                shape_traverse_order.insert(f_idx * i, new_patches[i])
-                self.shape_reset_transforms[new_patches[i]] = [new_transforms[i][1], new_transforms[i][2]]
+                for i in range(0, len(new_patches)):
+                    shape_traverse_order.insert(f_idx, new_patches[i])
+                    self.shape_reset_transforms[new_patches[i]] = [new_transforms[i][1], new_transforms[i][2]]
 
-                # Keep track of the new patches just created so we can delete it on the next iteration
-                self.new_shapes.append(new_patches[i])
+                    # Keep track of the new patches just created so we can delete it on the next iteration
+                    self.new_shapes.append(new_patches[i])
+
+        # Print shape_traverse_order
+        print("shape_traverse_order: ")
+        for i in range(0, len(shape_traverse_order)):
+            print(shape_traverse_order[i])
 
         # Loop through the patches and get all of their pivots.
         patchPivots = []
@@ -391,7 +406,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
             childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
 
     # Fold test for non hard coded transforms: Part 1 of the logic from foldTest, calls foldKeyframe()
-    def foldGeneric(self, time):
+    def foldGeneric(self, time, numHinges):
 
         # TODO: Should be input by the author
         self.original_shapes = ["pFoldH", "pBaseTopH"]
@@ -443,16 +458,16 @@ class foldableNode(OpenMayaMPx.MPxNode):
         # Create a Fold Manager
         manager = fold.FoldManager()
         manager.generate_h_basic_scaff(shape_vertices[0], shape_vertices[1], shape_vertices[2])
-        solution = manager.mainFold()
+        solution = manager.mainFold(numHinges)
 
         recreate_patches = False
-        if (self.num_hinges != solution.modification.num_hinges):
-            self.num_hinges = solution.modification.num_hinges
+        if (self.num_hinges != numHinges):
+            self.num_hinges = numHinges
 
             # Reset back to original shapes so you can break them again
             self.shape_traverse_order = self.original_shapes
-            # self.prepareLastFrameCleanup()
-            # self.cleanLastFrame()
+            self.prepareLastFrameCleanup()
+            self.cleanLastFrame()
             recreate_patches = True
 
         # Call the keyframe funtion
@@ -481,10 +496,13 @@ class foldableNode(OpenMayaMPx.MPxNode):
         timeData = data.inputValue(self.inTime)
         time = timeData.asInt()
 
+        numHingeData = data.inputValue(self.numHinges)
+        numHinges = numHingeData.asInt()
+
         print2("current time: " + str(time))
 
         # self.foldTest(time)
-        self.foldGeneric(time)
+        self.foldGeneric(time, numHinges)
 
         data.setClean(plug)
 
@@ -499,7 +517,10 @@ def nodeInitializer():
 
     try:
         print("Initialization!\n")
-        foldableNode.inTime = nAttr.create("inTime", "t", OpenMaya.MFnNumericData.kInt, 1)
+        foldableNode.inTime = nAttr.create("inTime", "t", OpenMaya.MFnNumericData.kInt, 0)
+        MAKE_INPUT(nAttr)
+
+        foldableNode.numHinges = nAttr.create("numHinges", "nH", OpenMaya.MFnNumericData.kInt, 1)
         MAKE_INPUT(nAttr)
 
         foldableNode.outPoint = tAttr.create("outPoint", "oP", OpenMaya.MFnArrayAttrsData.kDynArrayAttrs)
@@ -513,9 +534,11 @@ def nodeInitializer():
         # TODO:: add the attributes to the node and set up the
         #         attributeAffects (addAttribute, and attributeAffects)
         foldableNode.addAttribute(foldableNode.inTime)
+        foldableNode.addAttribute(foldableNode.numHinges)
         foldableNode.addAttribute(foldableNode.outPoint)
 
         foldableNode.attributeAffects(foldableNode.inTime, foldableNode.outPoint)
+        foldableNode.attributeAffects(foldableNode.numHinges, foldableNode.outPoint)
 
     except Exception as e:
         print(e)

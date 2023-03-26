@@ -378,14 +378,14 @@ class FoldManager:
         scaff = HBasicScaff(fPatch, bPatch, tPatch)
         self.h_basic_scaff = scaff
 
-    def mainFold(self) -> FoldOption:
+    def mainFold(self, nH) -> FoldOption:
         print("entered mainFold...")
         # Outputs a hard coded fold option for now
 
         # Experiment with alpha values
         alpha = 0.5
         cost1 = alpha * 0 / 1 + (1 - alpha) / 1
-        mod1 = Modification(2, 1, cost1)
+        mod1 = Modification(nH, 1, cost1)
         patch_list = [self.h_basic_scaff.f_patch, self.h_basic_scaff.b_patch_low, self.h_basic_scaff.b_patch_high]
         fo = FoldOption(True, mod1, patch_list)
         fo.gen_fold_transform()
