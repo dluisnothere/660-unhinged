@@ -1,10 +1,11 @@
 # Unhinged main.py
-import networkx
-import networkx as nx
-import shapely as sp
-from shapely.geometry import Polygon
+# import networkx
+# import networkx as nx
+# import shapely as sp
+# from shapely.geometry import Polygon
+# import Geometry3D
+
 import numpy as np
-import Geometry3D
 from scipy.spatial import ConvexHull
 from enum import Enum
 
@@ -176,18 +177,18 @@ class FoldOption:
         for i in range(0, num_hinges):
             
             start_ang = 0.0
-            end_and = 0.0
+            end_ang = 0.0
             #first base patch and foldable patch connection
-            if i is 0:
+            if i == 0:
                 start_ang = 0.0
                 end_ang = 90.0
 
             #final hinge, different based on if t or h
-            elif i is num_hinges - 1 and len(self.patch_list) is 3:
+            elif i == num_hinges - 1 and len(self.patch_list) == 3:
                 start_ang = 0.0
                 end_ang = -90.0
             #even hinges
-            elif i % 2 is 0:
+            elif i % 2 == 0:
                 start_ang = 0.0
                 end_ang = 180.0
             #odd hinges
@@ -196,11 +197,11 @@ class FoldOption:
                 end_ang = -180.0
             
             if not self.isleft:
-                start_ang *= -1
-                end_and *= -1
-
-            start_config.angles.append(start_ang)
-            end_config.angles.append(end_ang)
+                start_config.angles.append(start_ang * -1)
+                end_config.angles.append(end_ang * -1)
+            else:
+                start_config.angles.append(start_ang)
+                end_config.angles.append(end_ang)
 
         self.fold_transform = FoldTransform(start_config, end_config)
 """
@@ -229,9 +230,10 @@ class TBasicScaff(BasicScaff):
         # nh: max number of hinges, let's enforce this to be an odd number for now
         print("gen_fold_options...")
         patch_list = [self.f_patch, self.b_patch]
-        for i in range(0, nh):
-            for j in range(0, ns):
-                if (i % 2 != 0):
+        for i in range(0, nh + 1):
+            for j in range(0, ns + 1):
+                if (i % 2 != 0) and (i <= j):
+                    print("start")
                     # if odd number of hinges
                     cost = alpha * i / nh + (1 - alpha) / ns
                     mod = Modification(i, j, cost)
@@ -263,9 +265,9 @@ class HBasicScaff(BasicScaff):
         # nh: max number of hinges, let's enforce this to be an odd number for now
         print("gen_fold_options...")
         patch_list = [self.f_patch, self.b_patch_low, self.b_patch_high]
-        for i in range(0, nh):
-            for j in range(0, ns):
-                if (i % 2 != 0):
+        for i in range(0, nh + 1):
+            for j in range(0, ns + 1):
+                if (i % 2 != 0) and (i <= j):
                     # if odd number of hinges
                     cost = alpha * i / nh + (1 - alpha) / ns
                     mod = Modification(i, j, cost)
@@ -362,7 +364,34 @@ def basic_t_scaffold():
     base = Patch(coords2)
 
     tscaff = TBasicScaff(foldable, base)
-    tscaff.gen_fold_options(1, 1)
+    tscaff.gen_fold_options(1, 1, .5)
+    print("Begin test")
 
+    for scaff in tscaff.fold_options:
+        for start in scaff.fold_transform.startAngles.angles:
+            print(start)
+        for end in scaff.fold_transform.endAngles.angles:
+            print(end)
+        print('------------------------------')
 
-basic_t_scaffold()
+def basic_h_scaffold():
+    coords1 = np.array([(-1, 2, 2), (-1, 2, 0), (1, 2, 0), (1, 2, 2)]) # top base patch
+    coords2 = np.array([(-1, 0, 2), (-1, 0, 0), (1, 0, 0), (1, 0, 2)]) # bottom base patch
+    coords3 = np.array([(0, 0, 2), (0, 2, 2), (0, 2, 0), (0, 0, 0)]) # foldable patch
+
+    foldable = Patch(coords3)
+    base = Patch(coords2)
+    top = Patch(coords1)
+
+    tscaff = HBasicScaff(foldable, base, top)
+    tscaff.gen_fold_options(1, 1, .5)
+    print("Begin test")
+
+    for scaff in tscaff.fold_options:
+        for start in scaff.fold_transform.startAngles.angles:
+            print(start)
+        for end in scaff.fold_transform.endAngles.angles:
+            print(end)
+        print('------------------------------')
+
+basic_h_scaffold()
