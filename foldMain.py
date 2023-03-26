@@ -417,7 +417,7 @@ def basic_h_scaffold():
     top = Patch(coords1)
 
     tscaff = HBasicScaff(foldable, base, top)
-    tscaff.gen_fold_options(1, 1, .5)
+    tscaff.gen_fold_options(3, 3, .5)
     print("Begin test")
 
     for scaff in tscaff.fold_options:
