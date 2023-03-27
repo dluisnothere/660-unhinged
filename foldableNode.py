@@ -193,12 +193,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
         for i in range(0, len(transforms)):
             patch_name = upper_patches[i]
             original_rotate = original_transforms[patch_name][1]
-            print("original_rotate")
-            print(original_rotate)
-            print("length of original_rotate: {}".format(len(original_rotate)))
-            print("original_rotate[0][0]: {}".format(original_rotate[0][0]))
-            print("original_rotate[0][1]: {}".format(original_rotate[0][1]))
-            print("original_rotate[0][2]: {}".format(original_rotate[0][2]))
 
             rotation_euler = OpenMaya.MEulerRotation(original_rotate[0][0], original_rotate[0][1], math.radians(original_rotate[0][2]))
             transforms[i].setRotation(rotation_euler)
@@ -254,9 +248,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
             transform.setRotatePivot(OpenMaya.MPoint(newPivot[0], newPivot[1], newPivot[2]), OpenMaya.MSpace.kTransform,
                                      True)
 
-        print("RETURNING NEW PATCHES:")
-        print(newPatches)
-
         newPatches.reverse()
         new_transforms.reverse()
 
@@ -280,23 +271,31 @@ class foldableNode(OpenMayaMPx.MPxNode):
         print("t: " + str(t))
 
         # Update the list of shape_traverse_order to include the new patches where the old patch was
-        if (num_hinges > 0 and recreate_patches == True):
-            for j in range(0, len(shape_traverse_order) - 1): # every patch except last guy is foldable
-                foldable_patch = shape_traverse_order[j]  # TODO: make more generic, currently assumes foldable patch is at the center
-                f_idx = j # TODO: if this logic works replace fidx with j subsequently
-                shape_traverse_order.remove(foldable_patch)
-                del self.shape_reset_transforms[foldable_patch]
+        print("preported num_hinges: " + str(num_hinges))
+        if (recreate_patches == True):
+            if (num_hinges > 0):
+                print("shape_reset_transforms:")
+                print(self.shape_reset_transforms)
 
-                new_patches, new_transforms = self.generateNewPatches(foldable_patch, num_hinges)
+                for j in range(0, len(shape_traverse_order) - 1): # every patch except last guy is foldable
+                    foldable_patch = shape_traverse_order[j]  # TODO: make more generic, currently assumes foldable patch is at the center
+                    f_idx = j # TODO: if this logic works replace fidx with j subsequently
+                    shape_traverse_order.remove(foldable_patch)
+                    del self.shape_reset_transforms[foldable_patch]
 
-            # Remove the foldable_patch by deleting it.
-            # cmds.delete(foldable_patch)
-                for i in range(0, len(new_patches)):
-                    shape_traverse_order.insert(f_idx, new_patches[i])
-                    self.shape_reset_transforms[new_patches[i]] = [new_transforms[i][1], new_transforms[i][2]]
+                    new_patches, new_transforms = self.generateNewPatches(foldable_patch, num_hinges)
 
-                    # Keep track of the new patches just created so we can delete it on the next iteration
-                    self.new_shapes.append(new_patches[i])
+                # Remove the foldable_patch by deleting it.
+                # cmds.delete(foldable_patch)
+                    for i in range(0, len(new_patches)):
+                        shape_traverse_order.insert(f_idx, new_patches[i])
+                        self.shape_reset_transforms[new_patches[i]] = [new_transforms[i][1], new_transforms[i][2]]
+
+                        # Keep track of the new patches just created so we can delete it on the next iteration
+                        self.new_shapes.append(new_patches[i])
+            else:
+                # set middle patch to be visible
+                cmds.setAttr(shape_traverse_order[0] + ".visibility", 1)
 
         # Print shape_traverse_order
         print("shape_traverse_order: ")
@@ -316,6 +315,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
         for i in range(0, len(shape_traverse_order) - 1):
             # For each parent patch, get their vertices.
             shape = shape_traverse_order[i]
+            print("checking connectivity for shape: " + shape)
             bottomVertices = getObjectVerticeNamesAndPositions(shape)
 
             childPivot = patchPivots[i + 1]
@@ -414,8 +414,15 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
         # If self.shape_traverse_order is empty, we fill it with original shapes
         # No need to reset the scene if it hasn't been changed yet.
-        if (len(self.shape_traverse_order) == 0):
+        recreate_patches = False
+        if (len(self.shape_traverse_order) == 0 or self.num_hinges != numHinges):
             self.shape_traverse_order = self.original_shapes
+
+            # Set time on timeline to 0
+            # cmds.currentTime(0)
+            # time = 0
+            # anim_startTime = cmds.playbackOptions(minTime=True, q=True)
+            # cmds.playbackOptions(minTime=0)
 
             # # fill new_translation and new_rotation with original values
             for shape in self.shape_traverse_order:
@@ -427,6 +434,14 @@ class foldableNode(OpenMayaMPx.MPxNode):
                 print("inserting original rotation: " + str(rotate))
 
                 self.shape_reset_transforms[shape] = [translate, [(rotate[0], rotate[1], rotate[2])]]
+
+                self.num_hinges = numHinges
+
+                # Reset back to original shapes so you can break them again
+                self.shape_traverse_order = self.original_shapes
+                self.prepareLastFrameCleanup()
+                self.cleanLastFrame()
+                recreate_patches = True
 
         else:
             # Reset the scene
@@ -459,16 +474,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
         manager = fold.FoldManager()
         manager.generate_h_basic_scaff(shape_vertices[0], shape_vertices[1], shape_vertices[2])
         solution = manager.mainFold(numHinges)
-
-        recreate_patches = False
-        if (self.num_hinges != numHinges):
-            self.num_hinges = numHinges
-
-            # Reset back to original shapes so you can break them again
-            self.shape_traverse_order = self.original_shapes
-            self.prepareLastFrameCleanup()
-            self.cleanLastFrame()
-            recreate_patches = True
 
         # Call the keyframe funtion
         self.foldKeyframe(time, self.shape_traverse_order, solution, recreate_patches)

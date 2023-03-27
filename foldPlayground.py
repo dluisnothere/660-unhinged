@@ -118,30 +118,6 @@ def checkScaffoldConnection(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVect
         exit(1)
 
 
-# def centerPivotHelper():
-#     sel = cmds.ls(sl=True)[0]  # Get selection.
-#
-#     # mel.eval(
-#     #     "CenterPivot;")  # Center its pivot. Comment this out if you don't want to force it to center and use the pivot as-is.
-#     pivots = cmds.xform(sel, q=True, piv=True)[:3]  # Get its pivot values.
-#     old_tm = cmds.xform(sel, q=True, ws=True, m=True)  # Get its transform matrix.
-#
-#     temp_nul = cmds.createNode("transform")  # Create a temporary transform.
-#     cmds.xform(temp_nul, ws=True, m=old_tm)  # Align it to the matrix.
-#     cmds.xform(temp_nul, os=True, r=True, t=pivots)  # Move it to include the pivot offsets.
-#     new_tm = cmds.xform(temp_nul, q=True, ws=True, m=True)  # Store it's transform matrix to align to later.
-#
-#     try:
-#         cmds.xform(sel, piv=[0, 0, 0])  # Zero-out object's pivot values.
-#         cmds.move(-pivots[0], -pivots[1], -pivots[2], "{}.vtx[*]".format(sel), os=True,
-#                   r=True)  # Negate and move object via its old pivot values.
-#         cmds.xform(sel, ws=True,
-#                    m=new_tm)  # Align the object back to the temporary transform, to maintain its old position.
-#     finally:
-#         cmds.delete(temp_nul)  # Delete temporary transform.
-#         cmds.select(sel)  # Restore old selection.
-
-
 def foldVertScene():
     t = 0
     shape_traverse_order = ["pBottom", "pMiddle", "pMiddle2", "pTop", "pBaseTop"]
@@ -334,14 +310,6 @@ def foldHorizScene():
         childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
 
 
-# # Reset everything.
-# setUpVertScene()
-# foldVertScene()
-
-# Reset everything.
-# setUpHorizScene()
-# foldHorizScene()
-
 def generateNewPatches(original_patch: str, num_hinges: int):
     # Compute the new patch scale values based on original_patch's scale and num_patches
     # TODO: Hard coded for split in the x Direction, but need to be more general later on.
@@ -418,8 +386,6 @@ def foldKeyframe(time, shape_traverse_order, fold_solution):
 
         for i in range(0, len(new_patches)):
             shape_traverse_order.insert(f_idx * i, new_patches[i])
-
-        # return
 
     # Loop through the patches and get all of their pivots.
     patchPivots = []
@@ -548,7 +514,7 @@ def foldGeneric():
     # Create a Fold Manager
     manager = fold.FoldManager()
     manager.generate_h_basic_scaff(shape_vertices[0], shape_vertices[1], shape_vertices[2])
-    solution = manager.mainFold()
+    solution = manager.mainFold(1)
 
     # Call the keyframe funtion
     foldKeyframe(60, shape_traverse_order, solution)
