@@ -214,19 +214,42 @@ class foldableNode(OpenMayaMPx.MPxNode):
         # Reset back to original shapes so you can break them again
         self.cleanUpSplitPatches()
 
+    def shrinkPatch(self, endPiece, numPieces, startPiece):
+        print("shrinking patches...")
+        foldable_patch = "pFoldH"
+        middle = 1 / 2  # hard coded for now
+
+        # Translate patch to the new midpoint
+        pieceWidth = 1.0 / numPieces  # hard coded for now
+        newMiddle = (startPiece + endPiece) * pieceWidth / 2
+
+        print("newMiddle in Z direction: {}".format(newMiddle))
+        transform = getObjectTransformFromDag(foldable_patch)
+        translation = OpenMaya.MVector(0, 0, newMiddle) - OpenMaya.MVector(0, 0, middle)
+        transform.translateBy(translation, OpenMaya.MSpace.kWorld)
+
+        # Shrink patch by numPieces in the hard coded z direction
+        transform = getObjectTransformFromDag(foldable_patch)
+        shrinkFactor = (endPiece - startPiece) / numPieces
+        cmds.setAttr("pFoldH.scaleZ", shrinkFactor)
+        # shrinkVec = OpenMaya.MDoubleArray([1.0, 1.0, shrinkFactor], 3)
+        # transform.setScale(shrinkVec)
+
     def generateNewPatches(self, originalPatch: str, numHinges: int) -> (List[str], List[List[List[float]]]):
         # Compute the new patch scale values based on original_patch's scale and num_patches
         # TODO: Hard coded for split in the x Direction, but need to be more general later on.
         numPatches = numHinges + 1
-        originalScale = cmds.getAttr(originalPatch + ".scaleX")
-        newPatchScale = originalScale / numPatches
+        originalScaleX = cmds.getAttr(originalPatch + ".scaleX")
+        originalScaleZ = cmds.getAttr(originalPatch + ".scaleZ")
+
+        newPatchScale = originalScaleX / numPatches
 
         # Generate new patches.
         newPatches = []
         for i in range(0, numPatches):
             # TODO: Based on the axis we shrink, either width or height will be the original patch's scale
             # This command generates a new polyplane in the scene
-            newPatch = cmds.polyPlane(name=originalPatch + "_" + str(i), width=newPatchScale, height=originalScale,
+            newPatch = cmds.polyPlane(name=originalPatch + "_" + str(i), width=newPatchScale, height=originalScaleZ,
                                       subdivisionsX=1,
                                       subdivisionsY=1)
             newPatches.append(newPatch[0])
@@ -243,7 +266,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
         # Get the world location of the bottom of the original patch
         # TODO: hard coded for the Y direction
-        originalPatchBottom = originalTranslation[0][1] - originalScale * 0.5
+        originalPatchBottom = originalTranslation[0][1] - originalScaleX * 0.5
         newPatchPositions = []
         new_transforms = []
         for i in range(0, len(newPatches)):
@@ -301,26 +324,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
             print("Pivot: {:.6f}, {:.6f}, {:.6f}".format(pivot[0], pivot[1], pivot[2]))
         return patchPivots
 
-    # TODO: might be a member function of basic scaff
-    def rotatePatches(self, angle: float, rotAxis: List[float], shapeTraverseOrder: List[str], isLeft: bool) -> List[OpenMaya.MFnTransform]:
-        patchTransforms = []
-        if (isLeft):
-            angle = -angle
-
-        for i in range(0, len(shapeTraverseOrder)):
-            shape = shapeTraverseOrder[i]
-            pTransform = getObjectTransformFromDag(shape)
-            patchTransforms.append(pTransform)
-            if (i == len(shapeTraverseOrder) - 1):  # TODO: fix this bc it won't work for T scaffolds
-                break
-
-            q = OpenMaya.MQuaternion(math.radians(angle), OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2]))
-            print("angle" + str(angle))
-            print("q: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(q[0], q[1], q[2], q[3]))
-            pTransform.rotateBy(q, OpenMaya.MSpace.kTransform)
-
-            angle = -angle
-        return patchTransforms
 
     def findClosestMidpointsOnPatches(self, patchPivots: List[OpenMaya.MPoint], shapeTraverseOrder: List[str]) -> (List[List], List[float]):
         closestVertices = []
@@ -355,8 +358,29 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
             midPoints.append(middlePoint)
             # Ensure the parent and child are actually connected
-            checkScaffoldConnection(childPivot, middlePoint)
+            # checkScaffoldConnection(childPivot, middlePoint)
         return closestVertices, midPoints
+
+    # TODO: might be a member function of basic scaff
+    def rotatePatches(self, angle: float, rotAxis: List[float], shapeTraverseOrder: List[str], isLeft: bool) -> List[OpenMaya.MFnTransform]:
+        patchTransforms = []
+        if (isLeft):
+            angle = -angle
+
+        for i in range(0, len(shapeTraverseOrder)):
+            shape = shapeTraverseOrder[i]
+            pTransform = getObjectTransformFromDag(shape)
+            patchTransforms.append(pTransform)
+            if (i == len(shapeTraverseOrder) - 1):  # TODO: fix this bc it won't work for T scaffolds
+                break
+
+            q = OpenMaya.MQuaternion(math.radians(angle), OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2]))
+            print("angle" + str(angle))
+            print("q: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(q[0], q[1], q[2], q[3]))
+            pTransform.rotateBy(q, OpenMaya.MSpace.kTransform)
+
+            angle = -angle
+        return patchTransforms
 
     def updatePatchTranslations(self, closestVertices: List, midPoints: List, patchPivots: List, patchTransforms: List, shapeTraverseOrder: List[str]):
         # Get the new closest vertices without changing the original closest vertices
@@ -408,8 +432,17 @@ class foldableNode(OpenMayaMPx.MPxNode):
         # Get the relevant information from the fold_solution
         startAngles = foldSolution.fold_transform.startAngles
         endAngles = foldSolution.fold_transform.endAngles
-        numHinges = foldSolution.modification.num_hinges
+
         isLeft = foldSolution.isleft
+
+        # Hinge variables
+        numHinges = foldSolution.modification.num_hinges
+
+        # Shrinking variables
+        startPiece = foldSolution.modification.range_start
+        endPiece = foldSolution.modification.range_end # non inclusive
+        numPieces = foldSolution.modification.num_pieces
+
 
         t = time  # dictate that the end time is 90 frames hard coded for now
 
@@ -420,6 +453,10 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
         print("angle based on t: " + str(angle))
         print("t: " + str(t))
+
+        # TODO: Move to separate function
+        # Shrinks patches based on shrink params.
+        self.shrinkPatch(endPiece, numPieces, startPiece)
 
         # Update the list of shape_traverse_order to include the new patches where the old patch was
         if (recreatePatches and numHinges > 0):
@@ -442,7 +479,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
         # Update location of closest vertices after rotation and update children translations
         self.updatePatchTranslations(closestVertices, midPoints, patchPivots, patchTransforms, shapeTraverseOrder)
-
 
     # Fold test for non hard coded transforms: Part 1 of the logic from foldTest, calls foldKeyframe()
     def foldGeneric(self, time, numHinges):
