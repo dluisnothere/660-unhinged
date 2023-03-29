@@ -364,6 +364,11 @@ def foldKeyframe(time, shape_traverse_order, fold_solution):
     end_angles = fold_solution.fold_transform.endAngles
     num_hinges = fold_solution.modification.num_hinges
 
+    # Patch shrinking parameters
+    num_pieces = fold_solution.modification.num_pieces
+    start_piece = fold_solution.modification.range_start
+    end_piece = fold_solution.modification.range_end
+
     t = time  # dictate that the end time is 90 frames hard coded for now
 
     # Since we are hard coded only to get 1 angel out so far, try that one
@@ -373,6 +378,10 @@ def foldKeyframe(time, shape_traverse_order, fold_solution):
     print("angle based on t: " + str(angle))
     print("t: " + str(t))
 
+    # Patch shrinking
+
+
+    # Patch splitting based on hinges
     # Update the list of shape_traverse_order to include the new patches where the old patch was
     if (num_hinges > 0):
         foldable_patch = shape_traverse_order[
@@ -394,7 +403,6 @@ def foldKeyframe(time, shape_traverse_order, fold_solution):
         patchPivots.append(pivot)
         print("Pivot: {:.6f}, {:.6f}, {:.6f}".format(pivot[0], pivot[1], pivot[2]))
 
-    print("Setting up closest vertices...")
     closestVertices = []
     midPoints = []
     for i in range(0, len(shape_traverse_order) - 1):
@@ -429,11 +437,6 @@ def foldKeyframe(time, shape_traverse_order, fold_solution):
         checkScaffoldConnection(childPivot, middlePoint)
 
     # Main Foldabilization Output generation
-    print("Getting start and end angles...")
-    print("startAngles: ")
-    print(fold_solution.fold_transform.startAngles)
-    print("endAngles: ")
-    print(fold_solution.fold_transform.endAngles)
 
     # Perform rotations at once, but do not rotate the last patch
     patchTransforms = []
@@ -520,5 +523,5 @@ def foldGeneric():
     foldKeyframe(60, shape_traverse_order, solution)
 
 
-setUpVertBasicScene()
-foldGeneric()
+# setUpVertBasicScene()
+# foldGeneric()

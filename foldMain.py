@@ -386,7 +386,7 @@ class FoldManager:
         # Experiment with alpha values
         alpha = 0.5
         cost1 = alpha * 0 / 1 + (1 - alpha) / 1
-        mod1 = Modification(nH, 0, 1, 1, cost1)
+        mod1 = Modification(nH, 0, 1, 2, cost1)
         patch_list = [self.h_basic_scaff.f_patch, self.h_basic_scaff.b_patch_low, self.h_basic_scaff.b_patch_high]
         fo = FoldOption(True, mod1, patch_list)
         fo.gen_fold_transform()
