@@ -173,24 +173,24 @@ class foldableNode(OpenMayaMPx.MPxNode):
         # Clear the new shapes list.
         self.new_shapes = []
 
-    def setUpGenericScene(self, upper_patches, base_patch):
+    def setUpGenericScene(self, upperPatches: List[str], basePatch: str):
         # TODO: theoretically we should only need to move things in the upper patches
         # Get the transforms for each item in upper patches
         transforms = []
-        for patch in upper_patches:
+        for patch in upperPatches:
             transforms.append(getObjectTransformFromDag(patch))
 
         original_transforms = self.shapeResetTransforms
         # Set the translation for each of the patches to the original translations
-        for i in range(0, len(upper_patches)):
-            patch_name = upper_patches[i]
+        for i in range(0, len(upperPatches)):
+            patch_name = upperPatches[i]
             original_translate = original_transforms[patch_name][0]
             translate_vec = OpenMaya.MVector(original_translate[0], original_translate[1], original_translate[2])
             transforms[i].setTranslation(translate_vec, OpenMaya.MSpace.kWorld)
 
         # Set the rotation for each of the patches to the original rotations
         for i in range(0, len(transforms)):
-            patch_name = upper_patches[i]
+            patch_name = upperPatches[i]
             original_rotate = original_transforms[patch_name][1]
             cmds.setAttr(patch_name + ".rotate", original_rotate[0][0], original_rotate[0][1], original_rotate[0][2])
 
@@ -213,11 +213,11 @@ class foldableNode(OpenMayaMPx.MPxNode):
         # Reset back to original shapes so you can break them again
         self.cleanUpSplitPatches()
 
-    def generateNewPatches(self, original_patch: str, num_hinges: int) -> (List[str], List[List[List[float]]]):
+    def generateNewPatches(self, originalPatch: str, numHinges: int) -> (List[str], List[List[List[float]]]):
         # Compute the new patch scale values based on original_patch's scale and num_patches
         # TODO: Hard coded for split in the x Direction, but need to be more general later on.
-        numPatches = num_hinges + 1
-        originalScale = cmds.getAttr(original_patch + ".scaleX")
+        numPatches = numHinges + 1
+        originalScale = cmds.getAttr(originalPatch + ".scaleX")
         newPatchScale = originalScale / numPatches
 
         # Generate new patches.
@@ -225,20 +225,20 @@ class foldableNode(OpenMayaMPx.MPxNode):
         for i in range(0, numPatches):
             # TODO: Based on the axis we shrink, either width or height will be the original patch's scale
             # This command generates a new polyplane in the scene
-            newPatch = cmds.polyPlane(name=original_patch + "_" + str(i), width=newPatchScale, height=originalScale,
+            newPatch = cmds.polyPlane(name=originalPatch + "_" + str(i), width=newPatchScale, height=originalScale,
                                       subdivisionsX=1,
                                       subdivisionsY=1)
             newPatches.append(newPatch[0])
 
         # Rotate the new patches with the same rotation as the original_patch
-        originalRotation = cmds.getAttr(original_patch + ".rotate")
+        originalRotation = cmds.getAttr(originalPatch + ".rotate")
         for i in range(0, len(newPatches)):
             cmds.setAttr(newPatches[i] + ".rotate", originalRotation[0][0], originalRotation[0][1],
                          originalRotation[0][2])
 
         # Translate the patches along the direction it has been scaled in (but that is local)
         # TODO: Axis of scaling is hard coded
-        originalTranslation = cmds.getAttr(original_patch + ".translate")
+        originalTranslation = cmds.getAttr(originalPatch + ".translate")
 
         # Get the world location of the bottom of the original patch
         # TODO: hard coded for the Y direction
@@ -270,7 +270,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
         return newPatches, new_transforms
 
-    def breakPatches(self, shape_traverse_order: List[str], num_hinges: int):
+    def breakPatches(self, shapeTraverseOrder: List[str], num_hinges: int):
         print("shape_reset_transforms:")
         print(self.shapeResetTransforms)
 
@@ -279,38 +279,38 @@ class foldableNode(OpenMayaMPx.MPxNode):
         for patch in foldable_patches:
             cmds.setAttr(patch + ".visibility", False)
 
-        for j in range(0, len(shape_traverse_order) - 1):  # every patch except last guy is foldable
-            foldable_patch = shape_traverse_order[
+        for j in range(0, len(shapeTraverseOrder) - 1):  # every patch except last guy is foldable
+            foldable_patch = shapeTraverseOrder[
                 j]  # TODO: make more generic, currently assumes foldable patch is at the center
-            shape_traverse_order.remove(foldable_patch)
+            shapeTraverseOrder.remove(foldable_patch)
             del self.shapeResetTransforms[foldable_patch]
 
             new_patches, new_transforms = self.generateNewPatches(foldable_patch, num_hinges)
 
             # Add the new patch transforms to the shape_reset_transforms and insert new patches to shape_traverse_order
             for i in range(0, len(new_patches)):
-                shape_traverse_order.insert(j, new_patches[i])
+                shapeTraverseOrder.insert(j, new_patches[i])
                 self.shapeResetTransforms[new_patches[i]] = [new_transforms[i][0], new_transforms[i][1]]
 
                 # Keep track of the new patches just created so we can delete it on the next iteration
                 self.new_shapes.append(new_patches[i])
 
-    def getPatchPivots(self, shape_traverse_order):
+    def getPatchPivots(self, shapeTraverseOrder: List[str]) -> List[OpenMaya.MPoint]:
         patchPivots = []
-        for shape in shape_traverse_order:
+        for shape in shapeTraverseOrder:
             pivot = getObjectTransformFromDag(shape).rotatePivot(OpenMaya.MSpace.kWorld)
             patchPivots.append(pivot)
             print("Pivot: {:.6f}, {:.6f}, {:.6f}".format(pivot[0], pivot[1], pivot[2]))
         return patchPivots
 
     # TODO: might be a member function of basic scaff
-    def rotatePatches(self, angle, rotAxis, shape_traverse_order):
+    def rotatePatches(self, angle: float, rotAxis: List[float], shapeTraverseOrder: List[str]) -> List[OpenMaya.MFnTransform]:
         patchTransforms = []
-        for i in range(0, len(shape_traverse_order)):
-            shape = shape_traverse_order[i]
+        for i in range(0, len(shapeTraverseOrder)):
+            shape = shapeTraverseOrder[i]
             pTransform = getObjectTransformFromDag(shape)
             patchTransforms.append(pTransform)
-            if (i == len(shape_traverse_order) - 1):  # TODO: fix this bc it won't work for T scaffolds
+            if (i == len(shapeTraverseOrder) - 1):  # TODO: fix this bc it won't work for T scaffolds
                 break
 
             q = OpenMaya.MQuaternion(math.radians(angle), OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2]))
@@ -321,12 +321,12 @@ class foldableNode(OpenMayaMPx.MPxNode):
             angle = -angle
         return patchTransforms
 
-    def findClosestMidpointsOnPatches(self, patchPivots, shape_traverse_order):
+    def findClosestMidpointsOnPatches(self, patchPivots: List[OpenMaya.MPoint], shapeTraverseOrder: List[str]) -> (List[List], List[float]):
         closestVertices = []
         midPoints = []
-        for i in range(0, len(shape_traverse_order) - 1):
+        for i in range(0, len(shapeTraverseOrder) - 1):
             # For each parent patch, get their vertices.
-            shape = shape_traverse_order[i]
+            shape = shapeTraverseOrder[i]
             bottomVertices = getObjectVerticeNamesAndPositions(shape)
 
             childPivot = patchPivots[i + 1]
@@ -357,7 +357,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
             checkScaffoldConnection(childPivot, middlePoint)
         return closestVertices, midPoints
 
-    def updatePatchTranslations(self, closestVertices, midPoints, patchPivots, patchTransforms, shape_traverse_order):
+    def updatePatchTranslations(self, closestVertices: List, midPoints: List, patchPivots: List, patchTransforms: List, shapeTraverseOrder: List[str]):
         newClosestVertices = closestVertices.copy()
         for i in range(0, len(patchPivots) - 1):
             childPivot = patchPivots[i + 1]
@@ -393,22 +393,22 @@ class foldableNode(OpenMayaMPx.MPxNode):
                                                                             translation[2]))
 
             # Translate pTop by the translation.
-            print("Translating child patch: " + shape_traverse_order[i + 1])
+            print("Translating child patch: " + shapeTraverseOrder[i + 1])
             childPatchTransform = patchTransforms[i + 1]
             print("Translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
             childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
 
     # Splits the foldTest function into two parts.
-    def foldKeyframe(self, time, shape_traverse_order, fold_solution, recreate_patches):
+    def foldKeyframe(self, time, shapeTraverseOrder: List[str], foldSolution: fold.FoldOption, recreatePatches: bool):
         # Get the relevant information from the fold_solution
-        start_angles = fold_solution.fold_transform.startAngles
-        end_angles = fold_solution.fold_transform.endAngles
-        num_hinges = fold_solution.modification.num_hinges
+        startAngles = foldSolution.fold_transform.startAngles
+        endAngles = foldSolution.fold_transform.endAngles
+        numHinges = foldSolution.modification.num_hinges
 
         t = time  # dictate that the end time is 90 frames hard coded for now
 
         # TODO: let author dictate end time.. but this doesn't realy matter.
-        angle = t * (end_angles[0] - start_angles[0]) / 90  # The angle we fold at this particular time is time / 90 *
+        angle = t * (endAngles[0] - startAngles[0]) / 90  # The angle we fold at this particular time is time / 90 *
         # TODO: make more generic in the future
         rotAxis = (0, 0, 1)
 
@@ -416,26 +416,26 @@ class foldableNode(OpenMayaMPx.MPxNode):
         print("t: " + str(t))
 
         # Update the list of shape_traverse_order to include the new patches where the old patch was
-        if (recreate_patches and num_hinges > 0):
-            self.breakPatches(shape_traverse_order, num_hinges)
+        if (recreatePatches and numHinges > 0):
+            self.breakPatches(shapeTraverseOrder, numHinges)
 
         # Moved from the recreate_patches condition because we always want this to be visible if no hinges
         # TODO: ventually move this to a better place
-        if (num_hinges == 0):
+        if (numHinges == 0):
             # set middle patch to be visible
-            cmds.setAttr(shape_traverse_order[0] + ".visibility", 1)
+            cmds.setAttr(shapeTraverseOrder[0] + ".visibility", 1)
 
         # Loop through the patches and get all of their pivots.
-        patchPivots = self.getPatchPivots(shape_traverse_order)
+        patchPivots = self.getPatchPivots(shapeTraverseOrder)
 
-        closestVertices, midPoints = self.findClosestMidpointsOnPatches(patchPivots, shape_traverse_order)
+        # Find the closest vertices to the patch pivots and calculate the midPoints, also check scaff is connected
+        closestVertices, midPoints = self.findClosestMidpointsOnPatches(patchPivots, shapeTraverseOrder)
 
         # Perform rotations at once, but do not rotate the last patch
-        patchTransforms = self.rotatePatches(angle, rotAxis, shape_traverse_order)
+        patchTransforms = self.rotatePatches(angle, rotAxis, shapeTraverseOrder)
 
-        # Update location of closest vertices now that you've rotated each patch.
-        # And translate the children patches to the parent midpoints after rotation
-        self.updatePatchTranslations(closestVertices, midPoints, patchPivots, patchTransforms, shape_traverse_order)
+        # Update location of closest vertices after rotation and update children translations
+        self.updatePatchTranslations(closestVertices, midPoints, patchPivots, patchTransforms, shapeTraverseOrder)
 
 
     # Fold test for non hard coded transforms: Part 1 of the logic from foldTest, calls foldKeyframe()
