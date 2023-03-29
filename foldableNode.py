@@ -65,18 +65,10 @@ def getObjectVerticeNamesAndPositions(name: str) -> dict:
     vertex_count = cmds.polyEvaluate(name, vertex=True)
     vertices = {}
     for i in range(vertex_count):
-        try:
-            vertex_name = "{}.vtx[{}]".format(name, i)
+        vertex_name = "{}.vtx[{}]".format(name, i)
 
-            # check if vertex name exists and print it:
-            if cmds.objExists(vertex_name):
-                print2("Vertex name exists: {}".format(vertex_name))
-            vertex_translation = cmds.pointPosition(vertex_name, world=True)
-            print2("Found vertex_translation!: {}".format(vertex_translation))
-            vertices[vertex_name] = vertex_translation
-        except Exception as e:
-            print2(str(e))
-            print2("Error getting vertex: {}".format(vertex_name))
+        vertex_translation = cmds.pointPosition(vertex_name, world=True)
+        vertices[vertex_name] = vertex_translation
 
     return vertices
 
@@ -106,13 +98,6 @@ def checkScaffoldConnection(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVect
         print("Error: Distance is not 0. Patches are not connected")
         exit(1)
 
-def print2(text):
-    print(text, flush=True)
-    # Open a file in append mode for writing and append the text
-    f = open("C:/Users/Di/Desktop/cursedPrint.txt", "a")
-    f.write(text)
-    f.write("\n")
-    f.close()
 
 # Node definition
 class foldableNode(OpenMayaMPx.MPxNode):
@@ -147,11 +132,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
     def __init__(self):
         OpenMayaMPx.MPxNode.__init__(self)
 
-        # delete log file if it exists
-        if os.path.exists("C:/Users/Di/Desktop/cursedPrint.txt"):
-            os.remove("C:/Users/Di/Desktop/cursedPrint.txt")
-
-        print2("Constructor called!")
 
     def prepareLastFrameCleanup(self):
         # For every shape in new shapes, rename it to "delete_me" + "_i"
@@ -165,7 +145,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
         # Clear the new shapes list.
         self.new_shapes = []
     def cleanLastFrame(self):
-        print("cleanLastFrame...")
         for shape in self.shapes_to_delete:
             print("cleaning shape: {}".format(shape))
             cmds.delete(shape)
@@ -175,15 +154,11 @@ class foldableNode(OpenMayaMPx.MPxNode):
     def setUpGenericScene(self, upper_patches, base_patch):
         # TODO: theoretically we should only need to move things in the upper patches
         # Get the transforms for each item in upper patches
-        print("Params did not update")
-        print("Setting up generic Scene...")
         transforms = []
         for patch in upper_patches:
             transforms.append(getObjectTransformFromDag(patch))
 
         original_transforms = self.shape_reset_transforms
-        print2("len of shape_reset_transforms {}".format(len(original_transforms)))
-        print2("len of upper patches: {}".format(len(upper_patches)))
         # Set the translation for each of the patches to the original translations
         for i in range(0, len(upper_patches)):
             patch_name = upper_patches[i]
@@ -195,12 +170,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
         for i in range(0, len(transforms)):
             patch_name = upper_patches[i]
             original_rotate = original_transforms[patch_name][1]
-            # print type of original-rotate
-            print("type of original rotate: {}".format(type(original_rotate)))
-            print("original rotate: {}".format(original_rotate))
-
-            #rotation_euler = OpenMaya.MEulerRotation(original_rotate[0], original_rotate[1], original_rotate[2])
-            #transforms[i].setRotation(original_rotate)
             cmds.setAttr(patch_name + ".rotate", original_rotate[0][0], original_rotate[0][1], original_rotate[0][2])
 
     def generateNewPatches(self, original_patch: str, num_hinges: int):
@@ -261,8 +230,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
     # Splits the foldTest function into two parts.
     def foldKeyframe(self, time, shape_traverse_order, fold_solution, recreate_patches):
-        print("Entered foldKeyframe...")
-
         start_angles = fold_solution.fold_transform.startAngles
         end_angles = fold_solution.fold_transform.endAngles
         num_hinges = fold_solution.modification.num_hinges
@@ -277,38 +244,29 @@ class foldableNode(OpenMayaMPx.MPxNode):
         print("t: " + str(t))
 
         # Update the list of shape_traverse_order to include the new patches where the old patch was
-        print("preported num_hinges: " + str(num_hinges))
-        if (recreate_patches == True):
-            if (num_hinges > 0):
-                print("shape_reset_transforms:")
-                print(self.shape_reset_transforms)
+        if (recreate_patches and num_hinges > 0):
+            print("shape_reset_transforms:")
+            print(self.shape_reset_transforms)
 
-                for j in range(0, len(shape_traverse_order) - 1): # every patch except last guy is foldable
-                    foldable_patch = shape_traverse_order[j]  # TODO: make more generic, currently assumes foldable patch is at the center
-                    f_idx = j # TODO: if this logic works replace fidx with j subsequently
-                    shape_traverse_order.remove(foldable_patch)
-                    del self.shape_reset_transforms[foldable_patch]
+            for j in range(0, len(shape_traverse_order) - 1): # every patch except last guy is foldable
+                foldable_patch = shape_traverse_order[j]  # TODO: make more generic, currently assumes foldable patch is at the center
+                shape_traverse_order.remove(foldable_patch)
+                del self.shape_reset_transforms[foldable_patch]
 
-                    new_patches, new_transforms = self.generateNewPatches(foldable_patch, num_hinges)
+                new_patches, new_transforms = self.generateNewPatches(foldable_patch, num_hinges)
 
-                # Remove the foldable_patch by deleting it.
-                # cmds.delete(foldable_patch)
-                    for i in range(0, len(new_patches)):
-                        shape_traverse_order.insert(f_idx, new_patches[i])
-                        self.shape_reset_transforms[new_patches[i]] = [new_transforms[i][1], new_transforms[i][2]]
+                # Add the new patch transforms to the shape_reset_transforms and insert new patches to shape_traverse_order
+                for i in range(0, len(new_patches)):
+                    shape_traverse_order.insert(j, new_patches[i])
+                    self.shape_reset_transforms[new_patches[i]] = [new_transforms[i][1], new_transforms[i][2]]
 
-                        # Keep track of the new patches just created so we can delete it on the next iteration
-                        self.new_shapes.append(new_patches[i])
+                    # Keep track of the new patches just created so we can delete it on the next iteration
+                    self.new_shapes.append(new_patches[i])
 
         # Moved from the recreate_patches condition because we always want this to be visible if no hinges
         if (num_hinges == 0):
             # set middle patch to be visible
             cmds.setAttr(shape_traverse_order[0] + ".visibility", 1)
-
-        # Print shape_traverse_order
-        print("shape_traverse_order: ")
-        for i in range(0, len(shape_traverse_order)):
-            print(shape_traverse_order[i])
 
         # Loop through the patches and get all of their pivots.
         patchPivots = []
@@ -317,16 +275,13 @@ class foldableNode(OpenMayaMPx.MPxNode):
             patchPivots.append(pivot)
             print("Pivot: {:.6f}, {:.6f}, {:.6f}".format(pivot[0], pivot[1], pivot[2]))
 
-        print("Setting up closest vertices...")
         closestVertices = []
         midPoints = []
         for i in range(0, len(shape_traverse_order) - 1):
             # For each parent patch, get their vertices.
             shape = shape_traverse_order[i]
-            print("checking connectivity for shape: " + shape)
             bottomVertices = getObjectVerticeNamesAndPositions(shape)
 
-            print("checking its child: " + shape_traverse_order[i + 1])
             childPivot = patchPivots[i + 1]
 
             # find two vertices that are closest to childPivot. Print their name, location, and distance.
@@ -354,13 +309,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
             # Ensure the parent and child are actually connected
             checkScaffoldConnection(childPivot, middlePoint)
 
-        # Main Foldabilization Output generation
-        print("Getting start and end angles...")
-        print("startAngles: ")
-        print(fold_solution.fold_transform.startAngles)
-        print("endAngles: ")
-        print(fold_solution.fold_transform.endAngles)
-
         # Perform rotations at once, but do not rotate the last patch
         patchTransforms = []
         for i in range(0, len(shape_traverse_order)):
@@ -369,43 +317,17 @@ class foldableNode(OpenMayaMPx.MPxNode):
             patchTransforms.append(pTransform)
             if (i == len(shape_traverse_order) - 1):  # TODO: fix this bc it won't work for T scaffolds
                 break
-            print("Now rotating shape: " + shape)
-
-            # DEBUG: print out the current transform before rotation
-            vertex0 = cmds.pointPosition("pFoldH.vtx[0]", world=True)
-            vertex1 = cmds.pointPosition("pFoldH.vtx[1]", world=True)
-            vertex2 = cmds.pointPosition("pFoldH.vtx[2]", world=True)
-            vertex3 = cmds.pointPosition("pFoldH.vtx[3]", world=True)
-
-            print("p-points0: {:.6f},{:.6f},{:.6f}".format(vertex0[0], vertex0[1], vertex0[2]))
-            print("p-points2: {:.6f},{:.6f},{:.6f}".format(vertex2[0], vertex2[1], vertex2[2]))
 
             q = OpenMaya.MQuaternion(math.radians(angle), OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2]))
             print("angle" + str(angle))
             print("q: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(q[0], q[1], q[2], q[3]))
             pTransform.rotateBy(q, OpenMaya.MSpace.kTransform)
 
-            # DEBUG: print out the current transform after rotation
-            vertex_translation0 = cmds.pointPosition("pFoldH.vtx[0]", world=True)
-            vertex_translation1 = cmds.pointPosition("pFoldH.vtx[1]", world=True)
-            vertex_translation2 = cmds.pointPosition("pFoldH.vtx[2]", world=True)
-            vertex_translation3 = cmds.pointPosition("pFoldH.vtx[3]", world=True)
-
-            print("p-points0: {:.6f},{:.6f},{:.6f}".format(vertex_translation0[0],
-                                                           vertex_translation0[1],
-                                                           vertex_translation0[2]))
-
-            print("p-points2: {:.6f},{:.6f},{:.6f}".format(vertex_translation2[0],
-                                                           vertex_translation2[1],
-                                                           vertex_translation2[2]))
-
             angle = -angle
 
         # Update location of closest vertices now that you've rotated each patch.
         newClosestVertices = closestVertices.copy()
-        newMidPoints = midPoints.copy()
         for i in range(0, len(patchPivots) - 1):
-            print("updating closest vertices:")
             childPivot = patchPivots[i + 1]
             for j in range(0, len(newClosestVertices[
                                       i])):  # index and use information from updated vertex positions. There should only be 2 verts here
@@ -461,16 +383,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
             for shape in self.shape_traverse_order:
                 transform = getObjectTransformFromDag(shape)
                 translate = transform.translation(OpenMaya.MSpace.kWorld)
-                print("inserting original traslation: " + str(translate))
-
-                # rotate = OpenMaya.MEulerRotation()
-                # transform.getRotation(rotate)
-
                 rotate = cmds.getAttr(shape + ".rotate")
-
-
-                #rotate = transform.transformation().eulerRotation()
-                print("inserting original rotation: " + str(rotate))
 
                 self.shape_reset_transforms[shape] = [translate, rotate]
 
@@ -487,7 +400,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
             # Reset the scene
             # TODO: make more generic
             self.setUpGenericScene(self.shape_traverse_order, self.shape_bases)
-            # print("whatever")
 
         foldable_patches = ["pFoldH"]
 
@@ -508,8 +420,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
             shape_vertices.append(list(vertices_list.values()))
 
         shape_vertices = np.array(shape_vertices)
-        print("shape_vertices:")
-        print(shape_vertices)
 
         # Create a Fold Manager
         manager = fold.FoldManager()
@@ -523,14 +433,10 @@ class foldableNode(OpenMayaMPx.MPxNode):
     def compute(self, plug, data):
         # Print the MDGContext
         context = data.context().isNormal()
-        print2("context: " + str(context))
 
         if (context == False):
             print("Context is not normal, returning")
             return
-
-
-        print2("compute")
 
         # TODO:: create the main functionality of the node. Your node should
         #         take in three floats for max position (X,Y,Z), three floats
@@ -544,8 +450,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
         numHingeData = data.inputValue(self.numHinges)
         numHinges = numHingeData.asInt()
-
-        print2("current time: " + str(time))
 
         # self.foldTest(time)
         self.foldGeneric(time, numHinges)
