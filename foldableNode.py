@@ -9,6 +9,7 @@ import maya.OpenMayaMPx as OpenMayaMPx
 import maya.cmds as cmds
 import foldMain as fold
 import numpy as np
+from typing import Dict, List, Set
 
 
 # Useful functions for declaring attributes as inputs or outputs.
@@ -60,7 +61,7 @@ def setUpVertBasicScene():
 
 
 # Returns a dictionary of names and positions in world space.
-def getObjectVerticeNamesAndPositions(name: str) -> dict:
+def getObjectVerticeNamesAndPositions(name: str) -> Dict[str, List[float]]:
     # TODO: There are probably better ways by getting the vertex iterator.
     vertex_count = cmds.polyEvaluate(name, vertex=True)
     vertices = {}
@@ -99,15 +100,30 @@ def checkScaffoldConnection(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVect
         exit(1)
 
 class MayaHBasicScaffold():
-    def __init__(self, basePatch: str, patches: list):
+    def __init__(self, basePatch: str, patches: List[str]):
         self.basePatch = basePatch
         self.patches = patches
 
     def getBasePatch(self) -> str:
         return self.basePatch
 
-    def getPatches(self) -> list:
+    def getPatches(self) -> List[str]:
         return self.patches
+
+    def getPatchesIncludeBase(self) -> List[str]:
+        patches = [self.basePatch]
+        patches.extend(self.patches)
+        return patches
+
+    # TODO: why is this a list list list? 
+    def getAllPatchVertices(self) -> List[List[List[float]]]:
+        # For each element in self.getPatchesIncludeBase, call getObjectVerticeNamesAndPositions
+        shapeVertices = []
+        for patch in self.getPatchesIncludeBase():
+            vertices = getObjectVerticeNamesAndPositions(patch)
+            shapeVertices.append(list(vertices.values()))
+
+        return shapeVertices
 
 
 # Node definition
@@ -129,12 +145,12 @@ class foldableNode(OpenMayaMPx.MPxNode):
     # so our node can "live" somewhere.
     outPoint = OpenMaya.MObject()
 
-    basicScaffolds: list = []
+    basicScaffolds: List[MayaHBasicScaffold] = []
 
     # TODO: later on we will iterate through basicScaffolds instead
     defaultScaff: MayaHBasicScaffold = None
 
-    shapeTraverseOrder: list = []
+    shapeTraverseOrder: List[str] = []
     shapeBase = []
     shape_reset_transforms = {}
 
@@ -148,14 +164,12 @@ class foldableNode(OpenMayaMPx.MPxNode):
     def __init__(self):
         OpenMayaMPx.MPxNode.__init__(self)
 
-
     def cleanUpSplitPatches(self):
         for i in range(0, len(self.new_shapes)):
             cmds.delete(self.new_shapes[i])
 
         # Clear the new shapes list.
         self.new_shapes = []
-
 
     def setUpGenericScene(self, upper_patches, base_patch):
         # TODO: theoretically we should only need to move things in the upper patches
@@ -403,16 +417,8 @@ class foldableNode(OpenMayaMPx.MPxNode):
         shape_vertices = []
 
         # First insert the pBaseBottom's vertices into shape_vertices.
-        vertices_list = getObjectVerticeNamesAndPositions(self.defaultScaff.getBasePatch())
-        shape_vertices.append(list(vertices_list.values()))
-
-        # Repeat the procedure for the remaining patches
-        for shape in self.defaultScaff.getPatches():
-            print("Shape: {}".format(shape))
-            vertices_list = getObjectVerticeNamesAndPositions(shape)
-            shape_vertices.append(list(vertices_list.values()))
-
-        shape_vertices = np.array(shape_vertices)
+        vertices_list = self.defaultScaff.getAllPatchVertices()
+        shape_vertices = np.array(vertices_list)
 
         # Create a Fold Manager
         manager = fold.FoldManager()
