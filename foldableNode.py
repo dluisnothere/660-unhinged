@@ -382,23 +382,23 @@ class foldableNode(OpenMayaMPx.MPxNode):
                                                                                           newClosestVertices[i][j][2][
                                                                                               2]))
 
-        # Midpoint formula to solve for the midpoint betwen the two closest vertices.
-        verticeDistNew = newClosestVertices[i][0][2] + newClosestVertices[i][1][2]
-        middlePointNew = (verticeDistNew * 0.5)
-        print(
-            "Middle Point: {:.6f}, {:.6f}, {:.6f}".format(middlePointNew[0], middlePointNew[1], middlePointNew[2]))
+            # Midpoint formula to solve for the midpoint betwen the two closest vertices.
+            verticeDistNew = newClosestVertices[i][0][2] + newClosestVertices[i][1][2]
+            middlePointNew = (verticeDistNew * 0.5)
+            print(
+                "Middle Point: {:.6f}, {:.6f}, {:.6f}".format(middlePointNew[0], middlePointNew[1], middlePointNew[2]))
 
-        # Get the translation from the old middle point to the new middle point.
-        ogMidPoint = midPoints[i]
-        translation = middlePointNew - ogMidPoint
-        print("Middle point translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1],
-                                                                        translation[2]))
+            # Get the translation from the old middle point to the new middle point.
+            ogMidPoint = midPoints[i]
+            translation = middlePointNew - ogMidPoint
+            print("Middle point translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1],
+                                                                            translation[2]))
 
-        # Translate pTop by the translation.
-        print("Translating child patch: " + shapeTraverseOrder[i + 1])
-        childPatchTransform = patchTransforms[i + 1]
-        print("Translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
-        childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
+            # Translate child patch by the translation.
+            print("Translating child patch: " + shapeTraverseOrder[i + 1])
+            childPatchTransform = patchTransforms[i + 1]
+            print("Translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
+            childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
 
     # Splits the foldTest function into two parts.
     def foldKeyframe(self, time, shapeTraverseOrder: List[str], foldSolution: fold.FoldOption, recreatePatches: bool):
