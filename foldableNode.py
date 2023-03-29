@@ -181,6 +181,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
             transforms.append(getObjectTransformFromDag(patch))
 
         original_transforms = self.shapeResetTransforms
+
         # Set the translation for each of the patches to the original translations
         for i in range(0, len(upperPatches)):
             patch_name = upperPatches[i]
@@ -259,7 +260,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
         # Pivot the patches.
         for i in range(0, len(newPatches)):
             # Set the pivot location to the bottom of the patch
-            # TODO: check what their generated code does
             newPivot = [newPatchScale * 0.5, 0, 0]
             transform = getObjectTransformFromDag(newPatches[i])
             transform.setRotatePivot(OpenMaya.MPoint(newPivot[0], newPivot[1], newPivot[2]), OpenMaya.MSpace.kTransform,
@@ -270,30 +270,28 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
         return newPatches, new_transforms
 
-    def breakPatches(self, shapeTraverseOrder: List[str], num_hinges: int):
-        print("shape_reset_transforms:")
-        print(self.shapeResetTransforms)
+    def breakPatches(self, shapeTraverseOrder: List[str], numHinges: int):
 
         # Render the original foldable patch invisible
-        foldable_patches = ["pFoldH"]
-        for patch in foldable_patches:
+        foldablePatches = ["pFoldH"]
+        for patch in foldablePatches:
             cmds.setAttr(patch + ".visibility", False)
 
         for j in range(0, len(shapeTraverseOrder) - 1):  # every patch except last guy is foldable
-            foldable_patch = shapeTraverseOrder[
+            foldablePatch = shapeTraverseOrder[
                 j]  # TODO: make more generic, currently assumes foldable patch is at the center
-            shapeTraverseOrder.remove(foldable_patch)
-            del self.shapeResetTransforms[foldable_patch]
+            shapeTraverseOrder.remove(foldablePatch)
+            del self.shapeResetTransforms[foldablePatch]
 
-            new_patches, new_transforms = self.generateNewPatches(foldable_patch, num_hinges)
+            newPatches, newTransforms = self.generateNewPatches(foldablePatch, numHinges)
 
             # Add the new patch transforms to the shape_reset_transforms and insert new patches to shape_traverse_order
-            for i in range(0, len(new_patches)):
-                shapeTraverseOrder.insert(j, new_patches[i])
-                self.shapeResetTransforms[new_patches[i]] = [new_transforms[i][0], new_transforms[i][1]]
+            for i in range(0, len(newPatches)):
+                shapeTraverseOrder.insert(j, newPatches[i])
+                self.shapeResetTransforms[newPatches[i]] = [newTransforms[i][0], newTransforms[i][1]]
 
                 # Keep track of the new patches just created so we can delete it on the next iteration
-                self.new_shapes.append(new_patches[i])
+                self.new_shapes.append(newPatches[i])
 
     def getPatchPivots(self, shapeTraverseOrder: List[str]) -> List[OpenMaya.MPoint]:
         patchPivots = []
@@ -358,12 +356,15 @@ class foldableNode(OpenMayaMPx.MPxNode):
         return closestVertices, midPoints
 
     def updatePatchTranslations(self, closestVertices: List, midPoints: List, patchPivots: List, patchTransforms: List, shapeTraverseOrder: List[str]):
+        # Get the new closest vertices without changing the original closest vertices
         newClosestVertices = closestVertices.copy()
         for i in range(0, len(patchPivots) - 1):
             childPivot = patchPivots[i + 1]
             for j in range(0, len(newClosestVertices[
                                       i])):  # index and use information from updated vertex positions. There should only be 2 verts here
                 vertex_name, dist, vertexPoint = newClosestVertices[i][j]
+
+                # Get the world position of the vertex and convert it to an MVector
                 vertexPoint = cmds.pointPosition(vertex_name, world=True)
                 vertexPoint = OpenMaya.MVector(vertexPoint[0], vertexPoint[1], vertexPoint[2])
                 dist = OpenMaya.MVector(childPivot - vertexPoint).length()
@@ -381,22 +382,23 @@ class foldableNode(OpenMayaMPx.MPxNode):
                                                                                           newClosestVertices[i][j][2][
                                                                                               2]))
 
-            verticeDistNew = newClosestVertices[i][0][2] + newClosestVertices[i][1][2]
-            middlePointNew = (verticeDistNew * 0.5)
-            print(
-                "Middle Point: {:.6f}, {:.6f}, {:.6f}".format(middlePointNew[0], middlePointNew[1], middlePointNew[2]))
+        # Midpoint formula to solve for the midpoint betwen the two closest vertices.
+        verticeDistNew = newClosestVertices[i][0][2] + newClosestVertices[i][1][2]
+        middlePointNew = (verticeDistNew * 0.5)
+        print(
+            "Middle Point: {:.6f}, {:.6f}, {:.6f}".format(middlePointNew[0], middlePointNew[1], middlePointNew[2]))
 
-            # Get the translation from the old middle point to the new middle point.
-            ogMidPoint = midPoints[i]
-            translation = middlePointNew - ogMidPoint
-            print("Middle point translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1],
-                                                                            translation[2]))
+        # Get the translation from the old middle point to the new middle point.
+        ogMidPoint = midPoints[i]
+        translation = middlePointNew - ogMidPoint
+        print("Middle point translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1],
+                                                                        translation[2]))
 
-            # Translate pTop by the translation.
-            print("Translating child patch: " + shapeTraverseOrder[i + 1])
-            childPatchTransform = patchTransforms[i + 1]
-            print("Translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
-            childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
+        # Translate pTop by the translation.
+        print("Translating child patch: " + shapeTraverseOrder[i + 1])
+        childPatchTransform = patchTransforms[i + 1]
+        print("Translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
+        childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
 
     # Splits the foldTest function into two parts.
     def foldKeyframe(self, time, shapeTraverseOrder: List[str], foldSolution: fold.FoldOption, recreatePatches: bool):
