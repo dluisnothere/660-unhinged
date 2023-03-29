@@ -98,6 +98,17 @@ def checkScaffoldConnection(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVect
         print("Error: Distance is not 0. Patches are not connected")
         exit(1)
 
+class MayaHBasicScaffold():
+    def __init__(self, basePatch: str, patches: list):
+        self.basePatch = basePatch
+        self.patches = patches
+
+    def getBasePatch(self) -> str:
+        return self.basePatch
+
+    def getPatches(self) -> list:
+        return self.patches
+
 
 # Node definition
 class foldableNode(OpenMayaMPx.MPxNode):
@@ -111,18 +122,23 @@ class foldableNode(OpenMayaMPx.MPxNode):
     # number of hinges
     inNumHinges = OpenMaya.MObject()
 
+    # TODO: make an OpenMaya.MObject() eventually
+    inInitialPatches = []
+
     # Dummy output plug that can be connected to the input of an instancer node
     # so our node can "live" somewhere.
     outPoint = OpenMaya.MObject()
 
-    original_shapes = []
+    basicScaffolds: list = []
 
-    shape_traverse_order = []
-    shape_bases = []
+    # TODO: later on we will iterate through basicScaffolds instead
+    defaultScaff: MayaHBasicScaffold = None
+
+    shapeTraverseOrder: list = []
+    shapeBase = []
     shape_reset_transforms = {}
 
     new_shapes = []
-    shapes_to_delete = []
 
     prev_num_hinges = 0
 
@@ -133,23 +149,13 @@ class foldableNode(OpenMayaMPx.MPxNode):
         OpenMayaMPx.MPxNode.__init__(self)
 
 
-    def prepareLastFrameCleanup(self):
-        # For every shape in new shapes, rename it to "delete_me" + "_i"
-        # and add it to the shapes_to_delete list.
+    def cleanUpSplitPatches(self):
         for i in range(0, len(self.new_shapes)):
-            shape = self.new_shapes[i]
-            new_name = "delete_me_" + str(i)
-            cmds.rename(shape, new_name)
-            self.shapes_to_delete.append(new_name)
+            cmds.delete(self.new_shapes[i])
 
         # Clear the new shapes list.
         self.new_shapes = []
-    def cleanLastFrame(self):
-        for shape in self.shapes_to_delete:
-            print("cleaning shape: {}".format(shape))
-            cmds.delete(shape)
 
-        self.shapes_to_delete = []
 
     def setUpGenericScene(self, upper_patches, base_patch):
         # TODO: theoretically we should only need to move things in the upper patches
@@ -370,36 +376,23 @@ class foldableNode(OpenMayaMPx.MPxNode):
     def foldGeneric(self, time, numHinges):
 
         # TODO: Should be input by the author
-        self.original_shapes = ["pFoldH", "pBaseTopH"]
-        self.shape_bases = ["pBaseBottomH"]
+        self.inInitialPatches = ["pBaseBottomH", "pFoldH", "pBaseTopH"]
+
+        # For now, we manually decompose inInitialPatches
+        self.defaultScaff = MayaHBasicScaffold(self.inInitialPatches[0], self.inInitialPatches[1:])
+        self.basicScaffolds.append(self.defaultScaff)
 
         # If self.shape_traverse_order is empty, we fill it with original shapes
         # No need to reset the scene if it hasn't been changed yet.
-        recreate_patches = False
-        if (len(self.shape_traverse_order) == 0 or self.num_hinges != numHinges):
-            self.shape_traverse_order = self.original_shapes
-
-            # # fill new_translation and new_rotation with original values
-            for shape in self.shape_traverse_order:
-                transform = getObjectTransformFromDag(shape)
-                translate = transform.translation(OpenMaya.MSpace.kWorld)
-                rotate = cmds.getAttr(shape + ".rotate")
-
-                self.shape_reset_transforms[shape] = [translate, rotate]
-
-                self.num_hinges = numHinges
-
-            # Reset back to original shapes so you can break them again
-            self.shape_traverse_order = self.original_shapes
-            # TODO: rename functions
-            self.prepareLastFrameCleanup()
-            self.cleanLastFrame()
-            recreate_patches = True
+        recreate_patches = (self.num_hinges != numHinges)
+        if (len(self.shapeTraverseOrder) == 0 or recreate_patches):
+            self.num_hinges = numHinges
+            self.restoreInitialState()
 
         else:
             # Reset the scene
             # TODO: make more generic
-            self.setUpGenericScene(self.shape_traverse_order, self.shape_bases)
+            self.setUpGenericScene(self.shapeTraverseOrder, self.shapeBase)
 
         foldable_patches = ["pFoldH"]
 
@@ -410,11 +403,11 @@ class foldableNode(OpenMayaMPx.MPxNode):
         shape_vertices = []
 
         # First insert the pBaseBottom's vertices into shape_vertices.
-        vertices_list = getObjectVerticeNamesAndPositions(self.shape_bases[0])
+        vertices_list = getObjectVerticeNamesAndPositions(self.defaultScaff.getBasePatch())
         shape_vertices.append(list(vertices_list.values()))
 
         # Repeat the procedure for the remaining patches
-        for shape in self.original_shapes:
+        for shape in self.defaultScaff.getPatches():
             print("Shape: {}".format(shape))
             vertices_list = getObjectVerticeNamesAndPositions(shape)
             shape_vertices.append(list(vertices_list.values()))
@@ -427,7 +420,19 @@ class foldableNode(OpenMayaMPx.MPxNode):
         solution = manager.mainFold(numHinges)
 
         # Call the keyframe funtion
-        self.foldKeyframe(time, self.shape_traverse_order, solution, recreate_patches)
+        self.foldKeyframe(time, self.shapeTraverseOrder, solution, recreate_patches)
+
+    def restoreInitialState(self):
+        self.shapeTraverseOrder = self.defaultScaff.getPatches()
+        # fill new_translation and new_rotation with original values
+        for shape in self.shapeTraverseOrder:
+            transform = getObjectTransformFromDag(shape)
+            translate = transform.translation(OpenMaya.MSpace.kWorld)
+            rotate = cmds.getAttr(shape + ".rotate")
+
+            self.shape_reset_transforms[shape] = [translate, rotate]
+        # Reset back to original shapes so you can break them again
+        self.cleanUpSplitPatches()
 
     # compute
     def compute(self, plug, data):
