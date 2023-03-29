@@ -302,8 +302,11 @@ class foldableNode(OpenMayaMPx.MPxNode):
         return patchPivots
 
     # TODO: might be a member function of basic scaff
-    def rotatePatches(self, angle: float, rotAxis: List[float], shapeTraverseOrder: List[str]) -> List[OpenMaya.MFnTransform]:
+    def rotatePatches(self, angle: float, rotAxis: List[float], shapeTraverseOrder: List[str], isLeft: bool) -> List[OpenMaya.MFnTransform]:
         patchTransforms = []
+        if (isLeft):
+            angle = -angle
+
         for i in range(0, len(shapeTraverseOrder)):
             shape = shapeTraverseOrder[i]
             pTransform = getObjectTransformFromDag(shape)
@@ -406,6 +409,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
         startAngles = foldSolution.fold_transform.startAngles
         endAngles = foldSolution.fold_transform.endAngles
         numHinges = foldSolution.modification.num_hinges
+        isLeft = foldSolution.isleft
 
         t = time  # dictate that the end time is 90 frames hard coded for now
 
@@ -434,7 +438,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
         closestVertices, midPoints = self.findClosestMidpointsOnPatches(patchPivots, shapeTraverseOrder)
 
         # Perform rotations at once, but do not rotate the last patch
-        patchTransforms = self.rotatePatches(angle, rotAxis, shapeTraverseOrder)
+        patchTransforms = self.rotatePatches(angle, rotAxis, shapeTraverseOrder, isLeft)
 
         # Update location of closest vertices after rotation and update children translations
         self.updatePatchTranslations(closestVertices, midPoints, patchPivots, patchTransforms, shapeTraverseOrder)
