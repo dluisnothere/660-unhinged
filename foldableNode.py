@@ -282,9 +282,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
             transform = getObjectTransformFromDag(foldable_patch)
             shrinkFactor = (endPiece - startPiece) / numPieces
             cmds.setAttr(foldable_patch + ".scaleZ", shrinkFactor)
-            # shrinkVec = OpenMaya.MDoubleArray([1.0, 1.0, shrinkFactor], 3)
-            # transform.setScale(shrinkVec)
-
+            
     def generateNewPatches(self, originalPatch: str, numHinges: int) -> (List[str], List[List[List[float]]]):
         # Compute the new patch scale values based on original_patch's scale and num_patches
         # TODO: Hard coded for split in the x Direction, but need to be more general later on.
@@ -409,11 +407,12 @@ class foldableNode(OpenMayaMPx.MPxNode):
             print("Middle Point: {:.6f}, {:.6f}, {:.6f}".format(middlePoint[0], middlePoint[1], middlePoint[2]))
 
             midPoints.append(middlePoint)
+
             # Ensure the parent and child are actually connected
-            # if (i == len(shapeTraverseOrder) - 2):
-            #     # checkScaffoldConnectionTopBase(currentClosest, child)
-            # else:
-            # checkScaffoldConnection(childPivot, middlePoint)
+            if (i == len(shapeTraverseOrder) - 2):
+                checkScaffoldConnectionTopBase(currentClosest, child)
+            else:
+                checkScaffoldConnection(childPivot, middlePoint)
 
         return closestVertices, midPoints
 
