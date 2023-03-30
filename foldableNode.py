@@ -282,7 +282,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
             transform = getObjectTransformFromDag(foldable_patch)
             shrinkFactor = (endPiece - startPiece) / numPieces
             cmds.setAttr(foldable_patch + ".scaleZ", shrinkFactor)
-            
+
     def generateNewPatches(self, originalPatch: str, numHinges: int) -> (List[str], List[List[List[float]]]):
         # Compute the new patch scale values based on original_patch's scale and num_patches
         # TODO: Hard coded for split in the x Direction, but need to be more general later on.
