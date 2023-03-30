@@ -92,7 +92,6 @@ def getClosestVertices(vertices: dict, p: OpenMaya.MVector, n: int) -> list:
     distList.sort(key=lambda x: x[1])
     return distList[:n]
 
-
 def checkScaffoldConnection(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVector):
     dist = OpenMaya.MVector(pivot - middlepoint).length()
     print("Pivot distance to middle point: {:.6f}".format(dist))
@@ -100,6 +99,52 @@ def checkScaffoldConnection(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVect
         print("Error: Distance is not 0. Patches are not connected")
         exit(1)
 
+def checkScaffoldConnectionTopBase(parent, childPatch: str):
+    childVertices = getObjectVerticeNamesAndPositions(childPatch)
+
+    # Get child's global Y position
+    # TODO: make this more generic in the future
+    childY = float(childVertices["{}.vtx[0]".format(childPatch)][1])
+
+    # Get child's max x and min x
+    childMaxX = max(childVertices.values(), key=lambda x: x[0])[0]
+    childMinX = min(childVertices.values(), key=lambda x: x[0])[0]
+
+    # Get child's max z and min z
+    childMaxZ = max(childVertices.values(), key=lambda x: x[2])[2]
+    childMinZ = min(childVertices.values(), key=lambda x: x[2])[2]
+
+    # check if both of the parent's vertices are within the child's bounding box
+    connected = True
+    for element in parent:
+        vertex = element[2]
+        print("vertex: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+        if abs(vertex[1] - childY) > 0.0001:
+            print("Y values are not the same!")
+            print("Parent Y: {}".format(vertex[1]))
+            print("Child Y: {}".format(childY))
+            connected = False
+            break
+        if vertex[0] < childMinX:
+            print("X value is less than minX")
+            connected = False
+            break
+        if vertex[0] > childMaxX:
+            print("X value is larger than maxX")
+            connected = False
+            break
+        if vertex[2] < childMinZ:
+            print("Z value is smaller childMinZ")
+            connected = False
+            break
+        if vertex[2] > childMaxZ:
+            print("Z value is larger than childMaxZ")
+            connected = False
+            break
+
+    if not connected:
+        print("Error: Patches are not connected")
+        exit(1)
 
 class MayaHBasicScaffold():
     def __init__(self, basePatch: str, patches: List[str]):
@@ -214,26 +259,28 @@ class foldableNode(OpenMayaMPx.MPxNode):
         # Reset back to original shapes so you can break them again
         self.cleanUpSplitPatches()
 
-    def shrinkPatch(self, endPiece, numPieces, startPiece):
+    def shrinkPatch(self, shapeTraverseOrder, endPiece, numPieces, startPiece):
         print("shrinking patches...")
-        foldable_patch = "pFoldH"
-        middle = 1 / 2  # hard coded for now
+        for i in range(0, len(shapeTraverseOrder) - 1):
+            foldable_patch = shapeTraverseOrder[i]
+            middle = 1 / 2  # hard coded for now
 
-        # Translate patch to the new midpoint
-        pieceWidth = 1.0 / numPieces  # hard coded for now
-        newMiddle = (startPiece + endPiece) * pieceWidth / 2
+            # Translate patch to the new midpoint
+            pieceWidth = 1.0 / numPieces  # hard coded for now
+            newMiddle = (startPiece + endPiece) * pieceWidth / 2
 
-        print("newMiddle in Z direction: {}".format(newMiddle))
-        transform = getObjectTransformFromDag(foldable_patch)
-        translation = OpenMaya.MVector(0, 0, newMiddle) - OpenMaya.MVector(0, 0, middle)
-        transform.translateBy(translation, OpenMaya.MSpace.kWorld)
+            print("newMiddle in Z direction: {}".format(newMiddle))
+            transform = getObjectTransformFromDag(foldable_patch)
+            translation = OpenMaya.MVector(0, 0, newMiddle) - OpenMaya.MVector(0, 0, middle)
+            print("translation: {}".format(translation))
+            transform.translateBy(translation, OpenMaya.MSpace.kTransform)
 
-        # Shrink patch by numPieces in the hard coded z direction
-        transform = getObjectTransformFromDag(foldable_patch)
-        shrinkFactor = (endPiece - startPiece) / numPieces
-        cmds.setAttr("pFoldH.scaleZ", shrinkFactor)
-        # shrinkVec = OpenMaya.MDoubleArray([1.0, 1.0, shrinkFactor], 3)
-        # transform.setScale(shrinkVec)
+            # Shrink patch by numPieces in the hard coded z direction
+            transform = getObjectTransformFromDag(foldable_patch)
+            shrinkFactor = (endPiece - startPiece) / numPieces
+            cmds.setAttr(foldable_patch + ".scaleZ", shrinkFactor)
+            # shrinkVec = OpenMaya.MDoubleArray([1.0, 1.0, shrinkFactor], 3)
+            # transform.setScale(shrinkVec)
 
     def generateNewPatches(self, originalPatch: str, numHinges: int) -> (List[str], List[List[List[float]]]):
         # Compute the new patch scale values based on original_patch's scale and num_patches
@@ -331,6 +378,8 @@ class foldableNode(OpenMayaMPx.MPxNode):
         for i in range(0, len(shapeTraverseOrder) - 1):
             # For each parent patch, get their vertices.
             shape = shapeTraverseOrder[i]
+            child = shapeTraverseOrder[i + 1]
+
             bottomVertices = getObjectVerticeNamesAndPositions(shape)
 
             childPivot = patchPivots[i + 1]
@@ -358,7 +407,11 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
             midPoints.append(middlePoint)
             # Ensure the parent and child are actually connected
+            # if (i == len(shapeTraverseOrder) - 2):
+            #     # checkScaffoldConnectionTopBase(currentClosest, child)
+            # else:
             # checkScaffoldConnection(childPivot, middlePoint)
+
         return closestVertices, midPoints
 
     # TODO: might be a member function of basic scaff
@@ -386,6 +439,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
         # Get the new closest vertices without changing the original closest vertices
         newClosestVertices = closestVertices.copy()
         for i in range(0, len(patchPivots) - 1):
+            # Obtain child pivot so we can use it later for translation
             childPivot = patchPivots[i + 1]
             for j in range(0, len(newClosestVertices[
                                       i])):  # index and use information from updated vertex positions. There should only be 2 verts here
@@ -394,10 +448,13 @@ class foldableNode(OpenMayaMPx.MPxNode):
                 # Get the world position of the vertex and convert it to an MVector
                 vertexPoint = cmds.pointPosition(vertex_name, world=True)
                 vertexPoint = OpenMaya.MVector(vertexPoint[0], vertexPoint[1], vertexPoint[2])
-                dist = OpenMaya.MVector(childPivot - vertexPoint).length()
+
+                # Translate pivot to the closest vertex's mid point,b ut we don't want that
+                # dist = OpenMaya.MVector(childPivot - vertexPoint).length()
+
                 newClosestVertices[i][j] = (
-                    vertex_name, dist,
-                    vertexPoint)  # change my vertices to the new one, with such distance to the child pivot.
+                    vertex_name, 0, # not sure if dist is important anymore
+                    vertexPoint)
 
                 # Print new location and distance.
                 print("Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(newClosestVertices[i][j][0],
@@ -454,10 +511,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
         print("angle based on t: " + str(angle))
         print("t: " + str(t))
 
-        # TODO: Move to separate function
-        # Shrinks patches based on shrink params.
-        self.shrinkPatch(endPiece, numPieces, startPiece)
-
         # Update the list of shape_traverse_order to include the new patches where the old patch was
         if (recreatePatches and numHinges > 0):
             self.breakPatches(shapeTraverseOrder, numHinges)
@@ -479,6 +532,9 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
         # Update location of closest vertices after rotation and update children translations
         self.updatePatchTranslations(closestVertices, midPoints, patchPivots, patchTransforms, shapeTraverseOrder)
+
+        # Has to go at the end or something otherwise you'll get a space between top patch and the folds
+        self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece)
 
     # Fold test for non hard coded transforms: Part 1 of the logic from foldTest, calls foldKeyframe()
     def foldGeneric(self, time, numHinges):
@@ -556,7 +612,7 @@ def nodeInitializer():
         foldableNode.inTime = nAttr.create("inTime", "t", OpenMaya.MFnNumericData.kInt, 0)
         MAKE_INPUT(nAttr)
 
-        foldableNode.numHinges = nAttr.create("numHinges", "nH", OpenMaya.MFnNumericData.kInt, 1)
+        foldableNode.numHinges = nAttr.create("numHinges", "nH", OpenMaya.MFnNumericData.kInt, 3)
         MAKE_INPUT(nAttr)
 
         foldableNode.outPoint = tAttr.create("outPoint", "oP", OpenMaya.MFnArrayAttrsData.kDynArrayAttrs)
