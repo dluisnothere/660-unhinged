@@ -185,6 +185,9 @@ class foldableNode(OpenMayaMPx.MPxNode):
     # number of hinges
     inNumHinges = OpenMaya.MObject()
 
+    # maximum number of shrinks
+    inNumShrinks = OpenMaya.MObject()
+
     # TODO: make an OpenMaya.MObject() eventually
     inInitialPatches = []
 
@@ -537,7 +540,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
         self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece)
 
     # Fold test for non hard coded transforms: Part 1 of the logic from foldTest, calls foldKeyframe()
-    def foldGeneric(self, time, numHinges):
+    def foldGeneric(self, time, numHinges, numShrinks):
 
         # TODO: Should be input by the author
         self.inInitialPatches = ["pBaseBottomH", "pFoldH", "pBaseTopH"]
@@ -565,7 +568,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
         manager.generate_h_basic_scaff(patchVerticesList[0], patchVerticesList[1], patchVerticesList[2])
 
         # Generate the solution from the foldManager
-        solution = manager.mainFold(numHinges)
+        solution = manager.mainFold(numHinges, numShrinks)
 
         # Call the keyframe funtion
         self.foldKeyframe(time, self.shapeTraverseOrder, solution, recreatePatches)
@@ -590,11 +593,14 @@ class foldableNode(OpenMayaMPx.MPxNode):
         timeData = data.inputValue(self.inTime)
         time = timeData.asInt()
 
-        numHingeData = data.inputValue(self.numHinges)
+        numHingeData = data.inputValue(self.inNumHinges)
         numHinges = numHingeData.asInt()
 
+        numShrinks = data.inputValue(self.inNumShrinks) # TODO: Represents maximum allowed shrinks
+        numShrinks = numShrinks.asInt()
+
         # self.foldTest(time)
-        self.foldGeneric(time, numHinges)
+        self.foldGeneric(time, numHinges, numShrinks)
 
         data.setClean(plug)
 
@@ -612,7 +618,10 @@ def nodeInitializer():
         foldableNode.inTime = nAttr.create("inTime", "t", OpenMaya.MFnNumericData.kInt, 0)
         MAKE_INPUT(nAttr)
 
-        foldableNode.numHinges = nAttr.create("numHinges", "nH", OpenMaya.MFnNumericData.kInt, 3)
+        foldableNode.inNumHinges = nAttr.create("numHinges", "nH", OpenMaya.MFnNumericData.kInt, 3)
+        MAKE_INPUT(nAttr)
+
+        foldableNode.inNumShrinks = nAttr.create("numShrinks", "nS", OpenMaya.MFnNumericData.kInt, 4)
         MAKE_INPUT(nAttr)
 
         foldableNode.outPoint = tAttr.create("outPoint", "oP", OpenMaya.MFnArrayAttrsData.kDynArrayAttrs)
@@ -626,11 +635,13 @@ def nodeInitializer():
         # TODO:: add the attributes to the node and set up the
         #         attributeAffects (addAttribute, and attributeAffects)
         foldableNode.addAttribute(foldableNode.inTime)
-        foldableNode.addAttribute(foldableNode.numHinges)
+        foldableNode.addAttribute(foldableNode.inNumHinges)
+        foldableNode.addAttribute(foldableNode.inNumShrinks)
         foldableNode.addAttribute(foldableNode.outPoint)
 
         foldableNode.attributeAffects(foldableNode.inTime, foldableNode.outPoint)
-        foldableNode.attributeAffects(foldableNode.numHinges, foldableNode.outPoint)
+        foldableNode.attributeAffects(foldableNode.inNumHinges, foldableNode.outPoint)
+        foldableNode.attributeAffects(foldableNode.inNumShrinks, foldableNode.outPoint)
 
     except Exception as e:
         print(e)
