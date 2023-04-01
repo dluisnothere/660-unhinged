@@ -92,12 +92,14 @@ def getClosestVertices(vertices: dict, p: OpenMaya.MVector, n: int) -> list:
     distList.sort(key=lambda x: x[1])
     return distList[:n]
 
+
 def checkScaffoldConnection(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVector):
     dist = OpenMaya.MVector(pivot - middlepoint).length()
     print("Pivot distance to middle point: {:.6f}".format(dist))
     if dist > 0.0001:
         print("Error: Distance is not 0. Patches are not connected")
         exit(1)
+
 
 def checkScaffoldConnectionTopBase(parent, childPatch: str):
     childVertices = getObjectVerticeNamesAndPositions(childPatch)
@@ -146,6 +148,7 @@ def checkScaffoldConnectionTopBase(parent, childPatch: str):
         print("Error: Patches are not connected")
         exit(1)
 
+
 class MayaHBasicScaffold():
     def __init__(self, basePatch: str, patches: List[str]):
         self.basePatch = basePatch
@@ -171,6 +174,15 @@ class MayaHBasicScaffold():
             shapeVertices.append(list(vertices.values()))
 
         return shapeVertices
+
+
+class InputScaffold():
+    def __init__(self, patches: List[str]):
+        self.patches = patches
+        self.edges = []
+
+    def genEdges(self):
+        print("implement me!")
 
 
 # Node definition
@@ -319,7 +331,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
         new_transforms = []
         for i in range(0, len(newPatches)):
             newTranslate = [originalTranslation[0][0], originalPatchBottom + newPatchScale * (i + 0.5),
-                        originalTranslation[0][2]]
+                            originalTranslation[0][2]]
             newPatchPositions.append(newTranslate)
             cmds.setAttr(newPatches[i] + ".translate", newTranslate[0], newTranslate[1], newTranslate[2])
 
@@ -372,8 +384,8 @@ class foldableNode(OpenMayaMPx.MPxNode):
             print("Pivot: {:.6f}, {:.6f}, {:.6f}".format(pivot[0], pivot[1], pivot[2]))
         return patchPivots
 
-
-    def findClosestMidpointsOnPatches(self, patchPivots: List[OpenMaya.MPoint], shapeTraverseOrder: List[str]) -> (List[List], List[float]):
+    def findClosestMidpointsOnPatches(self, patchPivots: List[OpenMaya.MPoint], shapeTraverseOrder: List[str]) -> (
+    List[List], List[float]):
         closestVertices = []
         midPoints = []
         for i in range(0, len(shapeTraverseOrder) - 1):
@@ -409,6 +421,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
             midPoints.append(middlePoint)
 
             # Ensure the parent and child are actually connected
+            # TODO: generalize to T scaffolds as well
             if (i == len(shapeTraverseOrder) - 2):
                 checkScaffoldConnectionTopBase(currentClosest, child)
             else:
@@ -417,7 +430,8 @@ class foldableNode(OpenMayaMPx.MPxNode):
         return closestVertices, midPoints
 
     # TODO: might be a member function of basic scaff
-    def rotatePatches(self, angle: float, rotAxis: List[float], shapeTraverseOrder: List[str], isLeft: bool) -> List[OpenMaya.MFnTransform]:
+    def rotatePatches(self, angle: float, rotAxis: List[float], shapeTraverseOrder: List[str], isLeft: bool) -> List[
+        OpenMaya.MFnTransform]:
         patchTransforms = []
         if (isLeft):
             angle = -angle
@@ -437,7 +451,8 @@ class foldableNode(OpenMayaMPx.MPxNode):
             angle = -angle
         return patchTransforms
 
-    def updatePatchTranslations(self, closestVertices: List, midPoints: List, patchPivots: List, patchTransforms: List, shapeTraverseOrder: List[str]):
+    def updatePatchTranslations(self, closestVertices: List, midPoints: List, patchPivots: List, patchTransforms: List,
+                                shapeTraverseOrder: List[str]):
         # Get the new closest vertices without changing the original closest vertices
         newClosestVertices = closestVertices.copy()
         for i in range(0, len(patchPivots) - 1):
@@ -455,7 +470,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
                 # dist = OpenMaya.MVector(childPivot - vertexPoint).length()
 
                 newClosestVertices[i][j] = (
-                    vertex_name, 0, # not sure if dist is important anymore
+                    vertex_name, 0,  # not sure if dist is important anymore
                     vertexPoint)
 
                 # Print new location and distance.
@@ -499,9 +514,8 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
         # Shrinking variables
         startPiece = foldSolution.modification.range_start
-        endPiece = foldSolution.modification.range_end # non inclusive
+        endPiece = foldSolution.modification.range_end  # non inclusive
         numPieces = foldSolution.modification.num_pieces
-
 
         t = time  # dictate that the end time is 90 frames hard coded for now
 
@@ -557,12 +571,11 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
         else:
             # Reset the scene
-            # TODO: make more generic
             self.setUpGenericScene(self.shapeTraverseOrder, self.shapeBase)
 
         # Get the vertices of each patch in the list and create a FoldManager using it.
         patchVerticesList = self.defaultScaff.getAllPatchVertices()
-        patchVerticesList = np.array(patchVerticesList) # TODO: eventaully might not need this...
+        patchVerticesList = np.array(patchVerticesList)  # TODO: eventaully might not need this...
         manager = fold.FoldManager()
         manager.generate_h_basic_scaff(patchVerticesList[0], patchVerticesList[1], patchVerticesList[2])
 
@@ -571,7 +584,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
         # Call the keyframe funtion
         self.foldKeyframe(time, self.shapeTraverseOrder, solution, recreatePatches)
-
 
     # compute
     def compute(self, plug, data):
@@ -595,11 +607,11 @@ class foldableNode(OpenMayaMPx.MPxNode):
         numHingeData = data.inputValue(self.inNumHinges)
         numHinges = numHingeData.asInt()
 
-        numShrinks = data.inputValue(self.inNumShrinks) # TODO: Represents maximum allowed shrinks
+        numShrinks = data.inputValue(self.inNumShrinks)  # TODO: Represents maximum allowed shrinks
         numShrinks = numShrinks.asInt()
 
         # self.foldTest(time)
-        self.foldGeneric(time, numHinges, numShrinks)
+        # self.foldGeneric(time, numHinges, numShrinks)
 
         data.setClean(plug)
 

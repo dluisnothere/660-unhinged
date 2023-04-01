@@ -322,9 +322,10 @@ InputScaff: The full input scaff
 
 
 class InputScaff:
-    def __init__(self, patch_list):
+    def __init__(self, patch_list, edge_list):
         self.patch_list = patch_list
-        self.hinge_graph = None
+        self.edges = edge_list
+        self.hinge_graph = None # Gets created gen_hinge_graph
         self.mid_scaffs = []
 
         # debug purposes for ease of our test algorithm
@@ -364,8 +365,9 @@ Purpose is to serve as a mini inputScaffold for now.
 '''
 
 class FoldManager:
-    def __init__(self):
-        self.h_basic_scaff = None # For now a hard coded H scaffold
+    def __init__(self, input_scaff):
+        self.h_basic_scaff = None # TODO: For now a hard coded H scaffold
+        self.input_scaff
 
     def generate_h_basic_scaff(self, bottom_patch: list, fold_patch: list, top_patch: list):
         print("generate_h_basic_scaff...")
@@ -386,7 +388,7 @@ class FoldManager:
         # Experiment with alpha values
         alpha = 0.5
         cost1 = alpha * 0 / 1 + (1 - alpha) / 1
-        mod1 = Modification(nH, 0, 2, nS, cost1)
+        mod1 = Modification(nH, 0, 1, nS, cost1)
         patch_list = [self.h_basic_scaff.f_patch, self.h_basic_scaff.b_patch_low, self.h_basic_scaff.b_patch_high]
         fo = FoldOption(False, mod1, patch_list)
         fo.gen_fold_transform()
