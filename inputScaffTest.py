@@ -1,10 +1,14 @@
+import os
+import sys
+import random
 import math
 
-import maya.cmds as cmds
-import numpy as np
 import maya.OpenMaya as OpenMaya
-
+import maya.OpenMayaAnim as OpenMayaAnim
+import maya.OpenMayaMPx as OpenMayaMPx
+import maya.cmds as cmds
 import foldMain as fold
+import numpy as np
 from typing import Dict, List, Set
 
 
@@ -38,6 +42,7 @@ class MayaHBasicScaffold():
 # Returns a dictionary of names and positions in world space.
 def getObjectVerticeNamesAndPositions(name: str) -> Dict[str, List[float]]:
     # TODO: There are probably better ways by getting the vertex iterator.
+    print("Getting vertices for {}".format(name))
     vertex_count = cmds.polyEvaluate(name, vertex=True)
     vertices = {}
     for i in range(vertex_count):
@@ -99,6 +104,29 @@ def getObjectObjectFromDag(name: str) -> OpenMaya.MDagPath:
     print("returning transform dag path..")
     return transform_dag_path
 
+def isPolyPlane(obj):
+    # Create an MSelectionList object
+    transformDagPath = getObjectObjectFromDag(obj)
+
+    # Get the shape node
+    print("Getting shape node")
+    transformDagPath.extendToShape()
+
+    print("Checking if shape node is of type mesh")
+    # Check if the shape node is of type "mesh"
+    if transformDagPath.node().hasFn(OpenMaya.MFn.kMesh):
+        print("creating mesh")
+        # Create an MFnMesh function set
+        fnMesh = OpenMaya.MFnMesh(transformDagPath)
+
+        # Get the number of faces in the mesh
+        numFaces = fnMesh.numPolygons()
+
+        # If the mesh has only one face, it can be considered a polygonal plane
+        if numFaces == 1:
+            return True
+    return False
+
 def getPatchConnectivity(patches: List[str], pushDir: OpenMaya.MVector) -> List[List[str]]:
     # Test each patch for connectivity to other patches
     # First, only get the patches that are normal to the pushing direction called base patch
@@ -155,6 +183,7 @@ def getPatchConnectivity(patches: List[str], pushDir: OpenMaya.MVector) -> List[
             middlePoint = (closestVertices[0][2] + closestVertices[1][2]) / 2
 
             # Check if the middle point is close enough to the pivot
+            # TODO: might get scaffolds where they're not connected like this...
             status = checkScaffoldConnectionNoErr(pivot, middlePoint)
             if status:
                 edges.append([base, foldpatch])
@@ -162,15 +191,80 @@ def getPatchConnectivity(patches: List[str], pushDir: OpenMaya.MVector) -> List[
     print("Edges:")
     print(edges)
 
+    return edges
 
 
 class InputScaffold():
-    def __init__(self, patches: List[str]):
+    def __init__(self, patches: List[str], pushDir: OpenMaya.MVector):
+        self.pushDir = pushDir
         self.patches = patches
+        self.bases = []
+        self.foldables = []
         self.edges = []
 
-    def genEdges(self):
-        print("implement me!")
+    def genConnectivityInfo(self):
+        # Test each patch for connectivity to other patches
+        # First, only get the patches that are normal to the pushing direction called base patch
+        # For each base patch, test for connectivity against all other patches (foldable patches)
+        # If they are close enough to each other via check-scaffold connectivity, then add an edge between them in the form of
+        # [base_patch, foldable_patch]
+
+        for patch in self.patches:
+            # Get the surface normal of the patch in world space
+            print("getting surface normal for {}".format(patch))
+            planeDagPath = getObjectObjectFromDag(patch)
+            fnMesh = OpenMaya.MFnMesh(planeDagPath)
+
+            # Get the normal of the plane's first face (face index 0)
+            # Note: If the plane has multiple faces, specify the desired face index
+            normal = OpenMaya.MVector()
+            # Apparently the normal agument is the SECOND argument in this dumbass function
+            fnMesh.getPolygonNormal(0, normal, OpenMaya.MSpace.kWorld)
+
+            print("normal: {:.6f}, {:.6f}, {:.6f}".format(normal[0],
+                                                          normal[1],
+                                                          normal[2]))
+
+            # Get the dot product of normal and pushDir
+            dot = self.pushDir * normal
+            if (abs(abs(dot) - 1) < 0.0001):
+                # Parallel
+                self.bases.append(patch)
+            else:
+                self.foldables.append(patch)
+
+            print("basePatches")
+            print(self.bases)
+
+            print("foldablePatches")
+            print(self.foldables)
+
+        edges = []
+
+        # For every base in basePatches, test for connectivity with every foldable_patch
+        for base in self.bases:
+            for foldpatch in self.foldables:
+                # Since this is at the very beginning, checkScaffoldConnection should work as is
+                # Find pivot of base
+                pivot = getObjectTransformFromDag(base).rotatePivot(OpenMaya.MSpace.kWorld)
+
+                # find the closest vertices from fold to pivot
+                vertices = getObjectVerticeNamesAndPositions(foldpatch)
+                closestVertices = getClosestVertices(vertices, pivot, 2)
+
+                # Find the middle point of the closest vertices
+                middlePoint = (closestVertices[0][2] + closestVertices[1][2]) / 2
+
+                # Check if the middle point is close enough to the pivot
+                # TODO: might get scaffolds where they're not connected like this...
+                status = checkScaffoldConnectionNoErr(pivot, middlePoint)
+                if status:
+                    edges.append([base, foldpatch])
+
+        print("Edges:")
+        print(edges)
+
+        self.edges = edges
 
 
 def generateNewPatches(originalPatch: str, numHinges: int) -> (List[str], List[List[List[float]]]):
@@ -409,19 +503,22 @@ def foldKeyframe(time, shape_traverse_order: List[str], fold_solution):
 
 
 # Fold test for non hard coded transforms: Part 1 of the logic from foldTest
-def foldGeneric():
+def foldGeneric(selection: List[str]):
+    print("FOLD GENERIC ======================")
+    print("selection: {}".format(selection))
     pushAxis = [0, -1, 0] # TODO: make a parameter
 
-    shape_traverse_order = ["pFoldH", "pBaseTopH"] # make a list of shapes selected by user.
-    shape_bases = ["pBaseBottomH"]
+    shape_traverse_order = selection# ["pFoldMid", "pBaseTopMid", "pFoldMid2", "pBaseTopMid2", "pFoldMid3", "pBaseTopMid3"] # make a list of shapes selected by user.
+    # shape_bases = ["pBaseBottomMid"]
 
     shape_vertices = []
 
     # First insert the pBaseBottom's vertices into shape_vertices.
-    vertices_list = getObjectVerticeNamesAndPositions(shape_bases[0])
-    shape_vertices.append(list(vertices_list.values()))
+    # vertices_list = getObjectVerticeNamesAndPositions(shape_bases[0])
+    # shape_vertices.append(list(vertices_list.values()))
 
     # Repeat the procedure for the remaining patches
+    # now will include all shapes
     for shape in shape_traverse_order:
         print("Shape: {}".format(shape))
         vertices_list = getObjectVerticeNamesAndPositions(shape)
@@ -432,12 +529,15 @@ def foldGeneric():
     # print(shape_vertices)
 
     # Create input scaff
-    patchList = shape_bases
-    patchList.extend(shape_traverse_order)
+    # patchList = shape_bases
+    # patchList.extend(shape_traverse_order)
 
-    edges = getPatchConnectivity(patchList, OpenMaya.MVector(pushAxis[0], pushAxis[1], pushAxis[2]))
+    # edges = getPatchConnectivity(patchList, OpenMaya.MVector(pushAxis[0], pushAxis[1], pushAxis[2]))
+    # edges = getPatchConnectivity(shape_traverse_order, OpenMaya.MVector(pushAxis[0], pushAxis[1], pushAxis[2]))
 
-    # inputScaff = fold.InputScaff(patch_list)
+    inputScaff = InputScaffold(shape_traverse_order, OpenMaya.MVector(pushAxis[0], pushAxis[1], pushAxis[2]))
+    inputScaff.genConnectivityInfo()
+
     # Create a Fold Manager
     # manager = fold.FoldManager()
     # manager.generate_h_basic_scaff(shape_vertices[0], shape_vertices[1], shape_vertices[2])
@@ -446,5 +546,19 @@ def foldGeneric():
     # Call the keyframe funtion
     # foldKeyframe(60, shape_traverse_order, solution)
 
+sel = cmds.ls(selection=True)
 
-foldGeneric()
+# For each object in list, ensure it is a plane
+allPlanes = True
+for obj in sel:
+    print("Checking " + obj)
+    if isPolyPlane(obj):
+        print(obj + " is a plane")
+    else:
+        print(obj + " is NOT a plane")
+        allPlanes = False
+        break
+
+# TODO: add protection measures to make sure all inputs are planes
+if allPlanes:
+    foldGeneric(sel)
