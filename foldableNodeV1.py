@@ -158,59 +158,77 @@ def checkScaffoldConnectionTopBase(parent, childPatch: str):
         print("Error: Patches are not connected")
         exit(1)
 
-# def checkScaffoldConnectionNoErr(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVector) -> bool:
-#     dist = OpenMaya.MVector(pivot - middlepoint).length()
-#     print("Pivot distance to middle point: {:.6f}".format(dist))
-#     if dist > 0.0001:
-#         return False
-#     return True
+def checkScaffoldConnectionNoErr(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVector) -> bool:
+    dist = OpenMaya.MVector(pivot - middlepoint).length()
+    print("Pivot distance to middle point: {:.6f}".format(dist))
+    if dist > 0.0001:
+        return False
+    return True
+def getPatchConnectivity(patches: List[str], pushDir: OpenMaya.MVector) -> List[List[str]]:
+    # Test each patch for connectivity to other patches
+    # First, only get the patches that are normal to the pushing direction called base patch
+    # For each base patch, test for connectivity against all other patches (foldable patches)
+    # If they are close enough to each other via check-scaffold connectivity, then add an edge between them in the form of
+    # [base_patch, foldable_patch]
 
-def checkScaffoldConnectionBaseNoErr(base: str, foldable) -> bool:
-    print("CHECKING SCAFFOLD CONNECTION BASE...")
-    print("base: {}".format(base))
-    baseVertices = getObjectVerticeNamesAndPositions(base)
+    basePatches = []
+    foldablePatches = []
+    for patch in patches:
+        # Get the surface normal of the patch in world space
+        print("getting surface normal for {}".format(patch))
+        planeDagPath = getObjectObjectFromDag(patch)
+        fnMesh = OpenMaya.MFnMesh(planeDagPath)
 
-    # Get child's global Y position
-    # TODO: make this more generic in the future
-    baseY = float(baseVertices["{}.vtx[0]".format(base)][1])
+        # Get the normal of the plane's first face (face index 0)
+        # Note: If the plane has multiple faces, specify the desired face index
+        normal = OpenMaya.MVector()
+        # Apparently the normal agument is the SECOND argument in this dumbass function
+        fnMesh.getPolygonNormal(0, normal, OpenMaya.MSpace.kWorld)
 
-    # Get child's max x and min x
-    baseMaxX = max(baseVertices.values(), key=lambda x: x[0])[0]
-    baseMinX = min(baseVertices.values(), key=lambda x: x[0])[0]
+        print("normal: {:.6f}, {:.6f}, {:.6f}".format(normal[0],
+                                                      normal[1],
+                                                      normal[2]))
 
-    # Get child's max z and min z
-    baseMaxZ = max(baseVertices.values(), key=lambda x: x[2])[2]
-    baseMinZ = min(baseVertices.values(), key=lambda x: x[2])[2]
+        # Get the dot product of normal and pushDir
+        dot = pushDir * normal
+        if (abs(abs(dot) - 1) < 0.0001):
+            # Parallel
+            basePatches.append(patch)
+        else:
+            foldablePatches.append(patch)
 
-    # check if both of the parent's vertices are within the child's bounding box
-    connected = True
-    for element in foldable:
-        vertex = element[2]
-        print("verices in foldable closest to base: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
-        if abs(vertex[1] - baseY) > 0.0001:
-            print("Y values are not the same!")
-            print("Parent Y: {}".format(vertex[1]))
-            print("Child Y: {}".format(baseY))
-            connected = False
-            break
-        if vertex[0] < baseMinX:
-            print("X value is less than minX")
-            connected = False
-            break
-        if vertex[0] > baseMaxX:
-            print("X value is larger than maxX")
-            connected = False
-            break
-        if vertex[2] < baseMinZ:
-            print("Z value is smaller childMinZ")
-            connected = False
-            break
-        if vertex[2] > baseMaxZ:
-            print("Z value is larger than childMaxZ")
-            connected = False
-            break
+        print("basePatches")
+        print(basePatches)
 
-    return connected
+        print("foldablePatches")
+        print(foldablePatches)
+
+    edges = []
+
+    # For every base in basePatches, test for connectivity with every foldable_patch
+    for base in basePatches:
+        for foldpatch in foldablePatches:
+            # Since this is at the very beginning, checkScaffoldConnection should work as is
+            # Find pivot of base
+            pivot = getObjectTransformFromDag(base).rotatePivot(OpenMaya.MSpace.kWorld)
+
+            # find the closest vertices from fold to pivot
+            vertices = getObjectVerticeNamesAndPositions(foldpatch)
+            closestVertices = getClosestVertices(vertices, pivot, 2)
+
+            # Find the middle point of the closest vertices
+            middlePoint = (closestVertices[0][2] + closestVertices[1][2]) / 2
+
+            # Check if the middle point is close enough to the pivot
+            # TODO: might get scaffolds where they're not connected like this...
+            status = checkScaffoldConnectionNoErr(pivot, middlePoint)
+            if status:
+                edges.append([base, foldpatch])
+
+    print("Edges:")
+    print(edges)
+
+    return edges
 
 def isPolyPlane(obj):
     # Create an MSelectionList object
@@ -320,12 +338,12 @@ class InputScaffold():
                 vertices = getObjectVerticeNamesAndPositions(foldpatch)
                 closestVertices = getClosestVertices(vertices, pivot, 2)
 
-                # Check if the middle point is close enough to the pivot
+                # Find the middle point of the closest vertices
                 middlePoint = (closestVertices[0][2] + closestVertices[1][2]) / 2
 
+                # Check if the middle point is close enough to the pivot
                 # TODO: might get scaffolds where they're not connected like this...
-                status = checkScaffoldConnectionBaseNoErr(base, closestVertices)
-                # status = checkScaffoldConnectionNoErr(pivot, middlePoint)
+                status = checkScaffoldConnectionNoErr(pivot, middlePoint)
                 if status:
                     edges.append([base, foldpatch])
 
@@ -333,7 +351,6 @@ class InputScaffold():
         print(edges)
 
         self.edges = edges
-
 
 # Node definition
 class foldableNode(OpenMayaMPx.MPxNode):
@@ -352,7 +369,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
     # TODO: make an OpenMaya.MObject() eventually
     inInitialPatches = []
-    inStringList = OpenMaya.MObject() # TODO make into inInitialpatches
 
     # Dummy output plug that can be connected to the input of an instancer node
     # so our node can "live" somewhere.
@@ -758,16 +774,11 @@ class foldableNode(OpenMayaMPx.MPxNode):
         numHingeData = data.inputValue(self.inNumHinges)
         numHinges = numHingeData.asInt()
 
-        numShrinksData = data.inputValue(self.inNumShrinks)  # TODO: Represents maximum allowed shrinks
-        numShrinks = numShrinksData.asInt()
-
-        # stringListData = data.inputValue(self.inStringList)
-        # stringList = stringListData.asStringArray()
-
-        # print("stringList: " + len(stringList))
+        numShrinks = data.inputValue(self.inNumShrinks)  # TODO: Represents maximum allowed shrinks
+        numShrinks = numShrinks.asInt()
 
         # self.foldTest(time)
-        # self.foldGeneric(time, numHinges, numShrinks)
+        self.foldGeneric(time, numHinges, numShrinks)
 
         data.setClean(plug)
 
@@ -791,10 +802,6 @@ def nodeInitializer():
         foldableNode.inNumShrinks = nAttr.create("numShrinks", "nS", OpenMaya.MFnNumericData.kInt, 4)
         MAKE_INPUT(nAttr)
 
-        defaultList = OpenMaya.MFnStringArrayData().create()
-        foldableNode.inStringList = tAttr.create("initialPatches", "iP", OpenMaya.MFnStringArrayData.kStringArray, defaultList)
-        MAKE_INPUT(tAttr)
-
         foldableNode.outPoint = tAttr.create("outPoint", "oP", OpenMaya.MFnArrayAttrsData.kDynArrayAttrs)
         MAKE_OUTPUT(tAttr)
 
@@ -808,13 +815,11 @@ def nodeInitializer():
         foldableNode.addAttribute(foldableNode.inTime)
         foldableNode.addAttribute(foldableNode.inNumHinges)
         foldableNode.addAttribute(foldableNode.inNumShrinks)
-        foldableNode.addAttribute(foldableNode.inStringList)
         foldableNode.addAttribute(foldableNode.outPoint)
 
         foldableNode.attributeAffects(foldableNode.inTime, foldableNode.outPoint)
         foldableNode.attributeAffects(foldableNode.inNumHinges, foldableNode.outPoint)
         foldableNode.attributeAffects(foldableNode.inNumShrinks, foldableNode.outPoint)
-        foldableNode.attributeAffects(foldableNode.inStringList, foldableNode.outPoint)
 
     except Exception as e:
         print(e)

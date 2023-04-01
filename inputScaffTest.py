@@ -72,19 +72,66 @@ def getClosestVertices(vertices: dict, p: OpenMaya.MVector, n: int) -> list:
     return distList[:n]
 
 
-def checkScaffoldConnection(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVector):
-    dist = OpenMaya.MVector(pivot - middlepoint).length()
-    print("Pivot distance to middle point: {:.6f}".format(dist))
-    if dist > 0.0001:
-        print("Error: Distance is not 0. Patches are not connected")
-        exit(1)
-
+# def checkScaffoldConnection(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVector):
+#     dist = OpenMaya.MVector(pivot - middlepoint).length()
+#     print("Pivot distance to middle point: {:.6f}".format(dist))
+#     if dist > 0.0001:
+#         print("Error: Distance is not 0. Patches are not connected")
+#         exit(1)
+#
 def checkScaffoldConnectionNoErr(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVector) -> bool:
     dist = OpenMaya.MVector(pivot - middlepoint).length()
     print("Pivot distance to middle point: {:.6f}".format(dist))
     if dist > 0.0001:
         return False
     return True
+
+def checkScaffoldConnectionBaseNoErr(base: str, foldable) -> bool:
+    print("CHECKING SCAFFOLD CONNECTION BASE...")
+    print("base: {}".format(base))
+    baseVertices = getObjectVerticeNamesAndPositions(base)
+
+    # Get child's global Y position
+    # TODO: make this more generic in the future
+    baseY = float(baseVertices["{}.vtx[0]".format(base)][1])
+
+    # Get child's max x and min x
+    baseMaxX = max(baseVertices.values(), key=lambda x: x[0])[0]
+    baseMinX = min(baseVertices.values(), key=lambda x: x[0])[0]
+
+    # Get child's max z and min z
+    baseMaxZ = max(baseVertices.values(), key=lambda x: x[2])[2]
+    baseMinZ = min(baseVertices.values(), key=lambda x: x[2])[2]
+
+    # check if both of the parent's vertices are within the child's bounding box
+    connected = True
+    for element in foldable:
+        vertex = element[2]
+        print("verices in foldable closest to base: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+        if abs(vertex[1] - baseY) > 0.0001:
+            print("Y values are not the same!")
+            print("Parent Y: {}".format(vertex[1]))
+            print("Child Y: {}".format(baseY))
+            connected = False
+            break
+        if vertex[0] < baseMinX:
+            print("X value is less than minX")
+            connected = False
+            break
+        if vertex[0] > baseMaxX:
+            print("X value is larger than maxX")
+            connected = False
+            break
+        if vertex[2] < baseMinZ:
+            print("Z value is smaller childMinZ")
+            connected = False
+            break
+        if vertex[2] > baseMaxZ:
+            print("Z value is larger than childMaxZ")
+            connected = False
+            break
+
+    return connected
 
 def getObjectTransformFromDag(name: str) -> OpenMaya.MFnTransform:
     # print("Getting transform for {}".format(name))
@@ -126,72 +173,6 @@ def isPolyPlane(obj):
         if numFaces == 1:
             return True
     return False
-
-def getPatchConnectivity(patches: List[str], pushDir: OpenMaya.MVector) -> List[List[str]]:
-    # Test each patch for connectivity to other patches
-    # First, only get the patches that are normal to the pushing direction called base patch
-    # For each base patch, test for connectivity against all other patches (foldable patches)
-    # If they are close enough to each other via check-scaffold connectivity, then add an edge between them in the form of
-    # [base_patch, foldable_patch]
-
-    basePatches = []
-    foldablePatches = []
-    for patch in patches:
-        # Get the surface normal of the patch in world space
-        print("getting surface normal for {}".format(patch))
-        planeDagPath = getObjectObjectFromDag(patch)
-        fnMesh = OpenMaya.MFnMesh(planeDagPath)
-
-        # Get the normal of the plane's first face (face index 0)
-        # Note: If the plane has multiple faces, specify the desired face index
-        normal = OpenMaya.MVector()
-        # Apparently the normal agument is the SECOND argument in this dumbass function
-        fnMesh.getPolygonNormal(0, normal, OpenMaya.MSpace.kWorld)
-
-        print("normal: {:.6f}, {:.6f}, {:.6f}".format(normal[0],
-                                                      normal[1],
-                                                      normal[2]))
-
-        # Get the dot product of normal and pushDir
-        dot = pushDir * normal
-        if (abs(abs(dot) - 1) < 0.0001):
-            # Parallel
-            basePatches.append(patch)
-        else:
-            foldablePatches.append(patch)
-
-        print("basePatches")
-        print(basePatches)
-
-        print("foldablePatches")
-        print(foldablePatches)
-
-    edges = []
-
-    # For every base in basePatches, test for connectivity with every foldable_patch
-    for base in basePatches:
-        for foldpatch in foldablePatches:
-            # Since this is at the very beginning, checkScaffoldConnection should work as is
-            # Find pivot of base
-            pivot = getObjectTransformFromDag(base).rotatePivot(OpenMaya.MSpace.kWorld)
-
-            # find the closest vertices from fold to pivot
-            vertices = getObjectVerticeNamesAndPositions(foldpatch)
-            closestVertices = getClosestVertices(vertices, pivot, 2)
-
-            # Find the middle point of the closest vertices
-            middlePoint = (closestVertices[0][2] + closestVertices[1][2]) / 2
-
-            # Check if the middle point is close enough to the pivot
-            # TODO: might get scaffolds where they're not connected like this...
-            status = checkScaffoldConnectionNoErr(pivot, middlePoint)
-            if status:
-                edges.append([base, foldpatch])
-
-    print("Edges:")
-    print(edges)
-
-    return edges
 
 
 class InputScaffold():
@@ -252,12 +233,12 @@ class InputScaffold():
                 vertices = getObjectVerticeNamesAndPositions(foldpatch)
                 closestVertices = getClosestVertices(vertices, pivot, 2)
 
-                # Find the middle point of the closest vertices
+                # Check if the middle point is close enough to the pivot
                 middlePoint = (closestVertices[0][2] + closestVertices[1][2]) / 2
 
-                # Check if the middle point is close enough to the pivot
                 # TODO: might get scaffolds where they're not connected like this...
-                status = checkScaffoldConnectionNoErr(pivot, middlePoint)
+                status = checkScaffoldConnectionBaseNoErr(base, closestVertices)
+                # status = checkScaffoldConnectionNoErr(pivot, middlePoint)
                 if status:
                     edges.append([base, foldpatch])
 
@@ -411,7 +392,7 @@ def foldKeyframe(time, shape_traverse_order: List[str], fold_solution):
 
         midPoints.append(middlePoint)
         # Ensure the parent and child are actually connected
-        checkScaffoldConnection(childPivot, middlePoint)
+        # checkScaffoldConnection(childPivot, middlePoint)
 
     # Main Foldabilization Output generation
 
