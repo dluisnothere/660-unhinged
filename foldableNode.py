@@ -43,6 +43,16 @@ def getObjectTransformFromDag(name: str) -> OpenMaya.MFnTransform:
     status = selection_list.getDagPath(0, transform_dag_path)
     return OpenMaya.MFnTransform(transform_dag_path)
 
+def getObjectObjectFromDag(name: str) -> OpenMaya.MDagPath:
+    # Create an MSelectionList object to store the plane name
+    selection_list = OpenMaya.MSelectionList()
+    selection_list.add(name)
+    transform_dag_path = OpenMaya.MDagPath()
+    status = selection_list.getDagPath(0, transform_dag_path)
+
+    print("returning transform dag path..")
+    return transform_dag_path
+
 
 def setUpVertBasicScene():
     print("setUpVertScene: BASIC")
@@ -148,6 +158,100 @@ def checkScaffoldConnectionTopBase(parent, childPatch: str):
         print("Error: Patches are not connected")
         exit(1)
 
+def checkScaffoldConnectionNoErr(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVector) -> bool:
+    dist = OpenMaya.MVector(pivot - middlepoint).length()
+    print("Pivot distance to middle point: {:.6f}".format(dist))
+    if dist > 0.0001:
+        return False
+    return True
+def getPatchConnectivity(patches: List[str], pushDir: OpenMaya.MVector) -> List[List[str]]:
+    # Test each patch for connectivity to other patches
+    # First, only get the patches that are normal to the pushing direction called base patch
+    # For each base patch, test for connectivity against all other patches (foldable patches)
+    # If they are close enough to each other via check-scaffold connectivity, then add an edge between them in the form of
+    # [base_patch, foldable_patch]
+
+    basePatches = []
+    foldablePatches = []
+    for patch in patches:
+        # Get the surface normal of the patch in world space
+        print("getting surface normal for {}".format(patch))
+        planeDagPath = getObjectObjectFromDag(patch)
+        fnMesh = OpenMaya.MFnMesh(planeDagPath)
+
+        # Get the normal of the plane's first face (face index 0)
+        # Note: If the plane has multiple faces, specify the desired face index
+        normal = OpenMaya.MVector()
+        # Apparently the normal agument is the SECOND argument in this dumbass function
+        fnMesh.getPolygonNormal(0, normal, OpenMaya.MSpace.kWorld)
+
+        print("normal: {:.6f}, {:.6f}, {:.6f}".format(normal[0],
+                                                      normal[1],
+                                                      normal[2]))
+
+        # Get the dot product of normal and pushDir
+        dot = pushDir * normal
+        if (abs(abs(dot) - 1) < 0.0001):
+            # Parallel
+            basePatches.append(patch)
+        else:
+            foldablePatches.append(patch)
+
+        print("basePatches")
+        print(basePatches)
+
+        print("foldablePatches")
+        print(foldablePatches)
+
+    edges = []
+
+    # For every base in basePatches, test for connectivity with every foldable_patch
+    for base in basePatches:
+        for foldpatch in foldablePatches:
+            # Since this is at the very beginning, checkScaffoldConnection should work as is
+            # Find pivot of base
+            pivot = getObjectTransformFromDag(base).rotatePivot(OpenMaya.MSpace.kWorld)
+
+            # find the closest vertices from fold to pivot
+            vertices = getObjectVerticeNamesAndPositions(foldpatch)
+            closestVertices = getClosestVertices(vertices, pivot, 2)
+
+            # Find the middle point of the closest vertices
+            middlePoint = (closestVertices[0][2] + closestVertices[1][2]) / 2
+
+            # Check if the middle point is close enough to the pivot
+            # TODO: might get scaffolds where they're not connected like this...
+            status = checkScaffoldConnectionNoErr(pivot, middlePoint)
+            if status:
+                edges.append([base, foldpatch])
+
+    print("Edges:")
+    print(edges)
+
+    return edges
+
+def isPolyPlane(obj):
+    # Create an MSelectionList object
+    transformDagPath = getObjectObjectFromDag(obj)
+
+    # Get the shape node
+    print("Getting shape node")
+    transformDagPath.extendToShape()
+
+    print("Checking if shape node is of type mesh")
+    # Check if the shape node is of type "mesh"
+    if transformDagPath.node().hasFn(OpenMaya.MFn.kMesh):
+        print("creating mesh")
+        # Create an MFnMesh function set
+        fnMesh = OpenMaya.MFnMesh(transformDagPath)
+
+        # Get the number of faces in the mesh
+        numFaces = fnMesh.numPolygons()
+
+        # If the mesh has only one face, it can be considered a polygonal plane
+        if numFaces == 1:
+            return True
+    return False
 
 class MayaHBasicScaffold():
     def __init__(self, basePatch: str, patches: List[str]):
@@ -177,13 +281,76 @@ class MayaHBasicScaffold():
 
 
 class InputScaffold():
-    def __init__(self, patches: List[str]):
+    def __init__(self, patches: List[str], pushDir: OpenMaya.MVector):
+        self.pushDir = pushDir
         self.patches = patches
+        self.bases = []
+        self.foldables = []
         self.edges = []
 
-    def genEdges(self):
-        print("implement me!")
+    def genConnectivityInfo(self):
+        # Test each patch for connectivity to other patches
+        # First, only get the patches that are normal to the pushing direction called base patch
+        # For each base patch, test for connectivity against all other patches (foldable patches)
+        # If they are close enough to each other via check-scaffold connectivity, then add an edge between them in the form of
+        # [base_patch, foldable_patch]
 
+        for patch in self.patches:
+            # Get the surface normal of the patch in world space
+            print("getting surface normal for {}".format(patch))
+            planeDagPath = getObjectObjectFromDag(patch)
+            fnMesh = OpenMaya.MFnMesh(planeDagPath)
+
+            # Get the normal of the plane's first face (face index 0)
+            # Note: If the plane has multiple faces, specify the desired face index
+            normal = OpenMaya.MVector()
+            # Apparently the normal agument is the SECOND argument in this dumbass function
+            fnMesh.getPolygonNormal(0, normal, OpenMaya.MSpace.kWorld)
+
+            print("normal: {:.6f}, {:.6f}, {:.6f}".format(normal[0],
+                                                          normal[1],
+                                                          normal[2]))
+
+            # Get the dot product of normal and pushDir
+            dot = self.pushDir * normal
+            if (abs(abs(dot) - 1) < 0.0001):
+                # Parallel
+                self.bases.append(patch)
+            else:
+                self.foldables.append(patch)
+
+            print("basePatches")
+            print(self.bases)
+
+            print("foldablePatches")
+            print(self.foldables)
+
+        edges = []
+
+        # For every base in basePatches, test for connectivity with every foldable_patch
+        for base in self.bases:
+            for foldpatch in self.foldables:
+                # Since this is at the very beginning, checkScaffoldConnection should work as is
+                # Find pivot of base
+                pivot = getObjectTransformFromDag(base).rotatePivot(OpenMaya.MSpace.kWorld)
+
+                # find the closest vertices from fold to pivot
+                vertices = getObjectVerticeNamesAndPositions(foldpatch)
+                closestVertices = getClosestVertices(vertices, pivot, 2)
+
+                # Find the middle point of the closest vertices
+                middlePoint = (closestVertices[0][2] + closestVertices[1][2]) / 2
+
+                # Check if the middle point is close enough to the pivot
+                # TODO: might get scaffolds where they're not connected like this...
+                status = checkScaffoldConnectionNoErr(pivot, middlePoint)
+                if status:
+                    edges.append([base, foldpatch])
+
+        print("Edges:")
+        print(edges)
+
+        self.edges = edges
 
 # Node definition
 class foldableNode(OpenMayaMPx.MPxNode):
@@ -611,7 +778,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
         numShrinks = numShrinks.asInt()
 
         # self.foldTest(time)
-        # self.foldGeneric(time, numHinges, numShrinks)
+        self.foldGeneric(time, numHinges, numShrinks)
 
         data.setClean(plug)
 

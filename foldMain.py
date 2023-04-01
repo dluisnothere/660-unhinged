@@ -365,9 +365,9 @@ Purpose is to serve as a mini inputScaffold for now.
 '''
 
 class FoldManager:
-    def __init__(self, input_scaff):
+    def __init__(self):
         self.h_basic_scaff = None # TODO: For now a hard coded H scaffold
-        self.input_scaff
+        self.input_scaff = None
 
     def generate_h_basic_scaff(self, bottom_patch: list, fold_patch: list, top_patch: list):
         print("generate_h_basic_scaff...")
