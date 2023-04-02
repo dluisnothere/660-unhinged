@@ -72,13 +72,6 @@ def getClosestVertices(vertices: dict, p: OpenMaya.MVector, n: int) -> list:
     return distList[:n]
 
 
-# def checkScaffoldConnection(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVector):
-#     dist = OpenMaya.MVector(pivot - middlepoint).length()
-#     print("Pivot distance to middle point: {:.6f}".format(dist))
-#     if dist > 0.0001:
-#         print("Error: Distance is not 0. Patches are not connected")
-#         exit(1)
-#
 def checkScaffoldConnectionNoErr(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVector) -> bool:
     dist = OpenMaya.MVector(pivot - middlepoint).length()
     print("Pivot distance to middle point: {:.6f}".format(dist))

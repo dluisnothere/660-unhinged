@@ -154,6 +154,10 @@ class FoldTransform:
         # FoldConfig
         self.endAngles = a_en
 
+        # TODO: maybe move elsewhere
+        self.starTime = -1
+        self.endTime = -1
+
 
 """
 FoldOption: An object that contains a modification and the associated fold transform
@@ -164,7 +168,7 @@ class FoldOption:
     def __init__(self, isleft, mod, patch_list):
         self.modification = mod
         self.isleft = isleft
-        self.fold_transform = None
+        self.fold_transform: FoldTransform = None
         self.rot_axis = []
 
         # this patch list should be at least size 2
@@ -392,6 +396,10 @@ class FoldManager:
         patch_list = [self.h_basic_scaff.f_patch, self.h_basic_scaff.b_patch_low, self.h_basic_scaff.b_patch_high]
         fo = FoldOption(False, mod1, patch_list)
         fo.gen_fold_transform()
+
+        # TODO: hard coded for now
+        fo.fold_transform.startTime = 0
+        fo.fold_transform.endTime = 90
 
         return fo
 
