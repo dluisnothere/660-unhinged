@@ -311,6 +311,7 @@ class MayaHBasicScaffoldWrapper():
         self.newShapes = []
 
     def setUpGenericScene(self, upperPatches: List[str], basePatch: str):
+        print("Setting up Generic scene...")
         # TODO: theoretically we should only need to move things in the upper patches
         # Get the transforms for each item in upper patches
         transforms = []
@@ -335,7 +336,10 @@ class MayaHBasicScaffoldWrapper():
     def restoreInitialState(self):
         # Sets the shapeTraverseOrder to the original scaff's patches
         # Sets
+        print("Restoring Initial State...")
         self.shapeTraverseOrder = self.getPatches()
+        print("restored Patches: ")
+        print(self.shapeTraverseOrder)
 
         # Clears self.shapeResetTransforms
         self.shapeResetTransforms = {}
@@ -439,11 +443,21 @@ class MayaHBasicScaffoldWrapper():
         for patch in foldablePatches:
             cmds.setAttr(patch + ".visibility", False)
 
+        print("break patches called")
         for j in range(0, len(shapeTraverseOrder) - 1):  # every patch except last guy is foldable
             foldablePatch = shapeTraverseOrder[
                 j]  # TODO: make more generic, currently assumes foldable patch is at the center
+
+            print("debugging for existence: breakPatches: 447 ALREADY DOESN'T EXIST")
+            debugOrigScaleX = cmds.getAttr(foldablePatch + ".scaleX")
+            print("debugOriginalScaleX: " + str(debugOrigScaleX))
+
             shapeTraverseOrder.remove(foldablePatch)
             del self.shapeResetTransforms[foldablePatch]
+
+            print("debugging for existence: breakPatches: 454 ALREADY DOESN'T EXIST")
+            debugOrigScaleX = cmds.getAttr(foldablePatch + ".scaleX")
+            print("debugOriginalScaleX: " + str(debugOrigScaleX))
 
             newPatches, newTransforms = self.generateNewPatches(foldablePatch, numHinges)
 
@@ -616,6 +630,11 @@ class MayaHBasicScaffoldWrapper():
         print("angle based on t: " + str(angle))
         print("t: " + str(t))
 
+        # print("debugging for existence: foldKeyframe, assume it's in index 0: ALREADY DOESN'T EXIST")
+        # print("shapeTraverseOrder: " + str(shapeTraverseOrder))
+        # debugOrigScaleX = cmds.getAttr(shapeTraverseOrder[0] + ".scaleX")
+        # print("debugOriginalScaleX: " + str(debugOrigScaleX))
+
         # Update the list of shape_traverse_order to include the new patches where the old patch was
         if (recreatePatches and numHinges > 0):
             self.breakPatches(shapeTraverseOrder, numHinges)
@@ -656,6 +675,15 @@ class MayaHBasicScaffoldWrapper():
                 # TODO: might make it so that it doesn't even translate after endTime but not sure.
                 time = endTime
 
+            # if (len(self.shapeTraverseOrder) != 0):
+            #     print("debugging for existence: foldGeneric 675, assume it's in index 0")
+            #     print("shapeTraverseOrder: " + str(self.shapeTraverseOrder))
+            #     debugOrigScaleX = cmds.getAttr(self.shapeTraverseOrder[0] + ".scaleX")
+            #     print("debugOriginalScaleX: " + str(debugOrigScaleX))
+
+            print("BasicScaffold's patches during foldGeneric: CHANGED ALREALDY")
+            print(self.getPatches())
+
             self.inInitialPatches = self.getPatchesIncludeBase()
 
             # For now we create an input scaffold with allPatches and call genConnectivityInfo on it
@@ -669,6 +697,12 @@ class MayaHBasicScaffoldWrapper():
             # No need to reset the scene if it hasn't been changed yet.
 
             # recreatePatches = (self.num_hinges != numHinges)
+            # if (len(self.shapeTraverseOrder) != 0):
+            #     print("debugging for existence: foldGeneric, assume it's in index 0: EXISTS HERE.")
+            #     print("shapeTraverseOrder: " + str(self.shapeTraverseOrder))
+            #     debugOrigScaleX = cmds.getAttr(self.shapeTraverseOrder[0] + ".scaleX")
+            #     print("debugOriginalScaleX: " + str(debugOrigScaleX))
+
             if (len(self.shapeTraverseOrder) == 0 or recreatePatches):
                 # self.num_hinges = numHinges
                 self.restoreInitialState()
@@ -694,14 +728,6 @@ class MayaHBasicScaffoldWrapper():
 
 
 class MayaInputScaffoldWrapper():
-    # TODO: Figure out when this is gonna called
-    basicScaffolds: List[MayaHBasicScaffoldWrapper] = []
-
-    # TODO: the object from fold.InputScaff
-    inputScaffold = None
-
-    # TODO: may need a mid level scaffold
-
     def __init__(self, patches: List[str], pushAxis: OpenMaya.MVector, nH: int, nS: int):
         self.pushAxis = pushAxis
         self.patches = patches
@@ -710,6 +736,11 @@ class MayaInputScaffoldWrapper():
         self.edges = []
         self.maxHinges = nH
         self.shrinks = nS
+
+        self.inputScaffold = None
+        self.basicScaffolds: List[MayaHBasicScaffoldWrapper] = []
+
+        print("Length of basicScaffolds on init: " + str(len(self.basicScaffolds)))
 
     def getPatches(self) -> List[str]:
         return self.patches
@@ -796,7 +827,6 @@ class MayaInputScaffoldWrapper():
         # TODO: assume list of basic scaffolds is not sorted in any way
         print("folding...")
         for bScaff in self.basicScaffolds:
-            print("folding basic scaffold: {}".format(bScaff))
             bScaff.foldGeneric(time, recreatePatches)
 
 
@@ -884,17 +914,39 @@ class foldableNode(OpenMayaMPx.MPxNode):
             self.prevPushAxis = pushAxis
 
             # Create new MayaInputScaffoldWrapper
+            self.defaultInputScaffWrapper = None
             self.defaultInputScaffWrapper = MayaInputScaffoldWrapper(patches, OpenMaya.MVector(pushAxis[0], pushAxis[1], pushAxis[2]), numHinges, numShrinks)
+
+            print("NUMBER OF BASIC SCAFFS IN INPUT SCAFF 923: why is it already 1?? SUS POINT")
+            print(len(self.defaultInputScaffWrapper.basicScaffolds))
+
             self.defaultInputScaffWrapper.genConnectivityInfo()
             self.defaultInputScaffWrapper.genInputScaffold()
+
+            print("InputScaff's patches right after creation")
+            print(self.defaultInputScaffWrapper.getPatches())
 
             # For now just hard code the basic scaffold in the input scaffold
             basicScaff = MayaHBasicScaffoldWrapper(patches[0], patches[1:], OpenMaya.MVector(pushAxis[0], pushAxis[1], pushAxis[2]), numHinges, numShrinks)
 
-            self.defaultInputScaffWrapper.basicScaffolds.append(basicScaff)
+            print("BasicScaff's patches right after creation")
+            print(basicScaff.getPatches())
+
+            print("NUMBER OF BASIC SCAFFS IN INPUT SCAFF 938: why is it already 1?? SUS POINT")
+            print(len(self.defaultInputScaffWrapper.basicScaffolds))
+
+            self.defaultInputScaffWrapper.basicScaffolds.append(basicScaff) # this appends a copy of basicScaff
+
+            print("BasicScaff's patches right after appending to input scaff")
+            print(self.defaultInputScaffWrapper.basicScaffolds[0].getPatches())
+
             self.defaultInputScaffWrapper.genFoldSolutions()
 
+            print("BasicScaff's patches right after GenFoldSolutions: ALREADY BAD")
+            print(self.defaultInputScaffWrapper.basicScaffolds[0].getPatches())
+
             recreatePatches = True
+
 
         # always perform this step regardless
         self.defaultInputScaffWrapper.fold(time, recreatePatches)
