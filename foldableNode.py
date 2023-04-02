@@ -161,7 +161,6 @@ def checkScaffoldConnectionTopBase(parent, childPatch: str):
 
 def checkScaffoldConnectionBaseNoErr(base: str, foldable) -> bool:
     print("CHECKING SCAFFOLD CONNECTION BASE...")
-    print("base: {}".format(base))
     baseVertices = getObjectVerticeNamesAndPositions(base)
 
     # Get child's global Y position
@@ -294,6 +293,11 @@ class MayaHBasicScaffoldWrapper():
         return shapeVertices
 
     def cleanUpSplitPatches(self):
+        print("cleaning up split patches...")
+        print("object calling split Patches:")
+        print(self)
+
+        print("new shapes: {}".format(self.newShapes))
         for i in range(0, len(self.newShapes)):
             cmds.delete(self.newShapes[i])
 
@@ -449,6 +453,11 @@ class MayaHBasicScaffoldWrapper():
                 # Keep track of the new patches just created so we can delete it on the next iteration
                 self.newShapes.append(newPatches[i])
 
+        print("the object that calls breakPatches:")
+        print(self)
+        print("state of newShapes after breakPatches")
+        print(len(self.newShapes))
+
     def getPatchPivots(self, shapeTraverseOrder: List[str]) -> List[OpenMaya.MPoint]:
         patchPivots = []
         for shape in shapeTraverseOrder:
@@ -496,6 +505,7 @@ class MayaHBasicScaffoldWrapper():
             # Ensure the parent and child are actually connected
             # TODO: generalize to T scaffolds as well
             if (i == len(shapeTraverseOrder) - 2):
+                # TODO: generalize to the one without the error
                 checkScaffoldConnectionTopBase(currentClosest, child)
             else:
                 checkScaffoldConnection(childPivot, middlePoint)
@@ -517,8 +527,6 @@ class MayaHBasicScaffoldWrapper():
                 break
 
             q = OpenMaya.MQuaternion(math.radians(angle), OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2]))
-            print("angle" + str(angle))
-            print("q: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(q[0], q[1], q[2], q[3]))
             pTransform.rotateBy(q, OpenMaya.MSpace.kTransform)
 
             angle = -angle
@@ -689,8 +697,6 @@ class MayaInputScaffoldWrapper():
         self.inputScaffold = None
         self.basicScaffolds: List[MayaHBasicScaffoldWrapper] = []
 
-        print("Length of basicScaffolds on init: " + str(len(self.basicScaffolds)))
-
     def getPatches(self) -> List[str]:
         return self.patches
 
@@ -703,7 +709,7 @@ class MayaInputScaffoldWrapper():
 
         for patch in self.patches:
             # Get the surface normal of the patch in world space
-            print("getting surface normal for {}".format(patch))
+            # print("getting surface normal for {}".format(patch))
             planeDagPath = getObjectObjectFromDag(patch)
             fnMesh = OpenMaya.MFnMesh(planeDagPath)
 
@@ -713,9 +719,9 @@ class MayaInputScaffoldWrapper():
             # Apparently the normal agument is the SECOND argument in this dumbass function
             fnMesh.getPolygonNormal(0, normal, OpenMaya.MSpace.kWorld)
 
-            print("normal: {:.6f}, {:.6f}, {:.6f}".format(normal[0],
-                                                          normal[1],
-                                                          normal[2]))
+            # print("normal: {:.6f}, {:.6f}, {:.6f}".format(normal[0],
+            #                                               normal[1],
+            #                                               normal[2]))
 
             # Get the dot product of normal and pushDir
             dot = self.pushAxis * normal
@@ -725,11 +731,11 @@ class MayaInputScaffoldWrapper():
             else:
                 self.foldables.append(patch)
 
-            print("basePatches")
-            print(self.bases)
-
-            print("foldablePatches")
-            print(self.foldables)
+            # print("basePatches")
+            # print(self.bases)
+            #
+            # print("foldablePatches")
+            # print(self.foldables)
 
         edges = []
 
@@ -758,6 +764,10 @@ class MayaInputScaffoldWrapper():
 
         self.edges = edges
 
+    def cleanUpSplitPatches(self):
+        print("InputScaff: cleaning up split patches...")
+        for bScaff in self.basicScaffolds:
+            bScaff.cleanUpSplitPatches()
     def genInputScaffold(self):
         # TODO: not super important yet
         print("genInputScaffold: Implement me!")
@@ -861,6 +871,10 @@ class foldableNode(OpenMayaMPx.MPxNode):
             self.prevNumHinges = numHinges
             self.prevShrinks = numShrinks
             self.prevPushAxis = pushAxis
+
+            # Current Scaffolds should clear their patches from the scene, if there is one
+            if (self.defaultInputScaffWrapper != None):
+                self.defaultInputScaffWrapper.cleanUpSplitPatches()
 
             # Create new MayaInputScaffoldWrapper
             self.defaultInputScaffWrapper = None
