@@ -425,8 +425,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
     def restoreInitialState(self):
         # Sets the shapeTraverseOrder to the original scaff's patches
         self.shapeTraverseOrder = self.defaultScaff.getPatches()
-        print("restored Patches: ")
-        print(self.shapeTraverseOrder)
 
         # Clears self.shapeResetTransforms
         self.shapeResetTransforms = {}
@@ -700,26 +698,26 @@ class foldableNode(OpenMayaMPx.MPxNode):
         if (recreatePatches and numHinges > 0):
             self.breakPatches(shapeTraverseOrder, numHinges)
 
-        # # Moved from the recreate_patches condition because we always want this to be visible if no hinges
-        # # TODO: ventually move this to a better place
-        # if (numHinges == 0):
-        #     # set middle patch to be visible
-        #     cmds.setAttr(shapeTraverseOrder[0] + ".visibility", 1)
-        #
-        # # Loop through the patches and get all of their pivots.
-        # patchPivots = self.getPatchPivots(shapeTraverseOrder)
-        #
-        # # Find the closest vertices to the patch pivots and calculate the midPoints, also check scaff is connected
-        # closestVertices, midPoints = self.findClosestMidpointsOnPatches(patchPivots, shapeTraverseOrder)
-        #
-        # # Perform rotations at once, but do not rotate the last patch
-        # patchTransforms = self.rotatePatches(angle, rotAxis, shapeTraverseOrder, isLeft)
-        #
-        # # Update location of closest vertices after rotation and update children translations
-        # self.updatePatchTranslations(closestVertices, midPoints, patchPivots, patchTransforms, shapeTraverseOrder)
-        #
-        # # Has to go at the end or something otherwise you'll get a space between top patch and the folds
-        # self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece)
+        # Moved from the recreate_patches condition because we always want this to be visible if no hinges
+        # TODO: ventually move this to a better place
+        if (numHinges == 0):
+            # set middle patch to be visible
+            cmds.setAttr(shapeTraverseOrder[0] + ".visibility", 1)
+
+        # Loop through the patches and get all of their pivots.
+        patchPivots = self.getPatchPivots(shapeTraverseOrder)
+
+        # Find the closest vertices to the patch pivots and calculate the midPoints, also check scaff is connected
+        closestVertices, midPoints = self.findClosestMidpointsOnPatches(patchPivots, shapeTraverseOrder)
+
+        # Perform rotations at once, but do not rotate the last patch
+        patchTransforms = self.rotatePatches(angle, rotAxis, shapeTraverseOrder, isLeft)
+
+        # Update location of closest vertices after rotation and update children translations
+        self.updatePatchTranslations(closestVertices, midPoints, patchPivots, patchTransforms, shapeTraverseOrder)
+
+        # Has to go at the end or something otherwise you'll get a space between top patch and the folds
+        self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece)
 
     # Fold test for non hard coded transforms: Part 1 of the logic from foldTest, calls foldKeyframe()
     def foldGeneric(self, time, numHinges, numShrinks):
