@@ -159,14 +159,6 @@ def checkScaffoldConnectionTopBase(parent, childPatch: str):
         print("Error: Patches are not connected")
         exit(1)
 
-
-# def checkScaffoldConnectionNoErr(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVector) -> bool:
-#     dist = OpenMaya.MVector(pivot - middlepoint).length()
-#     print("Pivot distance to middle point: {:.6f}".format(dist))
-#     if dist > 0.0001:
-#         return False
-#     return True
-
 def checkScaffoldConnectionBaseNoErr(base: str, foldable) -> bool:
     print("CHECKING SCAFFOLD CONNECTION BASE...")
     print("base: {}".format(base))
@@ -240,38 +232,10 @@ def isPolyPlane(obj):
 
 
 class MayaHBasicScaffoldWrapper():
-    inInitialPatches = []
-
-    # The non base patches of the H scaff
-    shapeTraverseOrder: List[str] = []
-    shapeBase = []
-    shapeResetTransforms = {}
-
-    '''
-    Basic scaffold peek:
-    - basePatches: the base patch
-    - foldablePatch: foldable patch
-    - foldOption: list of fold solutions
-        - foldTransform: 
-            - startAngles
-            - endAngles
-            - startTime
-            - endTime
-        - Modifcation
-        - isLeft
-        - rotationalAxis
-    
-    '''
-    basicScaffold = None
-
-    # TODO: for now, use FoldManager instead of basicScaffold to output hard coded results
-    foldManager = None
-    foldManagerOption = None
 
     def __init__(self, basePatch: str, patches: List[str], pushAxis: OpenMaya.MVector, maxHinges: int, shrinks: int):
         self.basePatch = basePatch
         self.patches = patches
-        self.shapeTraverseOrder = []
 
         self.pushAxis = pushAxis
 
@@ -279,6 +243,32 @@ class MayaHBasicScaffoldWrapper():
         self.shrinks = shrinks
 
         self.newShapes = []
+
+        self.inInitialPatches = []
+        self.shapeTraverseOrder: List[str] = []
+        self.shapeBase = []
+        self.shapeResetTransforms = {}
+
+        '''
+        Basic scaffold peek:
+        - basePatches: the base patch
+        - foldablePatch: foldable patch
+        - foldOption: list of fold solutions
+            - foldTransform: 
+                - startAngles
+                - endAngles
+                - startTime
+                - endTime
+            - Modifcation
+            - isLeft
+            - rotationalAxis
+
+        '''
+        self.basicScaffold: fold.HBasicScaff = None
+
+        # TODO: for now, use FoldManager instead of basicScaffold to output hard coded results
+        self.foldManager: fold.FoldManager = None
+        self.foldManagerOption: fold.FoldOption = None
 
 
     def getBasePatch(self) -> str:
