@@ -298,6 +298,48 @@ class FoldOption:
             else:
                 raise Exception("FoldOption::conflicts_with: Not both HBasicScaff")
 
+    def get_patch_width_length_bottom(self, norm, rotAxis, minX, maxX, minY, maxY, minZ, maxZ):
+        params = {
+            Axis.X: {
+                Axis.Y: {
+                    'patch_width': maxY - minY,
+                    'patch_length': maxZ - minZ,
+                    'bottom_verts': [[maxX, maxY, minZ], [maxX, minY, minZ]]
+                },
+                Axis.Z: {
+                    'patch_width': maxZ - minZ,
+                    'patch_length': maxY - minY,
+                    'bottom_verts': [[maxX, minY, minZ], [maxX, minY, maxZ]]
+                }
+            },
+            Axis.Y: {
+                Axis.X: {
+                    'patch_width': maxX - minX,
+                    'patch_length': maxZ - minZ,
+                    'bottom_verts': [[minX, maxY, minZ], [maxX, maxY, minZ]]
+                },
+                Axis.Z: {
+                    'patch_width': maxZ - minZ,
+                    'patch_length': maxX - minX,
+                    'bottom_verts': [[minX, maxY, minZ], [minX, maxY, maxZ]]
+                }
+            },
+            Axis.Z: {
+                Axis.X: {
+                    'patch_width': maxX - minX,
+                    'patch_length': maxY - minY,
+                    'bottom_verts': [[minX, maxY, minZ], [maxX, maxY, minZ]]
+                },
+                Axis.Y: {
+                    'patch_width': maxY - minY,
+                    'patch_length': maxX - minX,
+                    'bottom_verts': [[minX, maxY, minZ], [minX, minY, minZ]]
+                }
+            }
+        }
+        return params.get(norm, {}).get(rotAxis, None)
+
+
     def calc_projected_region(self, rotAxis: List[float]) -> List[List[float]]:
         # calculates the projected region of the patch after a modification is applied
         # returns a list of 4 points
@@ -316,58 +358,72 @@ class FoldOption:
 
         norm = f_patch.calc_normal()
 
-        if (norm == Axis.X):
-            # in the y z plane
-            if (rotAxis == Axis.Y):
-                patchWidth = pMaxY - pMinY
-                patchLength = pMaxZ - pMinZ
+        result = self.get_patch_width_length_bottom(norm, rotAxis, pMinX, pMaxX, pMinY, pMaxY, pMinZ, pMaxZ)
 
-                # Obtain its "bottom" two vertices
-                bottomVerts = [[pMaxX, pMaxY, pMinZ], [pMaxX, pMinY, pMinZ]]
-            elif (rotAxis == Axis.Z):
-                patchWidth = pMaxZ - pMinZ
-                patchLength = pMaxY - pMinY
+        if result is None:
+            raise Exception("Invalid rotation axis... Returning")
 
-                # Obtain its "bottom" two vertices
-                bottomVerts = [[pMaxX, pMinY, pMinZ], [pMaxX, pMinY, pMaxZ]]
-            else:
-                raise Exception("Invalid rotation axis... Returning")
+        patchWidth = result['patch_width']
+        patchLength = result['patch_length']
+        bottomVerts = result['bottom_verts']
 
-        if (norm == Axis.Y):
-            # in the x z plane
-            if (rotAxis == Axis.X):
-                patchWidth = pMaxX - pMinX
-                patchLength = pMaxZ - pMinZ
+        print("PatchWidth: " + str(patchWidth))
+        print("PatchLength: " + str(patchLength))
+        print("BottomVerts: ")
+        print(bottomVerts)
 
-                # obtain two bottom vertices
-                bottomVerts = [[pMinX, pMaxY, pMinZ], [pMaxX, pMaxY, pMinZ]]
-
-            elif (rotAxis == Axis.Z):
-                patchWidth = pMaxZ - pMinZ
-                patchLength = pMaxX - pMinX
-
-                # obtain two bottom vertices
-                bottomVerts = [[pMinX, pMaxY, pMinZ], [pMinX, pMaxY, pMaxZ]]
-
-            else:
-                raise Exception("Invalid rotation axis... Returning")
-
-        if (norm == Axis.Z):
-            # in the x y plane
-            if (rotAxis == Axis.X):
-                patchWidth = pMaxX - pMinX
-                patchLength = pMaxY - pMinY
-
-                # obtain two bottom vertices
-                bottomVerts = [[pMinX, pMaxY, pMinZ], [pMaxX, pMaxY, pMinZ]]
-            elif (rotAxis == Axis.Y):
-                patchWidth = pMaxY - pMinY
-                patchLength = pMaxX - pMinX
-
-                # obtain two bottom vertices
-                bottomVerts = [[pMinX, pMaxY, pMinZ], [pMinX, pMinY, pMinZ]]
-            else:
-                raise Exception("Invalid rotation axis... Returning")
+        # if (norm == Axis.X):
+        #     # in the y z plane
+        #     if (rotAxis == Axis.Y):
+        #         patchWidth = pMaxY - pMinY
+        #         patchLength = pMaxZ - pMinZ
+        #
+        #         # Obtain its "bottom" two vertices
+        #         bottomVerts = [[pMaxX, pMaxY, pMinZ], [pMaxX, pMinY, pMinZ]]
+        #     elif (rotAxis == Axis.Z):
+        #         patchWidth = pMaxZ - pMinZ
+        #         patchLength = pMaxY - pMinY
+        #
+        #         # Obtain its "bottom" two vertices
+        #         bottomVerts = [[pMaxX, pMinY, pMinZ], [pMaxX, pMinY, pMaxZ]]
+        #     else:
+        #         raise Exception("Invalid rotation axis... Returning")
+        #
+        # if (norm == Axis.Y):
+        #     # in the x z plane
+        #     if (rotAxis == Axis.X):
+        #         patchWidth = pMaxX - pMinX
+        #         patchLength = pMaxZ - pMinZ
+        #
+        #         # obtain two bottom vertices
+        #         bottomVerts = [[pMinX, pMaxY, pMinZ], [pMaxX, pMaxY, pMinZ]]
+        #
+        #     elif (rotAxis == Axis.Z):
+        #         patchWidth = pMaxZ - pMinZ
+        #         patchLength = pMaxX - pMinX
+        #
+        #         # obtain two bottom vertices
+        #         bottomVerts = [[pMinX, pMaxY, pMinZ], [pMinX, pMaxY, pMaxZ]]
+        #
+        #     else:
+        #         raise Exception("Invalid rotation axis... Returning")
+        #
+        # if (norm == Axis.Z):
+        #     # in the x y plane
+        #     if (rotAxis == Axis.X):
+        #         patchWidth = pMaxX - pMinX
+        #         patchLength = pMaxY - pMinY
+        #
+        #         # obtain two bottom vertices
+        #         bottomVerts = [[pMinX, pMaxY, pMinZ], [pMaxX, pMaxY, pMinZ]]
+        #     elif (rotAxis == Axis.Y):
+        #         patchWidth = pMaxY - pMinY
+        #         patchLength = pMaxX - pMinX
+        #
+        #         # obtain two bottom vertices
+        #         bottomVerts = [[pMinX, pMaxY, pMinZ], [pMinX, pMinY, pMinZ]]
+        #     else:
+        #         raise Exception("Invalid rotation axis... Returning")
 
         # Compute final length based on number of hinges
         finalLength = patchLength / (self.modification.num_hinges + 1)
@@ -429,7 +485,7 @@ class TBasicScaff(BasicScaff):
                     mod = Modification(i, j / ns, k / ns, j - k, cost)
 
                     # compute the new vertex locations for the foldablke patch as its projected fold region
-                    new_verts = self.f_patch.calc_projected_region(mod)
+                    # new_verts = self.f_patch.calc_projected_region(mod)
 
                     fo_left = FoldOption(True, mod, self)
                     fo_right = FoldOption(False, mod, self)
@@ -611,6 +667,8 @@ class InputScaff:
 
     def gen_mid_scaffs(self):
         di_graph_rep = self.hinge_graph.to_directed()
+
+        # Obtain the cycles
         cycles = sorted(nx.simple_cycles(di_graph_rep))
         cycles_filtered = []
         for l in cycles:
@@ -656,54 +714,53 @@ class InputScaff:
         #         else:
         #             self.mid_scaffs.append(TMidScaff([self.basic_scaffs[idx]], self.basic_mappings[idx]))
 
-
 # NETWORKX TESTING
-class dummy:
-    def __init__(self, id):
-        self.id = id
-
-
-d1 = dummy(1)
-d2 = dummy(2)
-d3 = dummy(3)
-d4 = dummy(4)
-d5 = dummy(5)
-d6 = dummy(6)
-
-G = nx.Graph()
-Gnodes = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-
-# make dictionary of weights corresponding to each node
-Gweights = {1: 1, 2: 1, 3: 1, 4: 1, 5: 1,
-            6: 1, 7: 1, 8: 1, 9: 1}
-# G.add_node(1, weight=1)
-# G.add_node(2, weight=2)
-# G.add_node(3, weight=1)
-# G.add_node(4, weight=1)
-# G.add_node(5, weight=1)
-# G.add_node(6, weight=1)
-# G.add_node(7, weight=1)
-# G.add_node(8, weight=1)
-# G.add_node(9, weight=1)
-
-G.add_nodes_from(Gnodes)
-nx.set_node_attributes(G, Gweights, 'weight')
-print(G.nodes.data('weight'))
-
-# G.add_edges_from([(1,3), (1, 4), (1, 5), (4, 2), (5, 2)])
-# G.add_edges_from([(2, 3), (3, 4), (4, 5), (5, 6), (6, 2),
-#                   (2, 4), (2, 5), (3, 5), (3, 6), (4, 6)])
-# G.add_edges_from([(d2, d3), (d3, d4), (d4, d5), (d5, d6), (d6, d2),
-#                   (d2, d4), (d2, d5), (d3, d5), (d3, d6), (d4, d6)])
-# G.add_edges_from([(1, 2), (2, 3), (3, 4), (4, 5), (5, 3)])
-G.add_edges_from([(1, 2), (2, 3), (3, 4), (4, 5), (5, 3),
-                  (2, 4), (4, 6), (6, 7), (7, 8), (8, 9), (9, 6),
-                  (6, 8), (9, 7)])
-
-GComp = nx.complement(G)
-nx.set_node_attributes(GComp, Gweights, "weight")
-
-clique = nx.algorithms.clique.max_weight_clique(GComp, weight="weight")
-print(clique)
+# class dummy:
+#     def __init__(self, id):
+#         self.id = id
+#
+#
+# d1 = dummy(1)
+# d2 = dummy(2)
+# d3 = dummy(3)
+# d4 = dummy(4)
+# d5 = dummy(5)
+# d6 = dummy(6)
+#
+# G = nx.Graph()
+# Gnodes = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+#
+# # make dictionary of weights corresponding to each node
+# Gweights = {1: 1, 2: 1, 3: 1, 4: 1, 5: 1,
+#             6: 1, 7: 1, 8: 1, 9: 1}
+# # G.add_node(1, weight=1)
+# # G.add_node(2, weight=2)
+# # G.add_node(3, weight=1)
+# # G.add_node(4, weight=1)
+# # G.add_node(5, weight=1)
+# # G.add_node(6, weight=1)
+# # G.add_node(7, weight=1)
+# # G.add_node(8, weight=1)
+# # G.add_node(9, weight=1)
+#
+# G.add_nodes_from(Gnodes)
+# nx.set_node_attributes(G, Gweights, 'weight')
+# print(G.nodes.data('weight'))
+#
+# # G.add_edges_from([(1,3), (1, 4), (1, 5), (4, 2), (5, 2)])
+# # G.add_edges_from([(2, 3), (3, 4), (4, 5), (5, 6), (6, 2),
+# #                   (2, 4), (2, 5), (3, 5), (3, 6), (4, 6)])
+# # G.add_edges_from([(d2, d3), (d3, d4), (d4, d5), (d5, d6), (d6, d2),
+# #                   (d2, d4), (d2, d5), (d3, d5), (d3, d6), (d4, d6)])
+# # G.add_edges_from([(1, 2), (2, 3), (3, 4), (4, 5), (5, 3)])
+# G.add_edges_from([(1, 2), (2, 3), (3, 4), (4, 5), (5, 3),
+#                   (2, 4), (4, 6), (6, 7), (7, 8), (8, 9), (9, 6),
+#                   (6, 8), (9, 7)])
+#
+# GComp = nx.complement(G)
+# nx.set_node_attributes(GComp, Gweights, "weight")
+#
+# clique = nx.algorithms.clique.max_weight_clique(GComp, weight="weight")
+# print(clique)
 
 
