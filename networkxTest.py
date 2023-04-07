@@ -227,11 +227,11 @@ class FoldOption:
             # even hinges
             elif i % 2 is 0:
                 start_ang = 0.0
-                end_ang = 180.0
+                end_ang = 90.0
             # odd hinges
             else:
                 start_ang = 0.0
-                end_ang = -180.0
+                end_ang = -90.0
 
             if not self.isleft:
                 start_ang *= -1
