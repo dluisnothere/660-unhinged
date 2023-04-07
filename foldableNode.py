@@ -624,23 +624,6 @@ class MayaHBasicScaffoldWrapper():
         # TODO: THIS FORMULA DOES NOT WORK
         # angle = t * (endAngles[0] - startAngles[0]) / (endTime - startTime)  # The angle we fold at this particular time is time / 90 *
 
-        targetPatchHeight = (endTime - t) / (endTime - startTime) * self.origFoldPatchHeight
-        print("targetPatchHeight: " + str(targetPatchHeight))
-
-        rightTriangleHeight = targetPatchHeight / (numHinges + 1)
-        rightTriangleHypotenuse = self.origFoldPatchHeight / (numHinges + 1)
-        asin = math.asin(rightTriangleHeight / rightTriangleHypotenuse)
-        print("arcsin: " + str(asin) + " radians")
-        angle = endAngles[0] - math.degrees(asin)
-
-        # print("AngleDiff: " + str(endAngles[0] - startAngles[0]))
-        # print("timeDiff: " + str(endTime - startTime))
-
-        print("angle: " + str(angle))
-
-        # print("angle based on t: " + str(angle))
-        # print("t: " + str(t))
-
         # Moved from the recreate_patches condition because we always want this to be visible if no hinges
         # TODO: ventually move this to a better place
         if (numHinges == 0):
@@ -652,6 +635,30 @@ class MayaHBasicScaffoldWrapper():
 
         # Find the closest vertices to the patch pivots and calculate the midPoints, also check scaff is connected
         closestVertices, midPoints = self.findClosestMidpointsOnPatches(patchPivots, shapeTraverseOrder)
+
+        # Rotation logic
+        print("startTime: " + str(startTime))
+        print("endTime: " + str(endTime))
+        print("time: " + str(t))
+        if (endTime > t >= startTime):
+            targetPatchHeight = (endTime - t) / (endTime - startTime) * self.origFoldPatchHeight
+            print("targetPatchHeight: " + str(targetPatchHeight))
+
+            rightTriangleHeight = targetPatchHeight / (numHinges + 1)
+            rightTriangleHypotenuse = self.origFoldPatchHeight / (numHinges + 1)
+
+            asin = math.asin(rightTriangleHeight / rightTriangleHypotenuse)
+            print("arcsin: " + str(asin) + " radians")
+            angle = endAngles[0] - math.degrees(asin)
+
+            print("angle: " + str(angle))
+        elif (t < startTime):
+            # do not rotate
+            # TODO: see if there's a better way to do this
+            angle = startAngles[0]
+        else:
+            # if t >= endTime
+            angle = endAngles[0]
 
         # Perform rotations at once, but do not rotate the last patch
         patchTransforms = self.rotatePatches(angle, rotAxis, shapeTraverseOrder, isLeft)
@@ -671,26 +678,26 @@ class MayaHBasicScaffoldWrapper():
         endTime = foldOption.fold_transform.endTime
 
         # If folding for this scaff hasn't started yet, don't do anything
-        if (time >= startTime):
-            if (time >= endTime):
+        # if (time >= startTime):
+            # if (time >= endTime):
                 # Cap animation at endTime
                 # TODO: might make it so that it doesn't even translate after endTime but not sure.
-                time = endTime
+                # time = endTime - 1
 
-            self.inInitialPatches = self.getPatchesIncludeBase()
+        self.inInitialPatches = self.getPatchesIncludeBase()
 
-            if (len(self.shapeTraverseOrder) == 0 or recreatePatches):
-                self.restoreInitialState()
+        if (len(self.shapeTraverseOrder) == 0 or recreatePatches):
+            self.restoreInitialState()
 
-            else:
-                # Reset the scene
-                # TODO; Might not work anymore in a bit
-                self.setUpGenericScene(self.shapeTraverseOrder, self.shapeBase)
+        else:
+            # Reset the scene
+            # TODO; Might not work anymore in a bit
+            self.setUpGenericScene(self.shapeTraverseOrder, self.shapeBase)
 
-            # Call the keyframe funtion but with the LOCAL TIME rather than the current global time
-            localTime = time - startTime
-            # TODO: get rid of these params since some of them are just member vars
-            self.foldKeyframe(localTime, self.shapeTraverseOrder, foldOption, recreatePatches, startTime, endTime)
+        # Call the keyframe funtion but with the LOCAL TIME rather than the current global time
+        # localTime = time - startTime
+        # TODO: get rid of these params since some of them are just member vars
+        self.foldKeyframe(time, self.shapeTraverseOrder, foldOption, recreatePatches, startTime, endTime)
 
 
 class MayaInputScaffoldWrapper():
@@ -883,54 +890,11 @@ class MayaInputScaffoldWrapper():
         # FOLD OPTION 3
 
         # TODO: note that I've flipped the order they go in
-        ## FOLD OPTION 3
-        # fm1 = fold.FoldManager()
-        # cost1 = 3  # dummy card coded value
-        # mod1 = fold.Modification(1, 0, 1, 1, cost1)
-        # patchList1 = np.array(self.basicScaffolds[2].getAllPatchVertices())
-        #
-        # fm1.generate_h_basic_scaff(patchList1[0], patchList1[1], patchList1[2])
-        # patchObjList = [fm1.h_basic_scaff.b_patch_low, fm1.h_basic_scaff.f_patch, fm1.h_basic_scaff.b_patch_high]
-        # fo1 = fold.FoldOption(True, mod1, patchObjList)
-        # fo1.gen_fold_transform()
-        # fo1.fold_transform.startTime = 0
-        # fo1.fold_transform.endTime = 90
-        #
-        # self.basicScaffolds[2].foldManagerOption = fo1
-        #
-        # # FOLD OPTION 2
-        # fm2 = fold.FoldManager()
-        # mod2 = fold.Modification(1, 0, 1, 1, cost1)
-        # patchList2 = np.array(self.basicScaffolds[1].getAllPatchVertices())
-        #
-        # fm2.generate_h_basic_scaff(patchList2[0], patchList2[1], patchList2[2])
-        # patchObjList2 = [fm2.h_basic_scaff.b_patch_low, fm2.h_basic_scaff.f_patch, fm2.h_basic_scaff.b_patch_high]
-        # fo2 = fold.FoldOption(True, mod2, patchObjList2)
-        # fo2.gen_fold_transform()
-        # fo2.fold_transform.startTime = 0
-        # fo2.fold_transform.endTime = 180
-        #
-        # self.basicScaffolds[1].foldManagerOption = fo2
-        #
-        # # FOLD OPTION 1
-        # fm3 = fold.FoldManager()
-        # cost1 = 2
-        # mod3 = fold.Modification(1, 0, 1, 1, cost1)
-        # patchList3 = np.array(self.basicScaffolds[0].getAllPatchVertices())
-        #
-        # fm3.generate_h_basic_scaff(patchList3[0], patchList3[1], patchList3[2])
-        # patchObjList3 = [fm3.h_basic_scaff.b_patch_low, fm3.h_basic_scaff.f_patch, fm3.h_basic_scaff.b_patch_high]
-        # fo3 = fold.FoldOption(True, mod3, patchObjList3)
-        # fo3.gen_fold_transform()
-        # fo3.fold_transform.startTime = 90
-        # fo3.fold_transform.endTime = 180
-        #
-        # self.basicScaffolds[0].foldManagerOption = fo3
-
+        # FOLD OPTION 3
         fm1 = fold.FoldManager()
         cost1 = 3  # dummy card coded value
         mod1 = fold.Modification(1, 0, 1, 1, cost1)
-        patchList1 = np.array(self.basicScaffolds[0].getAllPatchVertices())
+        patchList1 = np.array(self.basicScaffolds[2].getAllPatchVertices())
 
         fm1.generate_h_basic_scaff(patchList1[0], patchList1[1], patchList1[2])
         patchObjList = [fm1.h_basic_scaff.b_patch_low, fm1.h_basic_scaff.f_patch, fm1.h_basic_scaff.b_patch_high]
@@ -939,7 +903,7 @@ class MayaInputScaffoldWrapper():
         fo1.fold_transform.startTime = 0
         fo1.fold_transform.endTime = 90
 
-        self.basicScaffolds[0].foldManagerOption = fo1
+        self.basicScaffolds[2].foldManagerOption = fo1
 
         # FOLD OPTION 2
         fm2 = fold.FoldManager()
@@ -951,9 +915,52 @@ class MayaInputScaffoldWrapper():
         fo2 = fold.FoldOption(True, mod2, patchObjList2)
         fo2.gen_fold_transform()
         fo2.fold_transform.startTime = 0
-        fo2.fold_transform.endTime = 90
+        fo2.fold_transform.endTime = 180
 
         self.basicScaffolds[1].foldManagerOption = fo2
+
+        # FOLD OPTION 1
+        fm3 = fold.FoldManager()
+        cost1 = 2
+        mod3 = fold.Modification(1, 0, 1, 1, cost1)
+        patchList3 = np.array(self.basicScaffolds[0].getAllPatchVertices())
+
+        fm3.generate_h_basic_scaff(patchList3[0], patchList3[1], patchList3[2])
+        patchObjList3 = [fm3.h_basic_scaff.b_patch_low, fm3.h_basic_scaff.f_patch, fm3.h_basic_scaff.b_patch_high]
+        fo3 = fold.FoldOption(True, mod3, patchObjList3)
+        fo3.gen_fold_transform()
+        fo3.fold_transform.startTime = 90
+        fo3.fold_transform.endTime = 180
+
+        self.basicScaffolds[0].foldManagerOption = fo3
+
+        # fm1 = fold.FoldManager()
+        # cost1 = 3  # dummy card coded value
+        # mod1 = fold.Modification(1, 0, 1, 1, cost1)
+        # patchList1 = np.array(self.basicScaffolds[0].getAllPatchVertices())
+        #
+        # fm1.generate_h_basic_scaff(patchList1[0], patchList1[1], patchList1[2])
+        # patchObjList = [fm1.h_basic_scaff.b_patch_low, fm1.h_basic_scaff.f_patch, fm1.h_basic_scaff.b_patch_high]
+        # fo1 = fold.FoldOption(True, mod1, patchObjList)
+        # fo1.gen_fold_transform()
+        # fo1.fold_transform.startTime = 0
+        # fo1.fold_transform.endTime = 90
+        #
+        # self.basicScaffolds[0].foldManagerOption = fo1
+        #
+        # # FOLD OPTION 2
+        # fm2 = fold.FoldManager()
+        # mod2 = fold.Modification(3, 0, 1, 1, cost1)
+        # patchList2 = np.array(self.basicScaffolds[1].getAllPatchVertices())
+        #
+        # fm2.generate_h_basic_scaff(patchList2[0], patchList2[1], patchList2[2])
+        # patchObjList2 = [fm2.h_basic_scaff.b_patch_low, fm2.h_basic_scaff.f_patch, fm2.h_basic_scaff.b_patch_high]
+        # fo2 = fold.FoldOption(True, mod2, patchObjList2)
+        # fo2.gen_fold_transform()
+        # fo2.fold_transform.startTime = 0
+        # fo2.fold_transform.endTime = 90
+        #
+        # self.basicScaffolds[1].foldManagerOption = fo2
 
     def fold(self, time, recreatePatches):
         # Given that we have each basic scaffold with a solution, take in the current time and see the fold status of each basic scaffold.
@@ -1035,8 +1042,8 @@ class foldableNode(OpenMayaMPx.MPxNode):
         # patches = ["cBase", "cFold", "cFold1", "cTop", "cFold2", "cTop1", "cFold3", "cFold4", "cTop2"]
         # patches = ["pBaseBottomH", "pFoldH", "pBaseTopH"]
         # patches = ["mBase", "mFold1", "mFold2", "mTop", "mFold3", "mTop1"]
-        patches = ["dBase", "dFold1", "dFold2", "dTop"]
-        # patches = ["gBase", "gFold1", "gFold2", "gBase1", "gFold3", "gBase2"]
+        # patches = ["dBase", "dFold1", "dFold2", "dTop"]
+        patches = ["gBase", "gFold1", "gFold2", "gBase1", "gFold3", "gBase2"]
         # patches = ["lBase", "lFold", "lBase1"]
 
         # b1Patches = ["mBase", "mFold1", "mTop"]
