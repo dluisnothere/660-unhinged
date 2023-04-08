@@ -1,6 +1,6 @@
 # Unhinged main.py
-# import networkx
-# import networkx as nx
+import networkx
+import networkx as nx
 import numpy as np
 from enum import Enum
 
@@ -8,6 +8,10 @@ class Axis(Enum):
     X = [1,0,0]
     Y = [0,1,0]
     Z = [0,0,1]
+
+class PatchType(Enum):
+    Base = 0
+    Fold = 1
 
 """
 Static helper functions for linear algebra
@@ -67,6 +71,9 @@ class Patch:
         # id for debug purposes
         self.id = self.id_incr
         self.id_incr += 1
+
+        # patch type:
+        self.patch_type = None
 
 
     def calc_area(self):
@@ -235,8 +242,12 @@ BasicScaff: Parent class for TBasicScaff and HBasicScaff
 
 
 class BasicScaff():
+    id_incr = 0
+    
     def __init__(self):
         self.fold_options = []
+        self.id = BasicScaff.id_incr
+        BasicScaff.id_incr += 1
 
 """
 TBasicScaff: A basic scaffold of type T
@@ -259,7 +270,7 @@ class TBasicScaff(BasicScaff):
             for j in range(0, ns + 1):
                 for k in range(0, j):
                     cost = alpha * i / nh + (1 - alpha) / ns
-                    mod = Modification(i, j / ns, k / ns, j-k, cost)
+                    mod = Modification(i, j, k, j-k, cost)
                     fo_left = FoldOption(True, mod, patch_list)
                     fo_right = FoldOption(False, mod, patch_list)
 
@@ -295,7 +306,7 @@ class HBasicScaff(BasicScaff):
                     print(j)
                     print("end")
                     cost = alpha * i / nh + (1 - alpha) / ns
-                    mod = Modification(i, j / ns, k / ns, j-k, cost)
+                    mod = Modification(i, j, k, j-k, cost)
                     fo_left = FoldOption(True, mod, patch_list)
                     fo_right = FoldOption(False, mod, patch_list)
 
@@ -312,57 +323,205 @@ MidScaff: a mid level folding unit that contains basic scaffolds
 
 
 class MidScaff:
-    def __init__(self, bs):
+    def __init__(self, bs, nm):
         self.basic_scaffs = bs
+        self.node_mappings = nm
         self.conflict_graph = None
+        self.start_time = -1
+        self.end_time = -1
 
     def gen_conflict_graph(self):
         print("gen_conflict_graph: implement me")
 
+class TMidScaff(MidScaff):
+    def __init__(self, bs, nm):
+        super().__init__(bs, nm)
 
+class HMidScaff(MidScaff):
+    def __init__(self, bs, nm):
+        super().__init__(bs, nm)
 """
 InputScaff: The full input scaff
 """
 
 
 class InputScaff:
-    def __init__(self, patch_list, edge_list):
-        self.patch_list = patch_list
+    id_incr = 0
+    def __init__(self, node_list, edge_list, pushing_direction):
         self.edges = edge_list
         self.hinge_graph = None # Gets created gen_hinge_graph
         self.mid_scaffs = []
+
+        #patch list
+        self.node_list = node_list
+        #refers to indices in patch list
+        self.edge_list = edge_list
+        #axis vec3
+        self.pushing_direction = pushing_direction
+
+        #self.node_list_type = []
 
         # debug purposes for ease of our test algorithm
         # for now we manually define basic scaffolds
         self.basic_scaffs = []
 
+        #This is for mapping for basic scaffs ids (ints) to node ids (list of ints)
+        self.basic_mappings = {}
+
         # Decomposes self and generates scaffolds
-        self.gen_scaffs()
+        #self.gen_scaffs()
 
     def gen_scaffs(self):
         # TODO: Di
         # generates basic scaffolds
         # generates hinge graph
         # generates mid-level scaffolds
-        print("gen_scaffs: implement me")
-        
 
-    def gen_hinge_graph(self):
-        # TODO: Di
+        self.gen_hinge_graph()
+
+        self.gen_basic_scaffs()
+
+        self.gen_mid_scaffs()
+
+    def gen_hinge_graph(self):    
         print("gen_hinge_graph...")
+        for patch in self.node_list:
+            ang = abs(np.dot(normalize(self.pushing_direction), normalize(patch.normal)))
+            print(normalize(patch.normal))
+            if ang < .1:
+                patch.patch_type = PatchType.Fold
+            else:
+                patch.patch_type = PatchType.Base
+
         self.hinge_graph = networkx.Graph()
-        for bs in self.basic_scaffs:
-            self.hinge_graph.add_node(bs.f_patch.id)
-            if (bs.b_patch_low): # if this exists, then H scaffold
-                self.hinge_graph.add_node(bs.b_patch_low.id)
-                self.hinge_graph.add_edge(bs.f_patch.id, bs.b_patch_low.id)
+        for patch in self.node_list:
+            self.hinge_graph.add_node(patch.id)
 
-                self.hinge_graph.add_node(bs.b_patch_high.id)
-                self.hinge_graph.add_edge(bs.f_patch.id, bs.b_patch_high.id)
-            else: # otherwise, T scaffold
-                self.hinge_graph.add_node(bs.b_patch.id)
-                self.hinge_graph.add_edge(bs.f_patch.id, bs.b_patch.id)
+        for edge in self.edge_list:
+            self.hinge_graph.add_edge(edge[0], edge[1])
+    
+    def gen_basic_scaffs(self):
+        print("gen basic scaffs")
+        for patch in self.node_list:
+            if patch.patch_type == PatchType.Fold:
+                id = patch.id
+                neighbors = list(self.hinge_graph.neighbors(id))
+                if len(neighbors) == 2:
+                    base0 = self.node_list[neighbors[0]]
+                    base1 = self.node_list[neighbors[1]]
+                    fold0 = self.node_list[id]
+                    self.basic_scaffs.append(HBasicScaff(fold0, base0, base1))
+                    self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id, self.node_list[neighbors[1]].id]
+                    print(self.basic_scaffs[-1].id)
+                elif len(neighbors) == 1:
+                    base0 = self.node_list[neighbors[0]]
+                    fold0 = self.node_list[id]
+                    self.basic_scaffs.append(TBasicScaff(fold0, base0))
+                    self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id]
+                    print(self.basic_scaffs[-1].id)
+                else:
+                    print("wtf")
+        print("end gen basic scaffs")
 
+    # Basically just removes non-unique lists
+    def remove_duplicate_cycles(self, cycle_list):
+        cycles_unique = []
+
+        for cycle in cycle_list:
+            is_unique = True
+            for u_cycle in cycles_unique:
+                c1 = u_cycle.copy()
+                c2 = cycle.copy()
+                c1.sort()
+                c2.sort()
+                if c1 == c2:
+                    is_unique = False
+                    break
+            if is_unique:
+                cycles_unique.append(cycle)
+        return cycles_unique
+
+    # Cycle merging is for combining all the unique nodes of cycles that share foldable patches
+    # This is necessary for creating mid level scaffolds
+    def merge_cycles(self, cycle_list):
+        merged_cycles = []
+        tracker = [False for i in range(len(cycle_list))]
+        for i in range(0,len(cycle_list)):
+            # Check only unmerged cycles
+            if not tracker[i]:
+                merged_cycles.append(cycle_list[i])
+                tracker[i] = True
+                working_cycle_id = len(merged_cycles) - 1
+
+                # Check every cycle to see if it can be merged to current one
+                for j in range(0,len(cycle_list)):
+                    # Again only check if not yet merged
+                    if not tracker[j]:
+                        # Iterate through elements
+                        for id in cycle_list[j]:
+                            # Merge cycles if the node exists in the first cycle and the node is a foldable patch
+                            if id in merged_cycles[working_cycle_id] and self.node_list[id].patch_type == PatchType.Fold:
+                                # Append all unique nodes to new cycle
+                                tracker[j] = True
+                                for id2 in cycle_list[j]:
+                                    if id2 not in merged_cycles[working_cycle_id]:
+                                        merged_cycles[working_cycle_id].append(id2)
+        return merged_cycles
+
+
+    def gen_mid_scaffs(self):
+        di_graph_rep = self.hinge_graph.to_directed()
+        cycles = sorted(nx.simple_cycles(di_graph_rep))
+        cycles_big = []
+        for l in cycles:
+            if len(l) > 2:
+                cycles_big.append(l)
+        #print(cycles_big)
+
+        cycles_filtered = self.merge_cycles(self.remove_duplicate_cycles(cycles_big))
+
+        # Tracker is used to see which basic scaffs have been assigned to mid level scaffolds
+        # This may cause issues because not using generated ids
+        tracker = [False for i in range(len(self.basic_scaffs))]
+
+        # Iterate through all cycles
+        for cycle in cycles_filtered:
+            basic_scaff_id_list = []
+            patch_id_list = []
+
+            # A basic scaffold is part of a mid level scaffolds if it's part of a cycle
+            for scaff_id, patch_ids in self.basic_mappings.items():
+                reject = False
+                patch_id_temp = []
+                for id in patch_ids:
+                    if id not in cycle:
+                        reject = True
+                        break
+                    else:
+                        patch_id_temp.append(id)
+                if not reject:
+                    basic_scaff_id_list.append(scaff_id)
+                    tracker[scaff_id] = True
+                    patch_id_list = patch_id_list + patch_id_temp
+            pruned_id_list = [*set(patch_id_list)]
+        
+            basic_scaff_list = []
+            for scaff_id in basic_scaff_id_list:
+                basic_scaff_list.append(self.basic_scaffs[scaff_id])
+
+            self.mid_scaffs.append(HMidScaff(basic_scaff_list, pruned_id_list))
+
+        # For midlevels that just compose a basic scaff
+        # print(self.basic_mappings)
+        for idx in range(0, len(tracker)):
+            # print(idx)
+            if not tracker[idx]:
+                if len(self.basic_mappings[idx]) == 3:
+                    self.mid_scaffs.append(HMidScaff([self.basic_scaffs[idx]], self.basic_mappings[idx]))
+                else:
+                    self.mid_scaffs.append(TMidScaff([self.basic_scaffs[idx]], self.basic_mappings[idx]))
+
+            
 '''
 FoldManager: debug class for now, probalby won't actually use it.
 Purpose is to serve as a mini inputScaffold for now.
@@ -445,7 +604,136 @@ def basic_h_scaffold():
         print(scaff.modification.range_end)
         print(scaff.modification.num_pieces)
         print('------------------------------')
-        
-# basic_t_scaffold()
-basic_h_scaffold()
 
+def basic_input_scaff():
+    coords1 = np.array([(-1, 2, 2), (-1, 2, 0), (1, 2, 0), (1, 2, 2)]) # top base patch
+    coords2 = np.array([(-1, 0, 2), (-1, 0, 0), (1, 0, 0), (1, 0, 2)]) # bottom base patch
+    coords3 = np.array([(0, 0, 2), (0, 2, 2), (0, 2, 0), (0, 0, 0)]) # foldable patch
+    coords4 = np.array([(0, 2, 2), (0, 4, 2), (0, 4, 0), (0, 2, 0)])
+
+    b1 = Patch(coords2)
+    f1 = Patch(coords3)   
+    b2 = Patch(coords1)
+    f2 = Patch(coords4)
+
+    b1.id = 0
+    f1.id = 1
+    b2.id = 2
+    f2.id = 3
+
+    input = InputScaff([b1, f1, b2, f2], [[0,1],[1,2],[2,3]], normalize([0, 1, 0]))
+
+    input.gen_hinge_graph()
+    
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+    print(input.hinge_graph)
+    input.gen_basic_scaffs()
+    print(input.basic_scaffs)
+    print("MIDSCAFFS")
+    input.gen_mid_scaffs()
+    print(input.mid_scaffs)
+    for mid_scaff in input.mid_scaffs:
+        print(mid_scaff.node_mappings)
+    
+
+# basic_input_scaff()
+
+def interm1_input_scaff():
+    coords1 = np.array([(-1, 2, 2), (-1, 2, 0), (1, 2, 0), (1, 2, 2)]) # top base patch
+    coords2 = np.array([(-1, 1, 2), (-1, 1, 0), (0, 1, 0), (0, 1, 2)]) # mid base patch
+    coords3 = np.array([(-1, 0, 2), (-1, 0, 0), (1, 0, 0), (1, 0, 2)]) # bottom base patch
+    coords4 = np.array([(-1, 0, 2), (-1, 1, 0), (-1, 0, 0), (-1, 1, 2)]) # left bot fold patch
+    coords5 = np.array([(-1, 1, 2), (-1, 2, 0), (-1, 1, 0), (-1, 2, 2)]) # left top fold
+    coords6 = np.array([(1, 0, 2), (1, 2, 0), (1, 0, 0), (1, 2, 2)]) # right fold
+
+    b1 = Patch(coords1)
+    b2 = Patch(coords2)
+    b3 = Patch(coords3)
+    f1 = Patch(coords4)
+    f2 = Patch(coords5)
+    f3 = Patch(coords6)
+
+    b1.id = 0
+    b2.id = 1
+    b3.id = 2
+    f1.id = 3
+    f2.id = 4
+    f3.id = 5
+
+    input = InputScaff([b1, b2, b3, f1, f2, f3], [[0,3], [0,5], [1,3], [1,4], [2,4], [2,5]], normalize([0, 1, 0]))
+
+    input.gen_hinge_graph()
+    
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+    print(input.hinge_graph)
+    input.gen_basic_scaffs()
+    print(input.basic_scaffs)
+
+
+    
+    print("Remove Duplicate")
+    print(input.remove_duplicate_cycles([[0,1,2],[0,1,2],[0,1,2]]))
+    print(input.remove_duplicate_cycles([[0,1,2],[0,1,2],[2,3,4]]))
+    print(input.remove_duplicate_cycles([[0,1,2],[2,1,0],[2,3,4]]))
+    print(input.remove_duplicate_cycles([[0,1,2],[2,1,0],[2,3,4],[2,4,3],[1,3,4]]))
+
+
+    print("Merge cycles")
+    print(input.merge_cycles([[0, 1, 2], [0, 1, 3]]))
+    print(input.merge_cycles([[0, 1, 2], [0, 1, 3], [1,2,3]]))
+    print(input.merge_cycles([[0, 3, 5], [0, 1, 3], [1,2,3], [0,3,4]]))
+
+    print("MIDSCAFFS")
+    input.gen_mid_scaffs()
+    print(input.mid_scaffs)
+    for mid_scaff in input.mid_scaffs:
+        print(mid_scaff.node_mappings)
+
+# interm1_input_scaff()
+
+def interm2_input_scaff():
+    coords1 = np.array([(-1, 2, 2), (-1, 2, 0), (1, 2, 0), (1, 2, 2)]) # top base patch
+    coords2 = np.array([(-1, 0, 2), (-1, 0, 0), (1, 0, 0), (1, 0, 2)]) # bottom base patch
+    coords3 = np.array([(-1, 0, 2), (-1, 2, 0), (-1, 0, 0), (-1, 2, 2)]) # left fold
+    coords4 = np.array([(0, 0, 2), (0, 2, 0), (0, 0, 0), (0, 2, 2)]) # mid fold
+    coords5 = np.array([(1, 0, 2), (1, 2, 0), (1, 0, 0), (1, 2, 2)]) # right fold
+
+    b1 = Patch(coords1)
+    b2 = Patch(coords2)
+    f1 = Patch(coords3)
+    f2 = Patch(coords4)
+    f3 = Patch(coords5)
+
+    b1.id = 0
+    b2.id = 1
+    f1.id = 2
+    f2.id = 3
+    f3.id = 4
+
+    input = InputScaff([b1, b2, f1, f2, f3], [[0,2], [0,3], [0,4], [1,2], [1,3], [1,4]], normalize([0, 1, 0]))
+
+    input.gen_hinge_graph()
+    
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+    print(input.hinge_graph)
+    input.gen_basic_scaffs()
+    print(input.basic_scaffs)
+    print("MIDSCAFFS")
+    input.gen_mid_scaffs()
+    print(input.mid_scaffs)
+    for mid_scaff in input.mid_scaffs:
+        print(mid_scaff.node_mappings)
+
+# interm2_input_scaff()
