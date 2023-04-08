@@ -92,8 +92,8 @@ class Patch:
         self.area = self.calc_area()
 
         # id for debug purposes
-        self.id = self.id_incr
-        self.id_incr += 1
+        self.id = Patch.id_incr
+        Patch.id_incr += 1
 
         # patch type:
         self.patch_type = None
@@ -604,8 +604,6 @@ class InputScaff:
         self.edge_list = edge_list
         # axis vec3
         self.pushing_direction = pushing_direction
-
-        # self.node_list_type = []
 
         # debug purposes for ease of our test algorithm
         # for now we manually define basic scaffolds
