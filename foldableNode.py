@@ -307,8 +307,6 @@ class MayaHBasicScaffoldWrapper():
         shapeVertices = []
         for patch in self.getPatchesIncludeBase():
             vertices = getObjectVerticeNamesAndPositions(patch)
-            if (patch == "gBase1"):
-                print("GBASE1: vertices: {}".format(vertices))
             shapeVertices.append(list(vertices.values()))
 
         return shapeVertices
@@ -325,26 +323,15 @@ class MayaHBasicScaffoldWrapper():
     # as the new origin
     def translateWithParentScaff(self, translateVector: OpenMaya.MVector):
         print("Translating CHILD with parent scaff")
-        print("translateVector: {:.6f}, {:.6f}, {:.6f}".format(translateVector[0],
-                                                               translateVector[1],
-                                                               translateVector[2]))
         for shapeKey in self.shapeOriginalTransforms.keys():
             # Get the original translation
             original_translate = self.shapeOriginalTransforms[shapeKey][0]
-
-            print("original_translate: {:.6f}, {:.6f}, {:.6f}".format(original_translate[0],
-                                                                      original_translate[1],
-                                                                      original_translate[2]))
 
             translate_vec = OpenMaya.MVector(original_translate[0], original_translate[1], original_translate[2])
             translate_vec += translateVector
             # Replace the translation with the new translation
             self.shapeResetTransforms[shapeKey][0] = [translate_vec.x, translate_vec.y, translate_vec.z]
 
-            original_translate = self.shapeOriginalTransforms[shapeKey][0]
-            print("original_translate_NEW: {:.6f}, {:.6f}, {:.6f}".format(original_translate[0],
-                                                                      original_translate[1],
-                                                                      original_translate[2]))
 
     def setUpGenericScene(self, upperPatches: List[str], basePatch: str):
         print("Setting up Generic scene...")
@@ -389,8 +376,6 @@ class MayaHBasicScaffoldWrapper():
 
         # ShapeOriginalTransforms will be used to calculate shapeResetTransforms when parent scaffolds move
         self.shapeOriginalTransforms = copy.deepcopy(self.shapeResetTransforms)
-
-        print("RESTORE INITIAL STATE: ORIGINAL TRANSFORMS: {}".format(self.shapeResetTransforms))
 
         # Reset back to original shapes so you can break them again
         self.cleanUpSplitPatches()
@@ -518,48 +503,10 @@ class MayaHBasicScaffoldWrapper():
         closestVertices = []
         midPoints = []
 
-        # TODO: MAYBE DON'T NEED TO?
-        # # Deal with the first patch separately
-        # shape = shapeTraverseOrder[0]
-        # child = shapeTraverseOrder[1]
-        # upperVertices = getObjectVerticeNamesAndPositions(child)
-        # shapePivot = patchPivots[0]
-        # vertId = len(closestVertices)
-        #
-        # # Get closest vertices to the bottom pivot.
-        # currentClosest = getClosestVertices(upperVertices, shapePivot, 2)
-        # closestVertices.append(currentClosest)
-        # print("Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(closestVertices[vertId][0][0],
-        #                                                                           closestVertices[vertId][0][1],
-        #                                                                           closestVertices[vertId][0][2][0],
-        #                                                                           closestVertices[vertId][0][2][1],
-        #                                                                           closestVertices[vertId][0][2][2]))
-        # print("Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(closestVertices[vertId][1][0],
-        #                                                                           closestVertices[vertId][1][1],
-        #                                                                           closestVertices[vertId][1][2][0],
-        #                                                                           closestVertices[vertId][1][2][1],
-        #                                                                           closestVertices[vertId][1][2][2]))
-        #
-        # verticeDist = closestVertices[vertId][0][2] + closestVertices[vertId][1][2]
-        # print("Vertice Dist: {:.6f}, {:.6f}, {:.6f}".format(verticeDist[0], verticeDist[1], verticeDist[2]))
-        # middlePoint = verticeDist * 0.5
-        # print("Middle Point: {:.6f}, {:.6f}, {:.6f}".format(middlePoint[0], middlePoint[1], middlePoint[2]))
-        #
-        # midPoints.append(middlePoint)
-        #
-        # # Check connectivity
-        # status = checkScaffoldConnectionBaseNoErr(shape, currentClosest)
-        # if (status == False):
-        #     print("Error: Scaffold is not connected. Please check your input. LINE 488")
-        #     exit(-1)
-
         for i in range(0, len(shapeTraverseOrder) - 1):
             # For each parent patch, get their vertices.
             shape = shapeTraverseOrder[i]
             child = shapeTraverseOrder[i + 1]
-
-            print("TOP BASE PATCH: ", child)
-            print("CURRENT PATCH: ", shape)
 
             bottomVertices = getObjectVerticeNamesAndPositions(shape)
 
@@ -635,7 +582,6 @@ class MayaHBasicScaffoldWrapper():
 
                 # print vertex name
                 print("UPDATE CLOSEST VERTICES VALUES...========")
-                print("Vertex Name: ", vertex_name)
 
                 # Get the world position of the vertex and convert it to an MVector
                 vertexPoint = cmds.pointPosition(vertex_name, world=True)
@@ -675,11 +621,6 @@ class MayaHBasicScaffoldWrapper():
             print("Translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
             childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
 
-            # Print the new vertex positions
-            # TODO: debug
-            print("NEW VERTEX POSITIONS: ")
-            childVertices = getObjectVerticeNamesAndPositions(shapeTraverseOrder[i + 1])
-
             if (i == len(shapeTraverseOrder) - 2):
                 # If we are on the second to last patch, then we updated the top patch's location
                 # and we need to update the children's reset locations.
@@ -701,7 +642,7 @@ class MayaHBasicScaffoldWrapper():
     # Splits the foldTest function into two parts.
     def foldKeyframe(self, time, shapeTraverseOrder: List[str], foldSolution: fold.FoldOption, recreatePatches: bool, startTime: int, endTime: int):
         # Get the relevant information from the fold_solution
-        startAngles = foldSolution.fold_transform.startAngles
+        startAngles = foldSolution.fold_transform.startAngles # TODO: lowkey aren't start angles always 0??
         endAngles = foldSolution.fold_transform.endAngles
 
         isLeft = foldSolution.isleft
@@ -716,7 +657,7 @@ class MayaHBasicScaffoldWrapper():
 
         t = time  # dictate that the end time is 90 frames hard coded for now
 
-        print("local time: " + str(t))
+        print("time: " + str(t))
 
         # TODO: make more generic in the future
         rotAxis = (0, 0, 1)
@@ -752,7 +693,6 @@ class MayaHBasicScaffoldWrapper():
         elif (t < startTime):
             return
         else:
-            # if t >= endTime
             angle = endAngles[0]
 
         # Get the transforms of the patches
@@ -786,7 +726,6 @@ class MayaHBasicScaffoldWrapper():
             self.setUpGenericScene(self.shapeTraverseOrder, self.shapeBase)
 
         # Call the keyframe funtion but with the LOCAL TIME rather than the current global time
-        # localTime = time - startTime
         # TODO: get rid of these params since some of them are just member vars
         self.foldKeyframe(time, self.shapeTraverseOrder, foldOption, recreatePatches, startTime, endTime)
 
@@ -817,7 +756,6 @@ class MayaInputScaffoldWrapper():
         print("Generating connectivity Info...")
         for patch in self.patches:
             # Get the surface normal of the patch in world space
-            # print("getting surface normal for {}".format(patch))
             planeDagPath = getObjectObjectFromDag(patch)
             fnMesh = OpenMaya.MFnMesh(planeDagPath)
 
@@ -827,9 +765,6 @@ class MayaInputScaffoldWrapper():
             # Apparently the normal agument is the SECOND argument in this dumbass function
             fnMesh.getPolygonNormal(0, normal, OpenMaya.MSpace.kWorld)
 
-            # print("normal: {:.6f}, {:.6f}, {:.6f}".format(normal[0],
-            #                                               normal[1],
-            #                                               normal[2]))
 
             # Get the dot product of normal and pushDir
             dot = self.pushAxis * normal
@@ -852,13 +787,8 @@ class MayaInputScaffoldWrapper():
                 vertices = getObjectVerticeNamesAndPositions(foldpatch)
                 closestVertices = getClosestVertices(vertices, pivot, 2)
 
-                # Check if the middle point is close enough to the pivot
-                middlePoint = (closestVertices[0][2] + closestVertices[1][2]) / 2
-
-                # TODO: might get scaffolds where they're not connected like this...
-                print("Checking connectivity genConnectivityInfo 742")
+                # TODO: might get scaffolds where they're not connected like this..
                 status = checkScaffoldConnectionBaseNoErr(base, closestVertices)
-                # status = checkScaffoldConnectionNoErr(pivot, middlePoint)
                 if status:
                     edges.append([base, foldpatch])
 
@@ -902,12 +832,7 @@ class MayaInputScaffoldWrapper():
             basePatch0Vertices = list(getObjectVerticeNamesAndPositions(basePatch0).values())
             basePatch1Vertices = list(getObjectVerticeNamesAndPositions(basePatch1).values())
 
-            print("basePatch0Vertices: {}".format(basePatch0Vertices))
-            print("basePatch1Vertices: {}".format(basePatch1Vertices))
-
             # TODO: hard coded to be Y axis for now so y axis cannot be 0
-            basePatch = None
-            topPatch = None
             if self.pushAxis[1] > 0:
                 if basePatch0Vertices[0][1] < basePatch1Vertices[0][1]:
                     topPatch = basePatch0
@@ -926,31 +851,23 @@ class MayaInputScaffoldWrapper():
             patchList = [foldPatch, topPatch]
             basicScaff = MayaHBasicScaffoldWrapper(basePatch, patchList, self.pushAxis, self.maxHinges, self.shrinks)
 
-            print("Setting scaffolds parent child for FOLD: " + foldPatch)
             for scaff in self.basicScaffolds:
-                print("basePatch for scaff: " + scaff.basePatch)
-                print("topPatch for scaff: " + scaff.patches[1])
-
                 if topPatch == scaff.basePatch:
                     if (scaff.parent is None):
                         scaff.setParent(basicScaff)
                     basicScaff.addChild(scaff)
-                    print("Child found: with the patches: {}".format(scaff.patches))
                 elif basePatch == scaff.patches[1]:
                     if basicScaff.parent is None:
                         basicScaff.setParent(scaff)
                     scaff.addChild(basicScaff)
-                    print("parent found: with the patches: {}".format(scaff.patches))
                 else:
                     print("DID NOT FIND ANY PARENT OR CHILDREN")
-                print("next round.... =====")
             self.basicScaffolds.append(basicScaff)
 
     def genFoldSolutions(self):
         # TODO: not super important yet
         # Call genFoldSolution of the input scaffold, which will hopefully populate each basic scaffold with a solution and the time interval of the solution
         print("TODO: genFoldSolutions... implement me!")
-        # raise Exception("ERROR: GenFoldSolutions not implemented")
 
         # TODO: comment this back eventually
         # for bScaff in self.basicScaffolds:
@@ -1073,14 +990,8 @@ class MayaInputScaffoldWrapper():
         for i in range(0, len(self.basicScaffolds)):
 
             bScaff = self.basicScaffolds[i]
-            print("FOLDING BASIC SCAFFOLD: " + str(i) + "-------------------------------")
-            print("BEFORE FOLDING SCAFFOLD'S ORIGINAL TRANSLATION:")
-            print(bScaff.shapeOriginalTransforms)
 
             bScaff.foldGeneric(time, recreatePatches)
-
-            print("AFTER FOLDING SCAFFOLD'S ORIGINAL TRANSLATION:")
-            print(bScaff.shapeOriginalTransforms)
 
 
 # Node definition
@@ -1104,15 +1015,8 @@ class foldableNode(OpenMayaMPx.MPxNode):
     # so our node can "live" somewhere.
     outPoint = OpenMaya.MObject()
 
-    # basicScaffolds: List[MayaHBasicScaffold] = []
-
     # TODO: later on we will iterate through basicScaffolds instead
-    # defaultScaff: MayaHBasicScaffold = None
     defaultInputScaffWrapper: MayaInputScaffoldWrapper = None
-
-    # shapeTraverseOrder: List[str] = []
-    # shapeBase = []
-    # shapeResetTransforms = {}
 
     new_shapes = []
 
