@@ -65,6 +65,12 @@ def rectangleOverlap(rect1: List[List[float]], rect2: List[List[float]]) -> bool
 
     return False
 
+def rectangleArea(rect: List[List[float]]):
+    # calculate the area of the rectangle
+    h = np.linalg.norm(rect[1] - rect[0])
+    w = np.linalg.norm(rect[3] - rect[0])
+
+    return h * w
 
 """
 Patch: Our proxy for a rectangle and only contains a rectangle
@@ -101,11 +107,7 @@ class Patch:
 
     def calc_area(self):
         # calculates the area of the patch
-        h = np.linalg.norm(self.coords[1] - self.coords[0])
-        w = np.linalg.norm(self.coords[3] - self.coords[0])
-
-        # add check for whether the points are coplanar
-        return h * w
+        return rectangleArea(self.coords)
 
     def calc_normal(self):
         # calculates the normal of the patch
@@ -453,7 +455,6 @@ class TBasicScaff(BasicScaff):
         # ns: max number of patch cuts
         # nh: max number of hinges, let's enforce this to be an odd number for now
         print("gen_fold_options...")
-        patch_list = [self.f_patch, self.b_patch]
         for i in range(0, nh + 1):
             for j in range(0, ns + 1):
                 for k in range(0, j):
@@ -492,7 +493,6 @@ class HBasicScaff(BasicScaff):
         # ns: max number of patch cuts
         # nh: max number of hinges, let's enforce this to be an odd number for now
         print("gen_fold_options...")
-        patch_list = [self.f_patch, self.b_patch_low, self.b_patch_high]
         for i in range(0, nh + 1):
             for j in range(0, ns + 1):
                 for k in range(0, j):
@@ -528,6 +528,17 @@ class MidScaff:
         self.start_time = -1
         self.end_time = -1
 
+class TMidScaff(MidScaff):
+    def __init__(self, bs, nm):
+        super().__init__(bs, nm)
+
+    # Only one solution? Is there any case where this solution could impact another guy?
+    # Probably not since they all fold at different times? Sequentially?
+
+class HMidScaff(MidScaff):
+    def __init__(self, bs, nm):
+        super().__init__(bs, nm)
+
     def gen_conflict_graph(self):
         print("generating conflict graph...")
 
@@ -538,10 +549,29 @@ class MidScaff:
         # For each scaffold, get its fold options and add them as nodes to the conflict grpah
         nodes = []
         node_weights = {}
+
+        # Sum of all the folded areas
+        sum_fold_area = 0
+
+        # Cost of the most expensive solution
+        max_cost_v = -1
+
+        for scaff in self.basic_scaffs:
+            # Sum of the final area of every modification
+            for option in scaff.fold_options:
+                region_area = rectangleArea(option.projected_region)
+                sum_fold_area += region_area
+                max_cost_v = max(max_cost_v, option.modification.cost)
+
         for scaff in self.basic_scaffs:
             for option in scaff.fold_options:
+                region_area = rectangleArea(option.projected_region)
+                lambda_i = region_area / sum_fold_area
+                cost_vj = lambda_i * option.modification.cost
+                weight = max_cost_v - cost_vj + 1
+
                 nodes.append(option)
-                node_weights[option] = option.modification.cost
+                node_weights[option] = weight
 
         self.conflict_graph = nx.complete_graph(nodes)
         nx.set_node_attributes(self.conflict_graph, node_weights, "weight")
@@ -569,15 +599,9 @@ class MidScaff:
             # TODO: clean this up messy.
             fold_option.basic_scaff.optimal_fold_option = fold_option
 
-
-class TMidScaff(MidScaff):
-    def __init__(self, bs, nm):
-        super().__init__(bs, nm)
-
-
-class HMidScaff(MidScaff):
-    def __init__(self, bs, nm):
-        super().__init__(bs, nm)
+    def fold(self):
+        self.gen_conflict_graph()
+        self.run_mwisp()
 
 
 """
@@ -588,7 +612,7 @@ InputScaff: The full input scaff
 class InputScaff:
     id_incr = 0
 
-    def __init__(self, node_list, edge_list, pushing_direction):
+    def __init__(self, node_list, edge_list, push_dir, max_hinges, num_shrinks):
         self.hinge_graph = None  # Gets created gen_hinge_graph
         self.mid_scaffs = []
 
@@ -597,7 +621,7 @@ class InputScaff:
         # refers to indices in patch list
         self.edge_list = edge_list
         # axis vec3
-        self.pushing_direction = pushing_direction
+        self.push_dir = push_dir
 
         # debug purposes for ease of our test algorithm
         # for now we manually define basic scaffolds
@@ -605,6 +629,9 @@ class InputScaff:
 
         # This is for mapping for basic scaffs ids (ints) to node ids (list of ints)
         self.basic_mappings = {}
+
+        self.max_hinges = max_hinges
+        self.num_shrinks = num_shrinks
 
         # Decomposes self and generates scaffolds
         # TODO: commented out for testing purposes, recomment back in
@@ -716,7 +743,6 @@ class InputScaff:
         for l in cycles:
             if len(l) > 2:
                 cycles_big.append(l)
-        # print(cycles_big)
 
         cycles_filtered = self.merge_cycles(self.remove_duplicate_cycles(cycles_big))
 
@@ -761,47 +787,55 @@ class InputScaff:
                 else:
                     self.mid_scaffs.append(TMidScaff([self.basic_scaffs[idx]], self.basic_mappings[idx]))
 
+    def fold(self):
+        # TODO: For now, only foldabilize the first mid level scaffold.
+        # TODO: Eventually I will need to do greedy one step lookahead.
+
+        # First, generate basic scaffold solutions
+        for scaff in self.basic_scaffs:
+            scaff.gen_fold_options()
+
+        self.mid_scaffs[0].fold()
 
 '''
 FoldManager: debug class for now, probalby won't actually use it.
 Purpose is to serve as a mini inputScaffold for now.
 '''
 
-
-class FoldManager:
-    def __init__(self):
-        self.h_basic_scaff = None  # TODO: For now a hard coded H scaffold
-        self.input_scaff = None
-
-    def generate_h_basic_scaff(self, bottom_patch: list, fold_patch: list, top_patch: list):
-        print("generate_h_basic_scaff...")
-        print("bottom patch")
-        bPatch = Patch(bottom_patch)
-        print("top patch")
-        tPatch = Patch(top_patch)
-        print("fold patch")
-        fPatch = Patch(fold_patch)
-
-        scaff = HBasicScaff(fPatch, bPatch, tPatch)
-        self.h_basic_scaff = scaff
-
-    def mainFold(self, nH, nS) -> FoldOption:
-        print("entered mainFold...")
-        # Outputs a hard coded fold option for now
-
-        # Experiment with alpha values
-        alpha = 0.5
-        cost1 = alpha * 0 / 1 + (1 - alpha) / 1
-        mod1 = Modification(nH, 0, 3, nS, cost1)
-        patch_list = [self.h_basic_scaff.f_patch, self.h_basic_scaff.b_patch_low, self.h_basic_scaff.b_patch_high]
-        fo = FoldOption(False, mod1, patch_list)
-        fo.gen_fold_transform()
-
-        # TODO: hard coded for now
-        fo.fold_transform.startTime = 0
-        fo.fold_transform.endTime = 90
-
-        return fo
+# class FoldManager:
+#     def __init__(self):
+#         self.h_basic_scaff = None  # TODO: For now a hard coded H scaffold
+#         self.input_scaff = None
+#
+#     def generate_h_basic_scaff(self, bottom_patch: list, fold_patch: list, top_patch: list):
+#         print("generate_h_basic_scaff...")
+#         print("bottom patch")
+#         bPatch = Patch(bottom_patch)
+#         print("top patch")
+#         tPatch = Patch(top_patch)
+#         print("fold patch")
+#         fPatch = Patch(fold_patch)
+#
+#         scaff = HBasicScaff(fPatch, bPatch, tPatch)
+#         self.h_basic_scaff = scaff
+#
+#     def mainFold(self, nH, nS) -> FoldOption:
+#         print("entered mainFold...")
+#         # Outputs a hard coded fold option for now
+#
+#         # Experiment with alpha values
+#         alpha = 0.5
+#         cost1 = alpha * 0 / 1 + (1 - alpha) / 1
+#         mod1 = Modification(nH, 0, 3, nS, cost1)
+#         patch_list = [self.h_basic_scaff.f_patch, self.h_basic_scaff.b_patch_low, self.h_basic_scaff.b_patch_high]
+#         fo = FoldOption(False, mod1, patch_list)
+#         fo.gen_fold_transform()
+#
+#         # TODO: hard coded for now
+#         fo.fold_transform.startTime = 0
+#         fo.fold_transform.endTime = 90
+#
+#         return fo
 
 
 def basic_t_scaffold():
@@ -906,7 +940,7 @@ def interm1_input_scaff():
     f2.id = 4
     f3.id = 5
 
-    input = InputScaff([b1, b2, b3, f1, f2, f3], [[0, 3], [0, 5], [1, 3], [1, 4], [2, 4], [2, 5]], normalize([0, 1, 0]))
+    input = InputScaff([b1, b2, b3, f1, f2, f3], [[0, 3], [0, 5], [1, 3], [1, 4], [2, 4], [2, 5]], normalize([0, 1, 0]), 2, 1)
 
     input.gen_hinge_graph()
 
@@ -977,3 +1011,68 @@ def interm2_input_scaff():
         print(mid_scaff.node_mappings)
 
 # interm2_input_scaff()
+
+def test_conflict_graph():
+    coords1 = np.array([(3, 2, 5.5), (4.5, 2, 5.5), (4.5, 2, 4.5), (3, 2, 4.5)])  # top base patch # 0
+    coords2 = np.array([(3, 0, 5.5), (5, 0, 5.5), (5, 0, 4.5), (3, 0, 4.5)])  # bottom base patch # 1
+    coords3 = np.array([(4, 1, 5.5), (5, 1, 5.5), (5, 1, 4.5), (4, 1, 4.5)])  # middle base patch # 2
+    coords4 = np.array([(4.75, 0, 5.5), (4.75, 0, 4.5), (4.75, 1, 4.5), (4.75, 1, 5.5)])  # left bot fold patch # 3
+    coords5 = np.array([(4.25, 1, 5.5), (4.25, 1, 4.5), (4.25, 2, 4.5), (4.25, 2, 5.5)])  # left top fold # 4
+    coords6 = np.array([(3.25, 0, 5.5), (3.25, 0, 4.5), (3.25, 2, 4.5), (3.25, 3, 5.5)])  # right fold # 5
+
+    b1 = Patch(coords1)
+    b2 = Patch(coords2)
+    b3 = Patch(coords3)
+    f1 = Patch(coords4)
+    f2 = Patch(coords5)
+    f3 = Patch(coords6)
+
+    b1.id = 0
+    b2.id = 1
+    b3.id = 2
+
+    f1.id = 3
+    f2.id = 4
+    f3.id = 5
+
+    nodes = [b1, b2, b3, f1, f2, f3]
+    edges = [[1, 3], [3, 2], [2, 4], [4, 0], [5, 0], [1, 5]]
+
+    input = InputScaff(nodes, edges, normalize([0, -1, 0]), 2, 1)
+
+    input.gen_hinge_graph()
+
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+    print(input.hinge_graph)
+    input.gen_basic_scaffs()
+    print(input.basic_scaffs)
+
+    for basic_scaff in input.basic_scaffs:
+        print("SCAFF =================== ")
+        print("foldable: " + str(basic_scaff.f_patch.id))
+        print("base high: " + str(basic_scaff.b_patch_high.id))
+        print("base low: " + str(basic_scaff.b_patch_low.id))
+
+    print("Remove Duplicate")
+    print(input.remove_duplicate_cycles([[0, 1, 2], [0, 1, 2], [0, 1, 2]]))
+    print(input.remove_duplicate_cycles([[0, 1, 2], [0, 1, 2], [2, 3, 4]]))
+    print(input.remove_duplicate_cycles([[0, 1, 2], [2, 1, 0], [2, 3, 4]]))
+    print(input.remove_duplicate_cycles([[0, 1, 2], [2, 1, 0], [2, 3, 4], [2, 4, 3], [1, 3, 4]]))
+
+    print("Merge cycles")
+    print(input.merge_cycles([[0, 1, 2], [0, 1, 3]]))
+    print(input.merge_cycles([[0, 1, 2], [0, 1, 3], [1, 2, 3]]))
+    print(input.merge_cycles([[0, 3, 5], [0, 1, 3], [1, 2, 3], [0, 3, 4]]))
+
+    print("MIDSCAFFS")
+    input.gen_mid_scaffs()
+    print(input.mid_scaffs)
+    for mid_scaff in input.mid_scaffs:
+        print(mid_scaff.node_mappings)
+
+
+test_conflict_graph()

@@ -276,7 +276,7 @@ class MayaHBasicScaffoldWrapper():
             - rotationalAxis
 
         '''
-        self.basicScaffold: fold.HBasicScaff = None
+        self.basicScaffold: fold.HBasicScaff = fold.HBasicScaff(self.basePatch, self.patches[0], self.patches[1])
 
         # Parent/Child relationships
         # TODO: can get away with only one parent for now
@@ -403,6 +403,8 @@ class MayaHBasicScaffoldWrapper():
             cmds.setAttr(foldable_patch + ".scaleZ", shrinkFactor)
 
     def generateNewPatches(self, originalPatch: str, numHinges: int) -> (List[str], List[List[List[float]]]):
+
+
         # Compute the new patch scale values based on original_patch's scale and num_patches
         # TODO: Hard coded for split in the x Direction, but need to be more general later on.
         numPatches = numHinges + 1
@@ -475,6 +477,7 @@ class MayaHBasicScaffoldWrapper():
             foldablePatch = shapeTraverseOrder[
                 j]  # TODO: make more generic, currently assumes foldable patch is at the center
 
+            # Remove the foldable patch from the shape_traverse_order and delete its transforms
             shapeTraverseOrder.remove(foldablePatch)
             del self.shapeResetTransforms[foldablePatch]
             del self.shapeOriginalTransforms[foldablePatch]
@@ -555,7 +558,15 @@ class MayaHBasicScaffoldWrapper():
             patchTransforms.append(pTransform)
         return patchTransforms
 
-    # TODO: might be a member function of basic scaff
+    def computeAngle(self, endAngles, endTime, numHinges, startTime, t):
+        targetPatchHeight = (endTime - t) / (endTime - startTime) * self.origFoldPatchHeight
+        rightTriangleHeight = targetPatchHeight / (numHinges + 1)
+        rightTriangleHypotenuse = self.origFoldPatchHeight / (numHinges + 1)
+        asin = math.asin(rightTriangleHeight / rightTriangleHypotenuse)
+        angle = endAngles[0] - math.degrees(asin)
+        print("angle: " + str(angle))
+        return angle
+
     def rotatePatches(self, angle: float, rotAxis: List[float], shapeTraverseOrder: List[str], isLeft: bool):
         if (isLeft):
             angle = -angle
@@ -575,13 +586,9 @@ class MayaHBasicScaffoldWrapper():
         newClosestVertices = closestVertices.copy()
         for i in range(0, len(patchPivots) - 1):
             # Obtain child pivot so we can use it later for translation
-            childPivot = patchPivots[i + 1]
             for j in range(0, len(newClosestVertices[
                                       i])):  # index and use information from updated vertex positions. There should only be 2 verts here
                 vertex_name, dist, vertexPoint = newClosestVertices[i][j]
-
-                # print vertex name
-                print("UPDATE CLOSEST VERTICES VALUES...========")
 
                 # Get the world position of the vertex and convert it to an MVector
                 vertexPoint = cmds.pointPosition(vertex_name, world=True)
@@ -633,11 +640,8 @@ class MayaHBasicScaffoldWrapper():
         patchVertices = self.getAllPatchVertices()
         patchVertices = np.array(patchVertices)
 
-        # TODO: get its own best fold option
-        self.foldManager = fold.FoldManager()
-        self.foldManager.generate_h_basic_scaff(patchVertices[0], patchVertices[1], patchVertices[2])
-
-        self.foldManagerOption = self.foldManager.mainFold(self.maxHinges, self.shrinks)
+        # TODO: NOT TESTED YET, PROBABLY DOESN'T WORK.
+        self.foldManagerOption = self.basicScaffold.optimal_fold_option
 
     # Splits the foldTest function into two parts.
     def foldKeyframe(self, time, shapeTraverseOrder: List[str], foldSolution: fold.FoldOption, recreatePatches: bool, startTime: int, endTime: int):
@@ -681,15 +685,9 @@ class MayaHBasicScaffoldWrapper():
         # Find the closest vertices to the patch pivots and calculate the midPoints, also check scaff is connected
         closestVertices, midPoints = self.findClosestMidpointsOnPatches(patchPivots, shapeTraverseOrder)
 
+        # Compute angle
         if (endTime > t >= startTime):
-            targetPatchHeight = (endTime - t) / (endTime - startTime) * self.origFoldPatchHeight
-            rightTriangleHeight = targetPatchHeight / (numHinges + 1)
-            rightTriangleHypotenuse = self.origFoldPatchHeight / (numHinges + 1)
-
-            asin = math.asin(rightTriangleHeight / rightTriangleHypotenuse)
-            angle = endAngles[0] - math.degrees(asin)
-
-            print("angle: " + str(angle))
+            angle = self.computeAngle(endAngles, endTime, numHinges, startTime, t)
         elif (t < startTime):
             return
         else:
@@ -706,6 +704,7 @@ class MayaHBasicScaffoldWrapper():
 
         # Has to go at the end or something otherwise you'll get a space between top patch and the folds
         self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece)
+
 
     # Fold test for non hard coded transforms: Part 1 of the logic from foldTest, calls foldKeyframe()
     # AT this point should already have the best fold option
@@ -740,7 +739,7 @@ class MayaInputScaffoldWrapper():
         self.maxHinges = nH
         self.shrinks = nS
 
-        self.inputScaffold = None
+        self.inputScaffold = None # TODO: Make this create an inputScaff later
         self.basicScaffolds: List[MayaHBasicScaffoldWrapper] = []
 
     def getAllPatches(self) -> List[str]:
@@ -911,48 +910,48 @@ class MayaInputScaffoldWrapper():
 
         # TODO: note that I've flipped the order they go in
         # FOLD OPTION 3
-        fm1 = fold.FoldManager()
-        cost1 = 3  # dummy card coded value
-        mod1 = fold.Modification(1, 0, 1, 2, cost1)
-        patchList1 = np.array(self.basicScaffolds[2].getAllPatchVertices())
-
-        fm1.generate_h_basic_scaff(patchList1[0], patchList1[1], patchList1[2])
-        patchObjList = [fm1.h_basic_scaff.b_patch_low, fm1.h_basic_scaff.f_patch, fm1.h_basic_scaff.b_patch_high]
-        fo1 = fold.FoldOption(True, mod1, patchObjList)
-        fo1.gen_fold_transform()
-        fo1.fold_transform.startTime = 0
-        fo1.fold_transform.endTime = 90
-
-        self.basicScaffolds[2].foldManagerOption = fo1
-
-        # FOLD OPTION 2
-        fm2 = fold.FoldManager()
-        mod2 = fold.Modification(3, 0, 1, 1, cost1)
-        patchList2 = np.array(self.basicScaffolds[1].getAllPatchVertices())
-
-        fm2.generate_h_basic_scaff(patchList2[0], patchList2[1], patchList2[2])
-        patchObjList2 = [fm2.h_basic_scaff.b_patch_low, fm2.h_basic_scaff.f_patch, fm2.h_basic_scaff.b_patch_high]
-        fo2 = fold.FoldOption(True, mod2, patchObjList2)
-        fo2.gen_fold_transform()
-        fo2.fold_transform.startTime = 0
-        fo2.fold_transform.endTime = 180
-
-        self.basicScaffolds[1].foldManagerOption = fo2
-
-        # FOLD OPTION 1
-        fm3 = fold.FoldManager()
-        cost1 = 2
-        mod3 = fold.Modification(1, 0, 1, 1, cost1)
-        patchList3 = np.array(self.basicScaffolds[0].getAllPatchVertices())
-
-        fm3.generate_h_basic_scaff(patchList3[0], patchList3[1], patchList3[2])
-        patchObjList3 = [fm3.h_basic_scaff.b_patch_low, fm3.h_basic_scaff.f_patch, fm3.h_basic_scaff.b_patch_high]
-        fo3 = fold.FoldOption(True, mod3, patchObjList3)
-        fo3.gen_fold_transform()
-        fo3.fold_transform.startTime = 90
-        fo3.fold_transform.endTime = 180
-
-        self.basicScaffolds[0].foldManagerOption = fo3
+        # fm1 = fold.FoldManager()
+        # cost1 = 3  # dummy card coded value
+        # mod1 = fold.Modification(1, 0, 1, 2, cost1)
+        # patchList1 = np.array(self.basicScaffolds[2].getAllPatchVertices())
+        #
+        # fm1.generate_h_basic_scaff(patchList1[0], patchList1[1], patchList1[2])
+        # patchObjList = [fm1.h_basic_scaff.b_patch_low, fm1.h_basic_scaff.f_patch, fm1.h_basic_scaff.b_patch_high]
+        # fo1 = fold.FoldOption(True, mod1, patchObjList)
+        # fo1.gen_fold_transform()
+        # fo1.fold_transform.startTime = 0
+        # fo1.fold_transform.endTime = 90
+        #
+        # self.basicScaffolds[2].foldManagerOption = fo1
+        #
+        # # FOLD OPTION 2
+        # fm2 = fold.FoldManager()
+        # mod2 = fold.Modification(3, 0, 1, 1, cost1)
+        # patchList2 = np.array(self.basicScaffolds[1].getAllPatchVertices())
+        #
+        # fm2.generate_h_basic_scaff(patchList2[0], patchList2[1], patchList2[2])
+        # patchObjList2 = [fm2.h_basic_scaff.b_patch_low, fm2.h_basic_scaff.f_patch, fm2.h_basic_scaff.b_patch_high]
+        # fo2 = fold.FoldOption(True, mod2, patchObjList2)
+        # fo2.gen_fold_transform()
+        # fo2.fold_transform.startTime = 0
+        # fo2.fold_transform.endTime = 180
+        #
+        # self.basicScaffolds[1].foldManagerOption = fo2
+        #
+        # # FOLD OPTION 1
+        # fm3 = fold.FoldManager()
+        # cost1 = 2
+        # mod3 = fold.Modification(1, 0, 1, 1, cost1)
+        # patchList3 = np.array(self.basicScaffolds[0].getAllPatchVertices())
+        #
+        # fm3.generate_h_basic_scaff(patchList3[0], patchList3[1], patchList3[2])
+        # patchObjList3 = [fm3.h_basic_scaff.b_patch_low, fm3.h_basic_scaff.f_patch, fm3.h_basic_scaff.b_patch_high]
+        # fo3 = fold.FoldOption(True, mod3, patchObjList3)
+        # fo3.gen_fold_transform()
+        # fo3.fold_transform.startTime = 90
+        # fo3.fold_transform.endTime = 180
+        #
+        # self.basicScaffolds[0].foldManagerOption = fo3
 
         # fm1 = fold.FoldManager()
         # cost1 = 3  # dummy card coded value
@@ -988,9 +987,7 @@ class MayaInputScaffoldWrapper():
         # TODO: need to later figure out how to do this with mid level scaffolds first
         # TODO: assume list of basic scaffolds is not sorted in any way
         for i in range(0, len(self.basicScaffolds)):
-
             bScaff = self.basicScaffolds[i]
-
             bScaff.foldGeneric(time, recreatePatches)
 
 
