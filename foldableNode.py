@@ -798,10 +798,6 @@ class MayaInputScaffoldWrapper():
         for bScaff in self.basicScaffolds:
             bScaff.cleanUpSplitPatches()
 
-    def genInputScaffold(self):
-        # TODO: not super important yet
-        print("genInputScaffold: Implement me!")
-
     def genBasicScaffolds(self):
         print("Generating Basic Scaffolds...")
 

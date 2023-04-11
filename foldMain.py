@@ -443,7 +443,7 @@ TBasicScaff: A basic scaffold of type T
 
 
 class TBasicScaff(BasicScaff):
-    def __init__(self, f_patch, b_patch):
+    def __init__(self, b_patch, f_patch):
         super().__init__()
         self.f_patch = f_patch
         self.b_patch = b_patch
@@ -621,7 +621,16 @@ class InputScaff:
         # refers to indices in patch list
         self.edge_list = edge_list
         # axis vec3
-        self.push_dir = push_dir
+        if (push_dir == [0, 1, 0]):
+            self.push_dir: Axis = Axis.Y
+        elif (push_dir == [0, 0, 1]):
+            self.push_dir: Axis = Axis.Z
+        elif (push_dir == [1, 0, 0]):
+            self.push_dir: Axis = Axis.X
+        else:
+            raise Exception("Invalid push direction")
+            exit (-1)
+
 
         # debug purposes for ease of our test algorithm
         # for now we manually define basic scaffolds
@@ -652,7 +661,7 @@ class InputScaff:
     def gen_hinge_graph(self):
         print("gen_hinge_graph...")
         for patch in self.node_list:
-            ang = abs(np.dot(normalize(self.pushing_direction), normalize(patch.normal)))
+            ang = abs(np.dot(normalize(self.push_dir), normalize(patch.normal)))
             print(normalize(patch.normal))
             if ang < .1:
                 patch.patch_type = PatchType.Fold
@@ -670,24 +679,52 @@ class InputScaff:
         print("gen basic scaffs")
         for patch in self.node_list:
             if patch.patch_type == PatchType.Fold:
-                id = patch.id
+                id: int = patch.id
                 neighbors = list(self.hinge_graph.neighbors(id))
                 if len(neighbors) == 2:
-                    base0 = self.node_list[neighbors[0]]
-                    base1 = self.node_list[neighbors[1]]
+                    # TODO: Always assume push axis is negative for now
+
+                    # If push axis is negative, base_hi is the one with higher value along the pos of push axis
+                    base1: Patch = self.node_list[neighbors[0]]
+                    base2: Patch = self.node_list[neighbors[1]]
+                    if self.push_dir == Axis.X:
+                        if (base1.coords[0] > base2.coords[0]):
+                            base_hi = base1
+                            base_lo = base2
+                        else:
+                            base_hi = base2
+                            base_lo = base1
+                    elif self.push_dir == Axis.Y:
+                        if (base1.coords[1] > base2.coords[1]):
+                            base_hi = base1
+                            base_lo = base2
+                        else:
+                            base_hi = base2
+                            base_lo = base1
+                    elif self.push_dir == Axis.Z:
+                        if (base1.coords[2] > base2.coords[2]):
+                            base_hi = base1
+                            base_lo = base2
+                        else:
+                            base_hi = base2
+                            base_lo = base1
+                    else:
+                        raise Exception("Invalid push direction")
+                        exit(-1)
+
                     fold0 = self.node_list[id]
-                    self.basic_scaffs.append(HBasicScaff(fold0, base0, base1))
+                    self.basic_scaffs.append(HBasicScaff(base_lo, fold0, base_hi))
                     self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id,
                                                                      self.node_list[neighbors[1]].id]
                     print(self.basic_scaffs[-1].id)
                 elif len(neighbors) == 1:
                     base0 = self.node_list[neighbors[0]]
                     fold0 = self.node_list[id]
-                    self.basic_scaffs.append(TBasicScaff(fold0, base0))
+                    self.basic_scaffs.append(TBasicScaff(base0, fold0))
                     self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id]
                     print(self.basic_scaffs[-1].id)
                 else:
-                    print("wtf")
+                    print("wtf, no neighbors in the hinge graph??: " + str(id))
         print("end gen basic scaffs")
 
     # Basically just removes non-unique lists
@@ -845,7 +882,7 @@ def basic_t_scaffold():
 
     foldable = Patch(coords3)
     base = Patch(coords2)
-    tscaff = TBasicScaff(foldable, base)
+    tscaff = TBasicScaff(base, foldable)
     tscaff.gen_fold_options(1, 1, .5)
     print("Begin test")
 
