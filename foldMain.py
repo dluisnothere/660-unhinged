@@ -5,11 +5,11 @@ import numpy as np
 from enum import Enum
 from typing import Dict, List, Set
 
+# Predefined constants
 
-class Axis(Enum):
-    X = [1, 0, 0]
-    Y = [0, 1, 0]
-    Z = [0, 0, 1]
+XAxis = np.array([-1, 0, 0])
+YAxis = np.array([0, -1, 0])
+ZAxis = np.array([0, 0, -1])
 
 
 class PatchType(Enum):
@@ -23,8 +23,8 @@ Static helper functions for linear algebra
 
 
 def normalize(vec1):
-    len = np.linalg.norm(vec1)
-    return vec1 / len
+    length = np.linalg.norm(vec1)
+    return vec1 / length
 
 
 # Might not even need this for now
@@ -323,37 +323,37 @@ class FoldOption:
 
     def get_patch_width_length_bottom(self, norm, rotAxis, minX, maxX, minY, maxY, minZ, maxZ):
         params = {
-            Axis.X: {
-                Axis.Y: {
+            XAxis: {
+                YAxis: {
                     'patch_width': maxY - minY,
                     'patch_length': maxZ - minZ,
                     'bottom_verts': [[maxX, maxY, minZ], [maxX, minY, minZ]]
                 },
-                Axis.Z: {
+                ZAxis: {
                     'patch_width': maxZ - minZ,
                     'patch_length': maxY - minY,
                     'bottom_verts': [[maxX, minY, minZ], [maxX, minY, maxZ]]
                 }
             },
-            Axis.Y: {
-                Axis.X: {
+            YAxis: {
+                XAxis: {
                     'patch_width': maxX - minX,
                     'patch_length': maxZ - minZ,
                     'bottom_verts': [[minX, maxY, minZ], [maxX, maxY, minZ]]
                 },
-                Axis.Z: {
+                ZAxis: {
                     'patch_width': maxZ - minZ,
                     'patch_length': maxX - minX,
                     'bottom_verts': [[minX, maxY, minZ], [minX, maxY, maxZ]]
                 }
             },
-            Axis.Z: {
-                Axis.X: {
+            ZAxis: {
+                XAxis: {
                     'patch_width': maxX - minX,
                     'patch_length': maxY - minY,
                     'bottom_verts': [[minX, maxY, minZ], [maxX, maxY, minZ]]
                 },
-                Axis.Y: {
+                YAxis: {
                     'patch_width': maxY - minY,
                     'patch_length': maxX - minX,
                     'bottom_verts': [[minX, maxY, minZ], [minX, minY, minZ]]
@@ -480,7 +480,7 @@ HBasicScaff: A basic scaffold of type H
 
 
 class HBasicScaff(BasicScaff):
-    def __init__(self, f_patch, b_patch_low, b_patch_high):
+    def __init__(self, b_patch_low, f_patch, b_patch_high):
         super().__init__()
         self.f_patch = f_patch
         self.b_patch_low = b_patch_low
@@ -621,15 +621,7 @@ class InputScaff:
         # refers to indices in patch list
         self.edge_list = edge_list
         # axis vec3
-        if (push_dir == [0, 1, 0]):
-            self.push_dir: Axis = Axis.Y
-        elif (push_dir == [0, 0, 1]):
-            self.push_dir: Axis = Axis.Z
-        elif (push_dir == [1, 0, 0]):
-            self.push_dir: Axis = Axis.X
-        else:
-            raise Exception("Invalid push direction")
-            exit (-1)
+        self.push_dir: np.ndarray = push_dir
 
 
         # debug purposes for ease of our test algorithm
@@ -687,22 +679,27 @@ class InputScaff:
                     # If push axis is negative, base_hi is the one with higher value along the pos of push axis
                     base1: Patch = self.node_list[neighbors[0]]
                     base2: Patch = self.node_list[neighbors[1]]
-                    if self.push_dir == Axis.X:
-                        if (base1.coords[0] > base2.coords[0]):
+
+                    # Print coordinates of each patch
+                    print("base1: " + str(base1.id))
+                    print("base2: " + str(base2.id))
+
+                    if (self.push_dir == XAxis).all():
+                        if (base1.coords[0][0] > base2.coords[0][0]):
                             base_hi = base1
                             base_lo = base2
                         else:
                             base_hi = base2
                             base_lo = base1
-                    elif self.push_dir == Axis.Y:
-                        if (base1.coords[1] > base2.coords[1]):
+                    elif (self.push_dir == YAxis).all():
+                        if (base1.coords[0][1] > base2.coords[0][1]):
                             base_hi = base1
                             base_lo = base2
                         else:
                             base_hi = base2
                             base_lo = base1
-                    elif self.push_dir == Axis.Z:
-                        if (base1.coords[2] > base2.coords[2]):
+                    elif (self.push_dir == ZAxis).all():
+                        if (base1.coords[0][2] > base2.coords[0][2]):
                             base_hi = base1
                             base_lo = base2
                         else:
@@ -1075,7 +1072,9 @@ def test_conflict_graph():
     nodes = [b1, b2, b3, f1, f2, f3]
     edges = [[1, 3], [3, 2], [2, 4], [4, 0], [5, 0], [1, 5]]
 
-    input = InputScaff(nodes, edges, normalize([0, -1, 0]), 2, 1)
+    push_dir = YAxis
+
+    input = InputScaff(nodes, edges, push_dir, 2, 1)
 
     input.gen_hinge_graph()
 
@@ -1090,8 +1089,8 @@ def test_conflict_graph():
 
     for basic_scaff in input.basic_scaffs:
         print("SCAFF =================== ")
-        print("foldable: " + str(basic_scaff.f_patch.id))
         print("base high: " + str(basic_scaff.b_patch_high.id))
+        print("foldable: " + str(basic_scaff.f_patch.id))
         print("base low: " + str(basic_scaff.b_patch_low.id))
 
     print("Remove Duplicate")
