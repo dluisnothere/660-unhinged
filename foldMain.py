@@ -83,10 +83,6 @@ class Patch:
     id_incr = 0
 
     def __init__(self, rect_coords):
-        # if not (is_rectangle(rect_coords)):
-        #     raise Exception("Input is not a rectangle! Might be a trapezoid or parallelogram")
-        # print("Input is rectangle...")
-        # 3d coordinates corresponding to a rectangle
 
         # numpy arrays
         self.coords: np.ndarray = rect_coords
@@ -154,27 +150,6 @@ class Modification:
 
         # Hinge variables
         self.num_hinges = num_hinges
-
-    #     # region
-    #     self.projected_region = self.calc_region()
-    #
-    # def calc_region(self):
-    #     print("calc_region: implement me")
-    #     return -1
-
-
-"""
-FoldConfig: A list of i angles corresponding to i hinges
-Notes: May not actually need this as a class
-"""
-
-
-class FoldConfig:
-    def __init__(self):
-        # A list of i angles corresponding to i hinges
-        self.angles = []  # think of it as an empty numpy array
-        self.time = 0
-
 
 """
 FoldTransform: An association of start and end angles with their associated time step
@@ -286,8 +261,8 @@ class FoldOption:
             # If they overlap in time, then check if they share any of the same base patches
             # They should both be H scaffolds
             if (type(self.scaff) == HBasicScaff and type(other.scaff) == HBasicScaff):
-                if (self.scaff.b_patch_low.id == other.scaff.b_patch_low.id and
-                        self.scaff.b_patch_high.id == other.scaff.b_patch_high.id):
+                if (self.scaff.b_patch.id == other.scaff.b_patch.id and
+                        self.scaff.t_patch.id == other.scaff.t_patch.id):
 
                     # Check their patch traversal trajectory is the same.
                     # If they are the same, then they are not conflicting
@@ -307,7 +282,7 @@ class FoldOption:
 
                     # if odd number of patches, trajectory will always be down and then move on.
 
-                elif (self.scaff.b_patch_high.id == other.scaff.b_patch_high.id):
+                elif (self.scaff.t_patch.id == other.scaff.t_patch.id):
                     # Special case, if the scaffolds share the same high base patch,
                     # then their start time should be the same
                     if (self.fold_transform.startTime != other.fold_transform.startTime):
@@ -333,15 +308,12 @@ class FoldOption:
         zDotProdRot = np.dot(rotAxis, ZAxis)
 
         # The bottom edge is the width
-        width = 0.0
-        height = 0.0
-        bottomEdgeVerts = None
-
+        # Other edge is the height
         if abs(xDotProdNorm) == 1:
             if abs(yDotProdRot) == 1:
                 width = maxY - minY
                 height = maxZ - minZ
-                bottomEdgeVerts = np.array([np.array([minX, minY, minZ]), np.array([minX, maxY, minZ])])
+                bottomEdgeVerts = np.array([np.array([minX, minY, maxZ]), np.array([minX, maxY, minZ])])
             elif abs(zDotProdRot) == 1:
                 width = maxZ - minZ
                 height = maxY - minY
@@ -478,7 +450,10 @@ class TBasicScaff(BasicScaff):
             for j in range(0, ns + 1):
                 for k in range(0, j):
                     cost = alpha * i / nh + (1 - alpha) / ns
-                    mod = Modification(i, j, k, j - k, cost)
+
+                    # TODO: check this later
+                    # mod = Modification(i, j, k, j - k, cost)
+                    mod = Modification(i, k, j, j - k, cost)
 
                     fo_left = FoldOption(True, mod, self)
                     fo_right = FoldOption(False, mod, self)
@@ -500,13 +475,13 @@ HBasicScaff: A basic scaffold of type H
 
 
 class HBasicScaff(BasicScaff):
-    def __init__(self, b_patch_low, f_patch, b_patch_high):
+    def __init__(self, b_patch, f_patch, t_patch):
         super().__init__()
         self.f_patch = f_patch
-        self.b_patch_low = b_patch_low
-        self.b_patch_high = b_patch_high
+        self.b_patch = b_patch
+        self.t_patch = t_patch
 
-        self.rot_axis: np.ndarray = np.cross(f_patch.calc_normal(), b_patch_low.calc_normal())
+        self.rot_axis: np.ndarray = np.cross(f_patch.calc_normal(), b_patch.calc_normal())
 
     def gen_fold_options(self, ns, nh, alpha):
         # Generates all possible fold solutions for TBasicScaff
@@ -520,9 +495,10 @@ class HBasicScaff(BasicScaff):
                     print(j)
                     print("end")
                     cost = alpha * i / nh + (1 - alpha) / ns
-                    mod = Modification(i, j, k, j - k, cost)
-                    # fo_left = FoldOption(True, mod, patch_list)
-                    # fo_right = FoldOption(False, mod, patch_list)
+
+                    # TODO: Check if this is correct
+                    # mod = Modification(i, j, k, j - k, cost)
+                    mod = Modification(i, k, j, j - k, cost)
 
                     fo_left = FoldOption(True, mod, self)
                     fo_right = FoldOption(False, mod, self)
@@ -585,12 +561,7 @@ class HMidScaff(MidScaff):
 
         for scaff in self.basic_scaffs:
             # Sum of the final area of every modification
-            # print scaff
-            print("gen_conflict_graph scaff location")
-            print(scaff)
             for option in scaff.fold_options:
-                print("projected region: ")
-                print(option.projected_region)
                 region_area = rectangleArea(option.projected_region)
                 sum_fold_area += region_area
                 max_cost_v = max(max_cost_v, option.modification.cost)
@@ -640,7 +611,28 @@ class HMidScaff(MidScaff):
 
     def fold(self):
         self.gen_conflict_graph()
-        self.run_mwisp()
+
+        # print conflict graph's nodes
+        print("conflict graph nodes:")
+        for node in self.conflict_graph.nodes:
+            print("node =======================")
+            print("scaffold id: " + str(node.scaff.id))
+            print("num hinges: " + str(node.modification.num_hinges))
+            print("num shrinks: " + str(node.modification.num_pieces))
+            print("start range: " + str(node.modification.range_start))
+            print("end range: " + str(node.modification.range_end))
+            print("isleft: " + str(node.isleft))
+            print("original vertices: ")
+            print(node.scaff.f_patch.coords)
+            print("projected region: ")
+            print(node.projected_region)
+
+        # print conflict graph's edges
+        print("conflict graph edges:")
+        for edge in self.conflict_graph.edges:
+            print(edge)
+
+        # self.run_mwisp()
 
         print("Completed running fold on HMidScaff...")
 
@@ -867,8 +859,6 @@ class InputScaff:
         # First, generate basic scaffold solutions
         for scaff in self.basic_scaffs:
             # TODO: hard code alpha to be 0.5
-            print("fold location of basic scaff")
-            print(scaff)
             scaff.gen_fold_options(self.max_hinges, self.num_shrinks, 0.5)
 
         self.mid_scaffs[0].fold()
@@ -905,7 +895,7 @@ Purpose is to serve as a mini inputScaffold for now.
 #         alpha = 0.5
 #         cost1 = alpha * 0 / 1 + (1 - alpha) / 1
 #         mod1 = Modification(nH, 0, 3, nS, cost1)
-#         patch_list = [self.h_basic_scaff.f_patch, self.h_basic_scaff.b_patch_low, self.h_basic_scaff.b_patch_high]
+#         patch_list = [self.h_basic_scaff.f_patch, self.h_basic_scaff.b_patch, self.h_basic_scaff.t_patch]
 #         fo = FoldOption(False, mod1, patch_list)
 #         fo.gen_fold_transform()
 #
@@ -1120,7 +1110,7 @@ def test_conflict_graph():
 
     push_dir = YAxis
 
-    input = InputScaff(nodes, edges, push_dir, 2, 1)
+    input = InputScaff(nodes, edges, push_dir, 1, 1)
 
     input.gen_hinge_graph()
 
@@ -1151,9 +1141,9 @@ def test_conflict_graph():
         print(mid_scaff.node_mappings)
         for basic_scaff in mid_scaff.basic_scaffs:
             print("SCAFF =================== ")
-            print("base high: " + str(basic_scaff.b_patch_high.id))
+            print("base high: " + str(basic_scaff.t_patch.id))
             print("foldable: " + str(basic_scaff.f_patch.id))
-            print("base low: " + str(basic_scaff.b_patch_low.id))
+            print("base low: " + str(basic_scaff.b_patch.id))
 
     # Generate solutions
     input.fold()

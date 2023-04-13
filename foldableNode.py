@@ -879,7 +879,7 @@ class MayaInputScaffoldWrapper():
         # patchList1 = np.array(self.basicScaffolds[0].getAllPatchVertices())
         #
         # fm1.generate_h_basic_scaff(patchList1[0], patchList1[1], patchList1[2])
-        # patchObjList = [fm1.h_basic_scaff.b_patch_low, fm1.h_basic_scaff.f_patch, fm1.h_basic_scaff.b_patch_high]
+        # patchObjList = [fm1.h_basic_scaff.b_patch, fm1.h_basic_scaff.f_patch, fm1.h_basic_scaff.b_patch_high]
         # fo1 = fold.FoldOption(True, mod1, patchObjList)
         # fo1.gen_fold_transform()
         # fo1.fold_transform.startTime = 0
@@ -894,7 +894,7 @@ class MayaInputScaffoldWrapper():
         # patchList2 = np.array(self.basicScaffolds[1].getAllPatchVertices())
         #
         # fm2.generate_h_basic_scaff(patchList2[0], patchList2[1], patchList2[2])
-        # patchObjList2 = [fm2.h_basic_scaff.b_patch_low, fm2.h_basic_scaff.f_patch, fm2.h_basic_scaff.b_patch_high]
+        # patchObjList2 = [fm2.h_basic_scaff.b_patch, fm2.h_basic_scaff.f_patch, fm2.h_basic_scaff.b_patch_high]
         # fo2 = fold.FoldOption(True, mod2, patchObjList2)
         # fo2.gen_fold_transform()
         # fo2.fold_transform.startTime = 0
@@ -912,7 +912,7 @@ class MayaInputScaffoldWrapper():
         # patchList1 = np.array(self.basicScaffolds[2].getAllPatchVertices())
         #
         # fm1.generate_h_basic_scaff(patchList1[0], patchList1[1], patchList1[2])
-        # patchObjList = [fm1.h_basic_scaff.b_patch_low, fm1.h_basic_scaff.f_patch, fm1.h_basic_scaff.b_patch_high]
+        # patchObjList = [fm1.h_basic_scaff.b_patch, fm1.h_basic_scaff.f_patch, fm1.h_basic_scaff.b_patch_high]
         # fo1 = fold.FoldOption(True, mod1, patchObjList)
         # fo1.gen_fold_transform()
         # fo1.fold_transform.startTime = 0
@@ -926,7 +926,7 @@ class MayaInputScaffoldWrapper():
         # patchList2 = np.array(self.basicScaffolds[1].getAllPatchVertices())
         #
         # fm2.generate_h_basic_scaff(patchList2[0], patchList2[1], patchList2[2])
-        # patchObjList2 = [fm2.h_basic_scaff.b_patch_low, fm2.h_basic_scaff.f_patch, fm2.h_basic_scaff.b_patch_high]
+        # patchObjList2 = [fm2.h_basic_scaff.b_patch, fm2.h_basic_scaff.f_patch, fm2.h_basic_scaff.b_patch_high]
         # fo2 = fold.FoldOption(True, mod2, patchObjList2)
         # fo2.gen_fold_transform()
         # fo2.fold_transform.startTime = 0
@@ -941,7 +941,7 @@ class MayaInputScaffoldWrapper():
         # patchList3 = np.array(self.basicScaffolds[0].getAllPatchVertices())
         #
         # fm3.generate_h_basic_scaff(patchList3[0], patchList3[1], patchList3[2])
-        # patchObjList3 = [fm3.h_basic_scaff.b_patch_low, fm3.h_basic_scaff.f_patch, fm3.h_basic_scaff.b_patch_high]
+        # patchObjList3 = [fm3.h_basic_scaff.b_patch, fm3.h_basic_scaff.f_patch, fm3.h_basic_scaff.b_patch_high]
         # fo3 = fold.FoldOption(True, mod3, patchObjList3)
         # fo3.gen_fold_transform()
         # fo3.fold_transform.startTime = 90
@@ -955,7 +955,7 @@ class MayaInputScaffoldWrapper():
         # patchList1 = np.array(self.basicScaffolds[0].getAllPatchVertices())
         #
         # fm1.generate_h_basic_scaff(patchList1[0], patchList1[1], patchList1[2])
-        # patchObjList = [fm1.h_basic_scaff.b_patch_low, fm1.h_basic_scaff.f_patch, fm1.h_basic_scaff.b_patch_high]
+        # patchObjList = [fm1.h_basic_scaff.b_patch, fm1.h_basic_scaff.f_patch, fm1.h_basic_scaff.b_patch_high]
         # fo1 = fold.FoldOption(True, mod1, patchObjList)
         # fo1.gen_fold_transform()
         # fo1.fold_transform.startTime = 0
@@ -969,7 +969,7 @@ class MayaInputScaffoldWrapper():
         # patchList2 = np.array(self.basicScaffolds[1].getAllPatchVertices())
         #
         # fm2.generate_h_basic_scaff(patchList2[0], patchList2[1], patchList2[2])
-        # patchObjList2 = [fm2.h_basic_scaff.b_patch_low, fm2.h_basic_scaff.f_patch, fm2.h_basic_scaff.b_patch_high]
+        # patchObjList2 = [fm2.h_basic_scaff.b_patch, fm2.h_basic_scaff.f_patch, fm2.h_basic_scaff.b_patch_high]
         # fo2 = fold.FoldOption(True, mod2, patchObjList2)
         # fo2.gen_fold_transform()
         # fo2.fold_transform.startTime = 0
