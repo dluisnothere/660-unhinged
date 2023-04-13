@@ -52,7 +52,7 @@ def is_rectangle(coords):
         return True
 
 
-def rectangleOverlap(rect1: List[List[float]], rect2: List[List[float]]) -> bool:
+def rectangleOverlap(rect1: np.ndarray(np.ndarray(float)), rect2: np.ndarray(np.ndarray(float))) -> bool:
     rect1_minX = min(rect1[0][0], rect1[1][0], rect1[2][0], rect1[3][0])
     rect1_maxX = max(rect1[0][0], rect1[1][0], rect1[2][0], rect1[3][0])
     rect1_minY = min(rect1[0][1], rect1[1][1], rect1[2][1], rect1[3][1])
@@ -65,12 +65,14 @@ def rectangleOverlap(rect1: List[List[float]], rect2: List[List[float]]) -> bool
 
     return False
 
-def rectangleArea(rect: List[List[float]]):
+
+def rectangleArea(rect: np.ndarray(np.ndarray(float))):
     # calculate the area of the rectangle
     h = np.linalg.norm(rect[1] - rect[0])
     w = np.linalg.norm(rect[3] - rect[0])
 
     return h * w
+
 
 """
 Patch: Our proxy for a rectangle and only contains a rectangle
@@ -187,7 +189,7 @@ class FoldTransform:
         self.endAngles = a_en
 
         # TODO: maybe move elsewhere
-        self.starTime = 0
+        self.startTime = 0
         self.endTime = 90
 
 
@@ -210,10 +212,10 @@ class FoldOption:
         self.scaff: BasicScaff = scaff
 
         # Traversal vector of the modification
-        self.patch_traversal: List[float] = []
+        self.patch_trajectory: np.ndarray(float) = None
 
         # Projected region of the modification, a list of vertices in world space
-        self.projected_region: List[float] = []
+        self.projected_region: np.ndarray(np.ndarray(float)) = None
 
     def gen_fold_transform(self):
         print("Entered gen_fold_transform...")
@@ -321,48 +323,61 @@ class FoldOption:
             else:
                 raise Exception("FoldOption::conflicts_with: Not both HBasicScaff")
 
-    def get_patch_width_length_bottom(self, norm, rotAxis, minX, maxX, minY, maxY, minZ, maxZ):
-        params = {
-            XAxis: {
-                YAxis: {
-                    'patch_width': maxY - minY,
-                    'patch_length': maxZ - minZ,
-                    'bottom_verts': [[maxX, maxY, minZ], [maxX, minY, minZ]]
-                },
-                ZAxis: {
-                    'patch_width': maxZ - minZ,
-                    'patch_length': maxY - minY,
-                    'bottom_verts': [[maxX, minY, minZ], [maxX, minY, maxZ]]
-                }
-            },
-            YAxis: {
-                XAxis: {
-                    'patch_width': maxX - minX,
-                    'patch_length': maxZ - minZ,
-                    'bottom_verts': [[minX, maxY, minZ], [maxX, maxY, minZ]]
-                },
-                ZAxis: {
-                    'patch_width': maxZ - minZ,
-                    'patch_length': maxX - minX,
-                    'bottom_verts': [[minX, maxY, minZ], [minX, maxY, maxZ]]
-                }
-            },
-            ZAxis: {
-                XAxis: {
-                    'patch_width': maxX - minX,
-                    'patch_length': maxY - minY,
-                    'bottom_verts': [[minX, maxY, minZ], [maxX, maxY, minZ]]
-                },
-                YAxis: {
-                    'patch_width': maxY - minY,
-                    'patch_length': maxX - minX,
-                    'bottom_verts': [[minX, maxY, minZ], [minX, minY, minZ]]
-                }
-            }
-        }
-        return params.get(norm, {}).get(rotAxis, None)
+    def get_patch_width_length_bottom(self, norm, rotAxis, minX, maxX, minY, maxY, minZ, maxZ) -> (float, float, np.ndarray):
+        xDotProdNorm = np.dot(norm, XAxis)
+        yDotProdNorm = np.dot(norm, YAxis)
+        zDotProdNorm = np.dot(norm, ZAxis)
 
-    def calc_projected_region(self, rotAxis: List[float]) -> List[List[float]]:
+        xDotProdRot = np.dot(rotAxis, XAxis)
+        yDotProdRot = np.dot(rotAxis, YAxis)
+        zDotProdRot = np.dot(rotAxis, ZAxis)
+
+        # The bottom edge is the width
+        width = 0.0
+        height = 0.0
+        bottomEdgeVerts = None
+
+        if abs(xDotProdNorm) == 1:
+            if abs(yDotProdRot) == 1:
+                width = maxY - minY
+                height = maxZ - minZ
+                bottomEdgeVerts = np.array([np.array([minX, minY, minZ]), np.array([minX, maxY, minZ])])
+            elif abs(zDotProdRot) == 1:
+                width = maxZ - minZ
+                height = maxY - minY
+                bottomEdgeVerts = np.array([np.array([minX, minY, minZ]), np.array([minX, minY, maxZ])])
+            else:
+                raise Exception("RotAxis and Norm Axis the same?")
+        elif abs(yDotProdNorm) == 1:
+            if abs(xDotProdRot) == 1:
+                width = maxX - minX
+                height = maxZ - minZ
+                bottomEdgeVerts = np.array([np.array([minX, minY, minZ]), np.array([maxX, minY, minZ])])
+            elif abs(zDotProdRot) == 1:
+                width = maxZ - minZ
+                height = maxX - minX
+                bottomEdgeVerts = np.array([np.array([minX, minY, minZ]), np.array([minX, minY, maxZ])])
+            else:
+                raise Exception("RotAxis and Norm Axis the same?")
+        elif abs(zDotProdNorm) == 1:
+            if abs(xDotProdRot) == 1:
+                width = maxX - minX
+                height = maxY - minY
+                bottomEdgeVerts = np.array([np.array([minX, minY, minZ]), np.array([maxX, minY, minZ])])
+            elif abs(yDotProdRot) == 1:
+                width = maxY - minY
+                height = maxX - minX
+                bottomEdgeVerts = np.array([np.array([minX, minY, minZ]), np.array([minX, maxY, minZ])])
+            else:
+                raise Exception("RotAxis and Norm Axis the same?")
+        else:
+            print("norm: ", norm)
+            print("rotAxis: ", rotAxis)
+            raise Exception("Invalid norm or rotAxis")
+
+        return (width, height, bottomEdgeVerts)
+
+    def gen_projected_region(self, rotAxis: np.ndarray(float)):
         # calculates the projected region of the patch after a modification is applied
         # returns a list of 4 points
 
@@ -380,22 +395,15 @@ class FoldOption:
 
         norm = f_patch.calc_normal()
 
-        result = self.get_patch_width_length_bottom(norm, rotAxis, pMinX, pMaxX, pMinY, pMaxY, pMinZ, pMaxZ)
-
-        if result is None:
-            raise Exception("Invalid rotation axis... Returning")
-
-        patchWidth = result['patch_width']
-        patchLength = result['patch_length']
-        bottomVerts = result['bottom_verts']
+        patchWidth, patchHeight, bottomVerts = self.get_patch_width_length_bottom(norm, rotAxis, pMinX, pMaxX, pMinY, pMaxY, pMinZ, pMaxZ)
 
         print("PatchWidth: " + str(patchWidth))
-        print("PatchLength: " + str(patchLength))
+        print("PatchLength: " + str(patchHeight))
         print("BottomVerts: ")
         print(bottomVerts)
 
         # Compute final length based on number of hinges
-        finalLength = patchLength / (self.modification.num_hinges + 1)
+        finalLength = patchHeight / (self.modification.num_hinges + 1)
 
         # Compute final width based on shrink value
         finalWidth = patchWidth / self.modification.num_pieces
@@ -403,8 +411,19 @@ class FoldOption:
         # compute the bottom vertices based on finalWidth and range_start and range_end
         # TODO: for now, hard code place to shrink from as the first element of bottomVerts
         newBottomVerts = []
-        newBottomVerts[0] = bottomVerts[0] + self.modification.range_start * finalWidth
-        newBottomVerts[1] = bottomVerts[0] + self.modification.range_end * finalWidth
+
+        # TODO: debug print bottomVertis[0]
+        print("bottomVerts[0]: ", bottomVerts[0])
+        print("bottomVerts[1]: ", bottomVerts[1])
+
+        newCalcVert0 = bottomVerts[0] + self.modification.range_start * finalWidth
+        newCalcVert1 = bottomVerts[1] + self.modification.range_end * finalWidth
+
+        print("newCalcVert0: ", newCalcVert0)
+        print("newCalcVert1: ", newCalcVert1)
+
+        newBottomVerts.append(newCalcVert0)
+        newBottomVerts.append(newCalcVert1)
 
         # Get base patch location
         newBottomVerts = np.array(newBottomVerts)
@@ -412,12 +431,12 @@ class FoldOption:
         # if Solution is left
         if (self.isleft):
             # Additional verts is on the left
-            additionalVerts = newBottomVerts - finalLength
+            additionalVerts: np.ndarray = newBottomVerts - finalLength
         else:
             # Additional verts is on the right
-            additionalVerts = newBottomVerts + finalLength
+            additionalVerts: np.ndarray = newBottomVerts + finalLength
 
-        return [newBottomVerts[0], newBottomVerts[1], additionalVerts[1], additionalVerts[0]]
+        self.projected_region = np.array([newBottomVerts[0], newBottomVerts[1], additionalVerts[1], additionalVerts[0]])
 
 
 """
@@ -460,8 +479,6 @@ class TBasicScaff(BasicScaff):
                 for k in range(0, j):
                     cost = alpha * i / nh + (1 - alpha) / ns
                     mod = Modification(i, j, k, j - k, cost)
-                    # fo_left = FoldOption(True, mod, patch_list)
-                    # fo_right = FoldOption(False, mod, patch_list)
 
                     fo_left = FoldOption(True, mod, self)
                     fo_right = FoldOption(False, mod, self)
@@ -469,6 +486,9 @@ class TBasicScaff(BasicScaff):
                     # generate the fold transform from start to end?
                     fo_left.gen_fold_transform()
                     fo_right.gen_fold_transform()
+
+                    fo_left.gen_projected_region(self.rot_axis)
+                    fo_right.gen_projected_region(self.rot_axis)
 
                     self.fold_options.append(fo_left)
                     self.fold_options.append(fo_right)
@@ -486,7 +506,7 @@ class HBasicScaff(BasicScaff):
         self.b_patch_low = b_patch_low
         self.b_patch_high = b_patch_high
 
-        self.rot_axis = np.cross(f_patch.calc_normal(), b_patch_low.calc_normal())
+        self.rot_axis: np.ndarray = np.cross(f_patch.calc_normal(), b_patch_low.calc_normal())
 
     def gen_fold_options(self, ns, nh, alpha):
         # Generates all possible fold solutions for TBasicScaff
@@ -511,6 +531,9 @@ class HBasicScaff(BasicScaff):
                     fo_left.gen_fold_transform()
                     fo_right.gen_fold_transform()
 
+                    fo_left.gen_projected_region(self.rot_axis)
+                    fo_right.gen_projected_region(self.rot_axis)
+
                     self.fold_options.append(fo_left)
                     self.fold_options.append(fo_right)
 
@@ -528,12 +551,16 @@ class MidScaff:
         self.start_time = -1
         self.end_time = -1
 
+
 class TMidScaff(MidScaff):
     def __init__(self, bs, nm):
         super().__init__(bs, nm)
 
     # Only one solution? Is there any case where this solution could impact another guy?
     # Probably not since they all fold at different times? Sequentially?
+    def fold(self):
+        print("TMidScaff: Implement me!")
+
 
 class HMidScaff(MidScaff):
     def __init__(self, bs, nm):
@@ -558,7 +585,12 @@ class HMidScaff(MidScaff):
 
         for scaff in self.basic_scaffs:
             # Sum of the final area of every modification
+            # print scaff
+            print("gen_conflict_graph scaff location")
+            print(scaff)
             for option in scaff.fold_options:
+                print("projected region: ")
+                print(option.projected_region)
                 region_area = rectangleArea(option.projected_region)
                 sum_fold_area += region_area
                 max_cost_v = max(max_cost_v, option.modification.cost)
@@ -568,7 +600,11 @@ class HMidScaff(MidScaff):
                 region_area = rectangleArea(option.projected_region)
                 lambda_i = region_area / sum_fold_area
                 cost_vj = lambda_i * option.modification.cost
+
                 weight = max_cost_v - cost_vj + 1
+
+                # Need to convert the weight from a double to an int by multiplying by 100
+                weight = int(weight * 100)
 
                 nodes.append(option)
                 node_weights[option] = weight
@@ -587,21 +623,26 @@ class HMidScaff(MidScaff):
                         # if they conflict, remove this edge
                         self.conflict_graph.remove_edge(option, other_option)
 
+
+        print("done generating conflict graph")
+
     def run_mwisp(self):
         print("running MWISP")
 
         # Run MWISP on the conflict graph
         # This will return a list of nodes (FoldOptions) that are in the maximum weight independent set
         # TODO: this might be really slow.
-        max_clique = nx.algorithms.approximation.clique.max_weight_clique(self.conflict_graph, weight="weight")
+        max_clique, weight = nx.algorithms.clique.max_weight_clique(self.conflict_graph, weight="weight")
 
         for fold_option in max_clique:
             # TODO: clean this up messy.
-            fold_option.basic_scaff.optimal_fold_option = fold_option
+            fold_option.scaff.optimal_fold_option = fold_option
 
     def fold(self):
         self.gen_conflict_graph()
         self.run_mwisp()
+
+        print("Completed running fold on HMidScaff...")
 
 
 """
@@ -622,7 +663,6 @@ class InputScaff:
         self.edge_list = edge_list
         # axis vec3
         self.push_dir: np.ndarray = push_dir
-
 
         # debug purposes for ease of our test algorithm
         # for now we manually define basic scaffolds
@@ -707,7 +747,6 @@ class InputScaff:
                             base_lo = base1
                     else:
                         raise Exception("Invalid push direction")
-                        exit(-1)
 
                     fold0 = self.node_list[id]
                     self.basic_scaffs.append(HBasicScaff(base_lo, fold0, base_hi))
@@ -827,14 +866,19 @@ class InputScaff:
 
         # First, generate basic scaffold solutions
         for scaff in self.basic_scaffs:
-            scaff.gen_fold_options()
+            # TODO: hard code alpha to be 0.5
+            print("fold location of basic scaff")
+            print(scaff)
+            scaff.gen_fold_options(self.max_hinges, self.num_shrinks, 0.5)
 
         self.mid_scaffs[0].fold()
+
 
 '''
 FoldManager: debug class for now, probalby won't actually use it.
 Purpose is to serve as a mini inputScaffold for now.
 '''
+
 
 # class FoldManager:
 #     def __init__(self):
@@ -974,7 +1018,8 @@ def interm1_input_scaff():
     f2.id = 4
     f3.id = 5
 
-    input = InputScaff([b1, b2, b3, f1, f2, f3], [[0, 3], [0, 5], [1, 3], [1, 4], [2, 4], [2, 5]], normalize([0, 1, 0]), 2, 1)
+    input = InputScaff([b1, b2, b3, f1, f2, f3], [[0, 3], [0, 5], [1, 3], [1, 4], [2, 4], [2, 5]], normalize([0, 1, 0]),
+                       2, 1)
 
     input.gen_hinge_graph()
 
@@ -1044,6 +1089,7 @@ def interm2_input_scaff():
     for mid_scaff in input.mid_scaffs:
         print(mid_scaff.node_mappings)
 
+
 # interm2_input_scaff()
 
 def test_conflict_graph():
@@ -1087,28 +1133,30 @@ def test_conflict_graph():
     input.gen_basic_scaffs()
     print(input.basic_scaffs)
 
-    for basic_scaff in input.basic_scaffs:
-        print("SCAFF =================== ")
-        print("base high: " + str(basic_scaff.b_patch_high.id))
-        print("foldable: " + str(basic_scaff.f_patch.id))
-        print("base low: " + str(basic_scaff.b_patch_low.id))
-
-    print("Remove Duplicate")
-    print(input.remove_duplicate_cycles([[0, 1, 2], [0, 1, 2], [0, 1, 2]]))
-    print(input.remove_duplicate_cycles([[0, 1, 2], [0, 1, 2], [2, 3, 4]]))
-    print(input.remove_duplicate_cycles([[0, 1, 2], [2, 1, 0], [2, 3, 4]]))
-    print(input.remove_duplicate_cycles([[0, 1, 2], [2, 1, 0], [2, 3, 4], [2, 4, 3], [1, 3, 4]]))
-
-    print("Merge cycles")
-    print(input.merge_cycles([[0, 1, 2], [0, 1, 3]]))
-    print(input.merge_cycles([[0, 1, 2], [0, 1, 3], [1, 2, 3]]))
-    print(input.merge_cycles([[0, 3, 5], [0, 1, 3], [1, 2, 3], [0, 3, 4]]))
+    # print("Remove Duplicate")
+    # print(input.remove_duplicate_cycles([[0, 1, 2], [0, 1, 2], [0, 1, 2]]))
+    # print(input.remove_duplicate_cycles([[0, 1, 2], [0, 1, 2], [2, 3, 4]]))
+    # print(input.remove_duplicate_cycles([[0, 1, 2], [2, 1, 0], [2, 3, 4]]))
+    # print(input.remove_duplicate_cycles([[0, 1, 2], [2, 1, 0], [2, 3, 4], [2, 4, 3], [1, 3, 4]]))
+    #
+    # print("Merge cycles")
+    # print(input.merge_cycles([[0, 1, 2], [0, 1, 3]]))
+    # print(input.merge_cycles([[0, 1, 2], [0, 1, 3], [1, 2, 3]]))
+    # print(input.merge_cycles([[0, 3, 5], [0, 1, 3], [1, 2, 3], [0, 3, 4]]))
 
     print("MIDSCAFFS")
     input.gen_mid_scaffs()
     print(input.mid_scaffs)
     for mid_scaff in input.mid_scaffs:
         print(mid_scaff.node_mappings)
+        for basic_scaff in mid_scaff.basic_scaffs:
+            print("SCAFF =================== ")
+            print("base high: " + str(basic_scaff.b_patch_high.id))
+            print("foldable: " + str(basic_scaff.f_patch.id))
+            print("base low: " + str(basic_scaff.b_patch_low.id))
+
+    # Generate solutions
+    input.fold()
 
 
 test_conflict_graph()
