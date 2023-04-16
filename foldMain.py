@@ -672,6 +672,10 @@ class HMidScaff(MidScaff):
 
     def gen_fold_times(self):
         print("GENERATING FOLD TIMES....")
+        # If no basic scaffolds, return with error.
+        if len(self.basic_scaffs) == 0:
+            raise Exception("No basic scaffolds to gen fold time for!")
+
         # Sort basic scaffold by the position of their top patch (This only happens for HMidScaff so we can assume there is one)
         # TODO: hard coded in the Y direction, but need to generalize this
         # Sort by the Y coordinate of the top patch, which in our case should be constant for now.
@@ -697,10 +701,10 @@ class HMidScaff(MidScaff):
     def gen_conflict_graph(self):
         print("generating conflict graph...")
 
-        # We are generating the complement of the conflict graph, actually
-        # self.conflict_graph = nx.Graph()
-
         # Assuming at this point we havea  list of basic scaffolds
+        if (len(self.basic_scaffs) == 0):
+            raise Exception("No basic scaffolds to generate conflict graph from!")
+
         # For each scaffold, get its fold options and add them as nodes to the conflict grpah
         nodes = []
         node_weights = {}
@@ -886,57 +890,58 @@ class InputScaff:
         for edge in self.edge_list:
             self.hinge_graph.add_edge(edge[0], edge[1])
 
-    def gen_basic_scaffs(self):
-        print("gen basic scaffs")
-        for patch in self.node_list:
-            if patch.patch_type == PatchType.Fold:
-                id: int = patch.id
-                neighbors = list(self.hinge_graph.neighbors(id))
-                if len(neighbors) == 2:
-                    # TODO: Always assume push axis is negative for now
-
-                    # If push axis is negative, base_hi is the one with higher value along the pos of push axis
-                    base1: Patch = self.node_list[neighbors[0]]
-                    base2: Patch = self.node_list[neighbors[1]]
-
-                    if (self.push_dir == XAxis).all():
-                        if (base1.coords[0][0] > base2.coords[0][0]):
-                            base_hi = base1
-                            base_lo = base2
-                        else:
-                            base_hi = base2
-                            base_lo = base1
-                    elif (self.push_dir == YAxis).all():
-                        if (base1.coords[0][1] > base2.coords[0][1]):
-                            base_hi = base1
-                            base_lo = base2
-                        else:
-                            base_hi = base2
-                            base_lo = base1
-                    elif (self.push_dir == ZAxis).all():
-                        if (base1.coords[0][2] > base2.coords[0][2]):
-                            base_hi = base1
-                            base_lo = base2
-                        else:
-                            base_hi = base2
-                            base_lo = base1
-                    else:
-                        raise Exception("Invalid push direction")
-
-                    fold0 = self.node_list[id]
-                    self.basic_scaffs.append(HBasicScaff(base_lo, fold0, base_hi))
-                    self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id,
-                                                                     self.node_list[neighbors[1]].id]
-                    print(self.basic_scaffs[-1].id)
-                elif len(neighbors) == 1:
-                    base0 = self.node_list[neighbors[0]]
-                    fold0 = self.node_list[id]
-                    self.basic_scaffs.append(TBasicScaff(base0, fold0))
-                    self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id]
-                    print(self.basic_scaffs[-1].id)
-                else:
-                    print("wtf, no neighbors in the hinge graph??: " + str(id))
-        print("end gen basic scaffs")
+    # def gen_basic_scaffs(self):
+    #     print("gen basic scaffs")
+    #     for patch in self.node_list:
+    #         if patch.patch_type == PatchType.Fold:
+    #             id: int = patch.id
+    #             neighbors = list(self.hinge_graph.neighbors(id))
+    #             if len(neighbors) == 2:
+    #                 # TODO: Always assume push axis is negative for now
+    #
+    #                 # If push axis is negative, base_hi is the one with higher value along the pos of push axis
+    #                 base1: Patch = self.node_list[neighbors[0]]
+    #                 base2: Patch = self.node_list[neighbors[1]]
+    #
+    #                 if (self.push_dir == XAxis).all():
+    #                     if (base1.coords[0][0] > base2.coords[0][0]):
+    #                         base_hi = base1
+    #                         base_lo = base2
+    #                     else:
+    #                         base_hi = base2
+    #                         base_lo = base1
+    #                 elif (self.push_dir == YAxis).all():
+    #                     if (base1.coords[0][1] > base2.coords[0][1]):
+    #                         base_hi = base1
+    #                         base_lo = base2
+    #                     else:
+    #                         base_hi = base2
+    #                         base_lo = base1
+    #                 elif (self.push_dir == ZAxis).all():
+    #                     if (base1.coords[0][2] > base2.coords[0][2]):
+    #                         base_hi = base1
+    #                         base_lo = base2
+    #                     else:
+    #                         base_hi = base2
+    #                         base_lo = base1
+    #                 else:
+    #                     raise Exception("Invalid push direction")
+    #
+    #                 fold0 = self.node_list[id]
+    #                 self.basic_scaffs.append(HBasicScaff(base_lo, fold0, base_hi))
+    #                 self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id,
+    #                                                                  self.node_list[neighbors[1]].id]
+    #                 print(self.basic_scaffs[-1].id)
+    #             elif len(neighbors) == 1:
+    #                 base0 = self.node_list[neighbors[0]]
+    #                 fold0 = self.node_list[id]
+    #                 self.basic_scaffs.append(TBasicScaff(base0, fold0))
+    #                 self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id]
+    #                 print(self.basic_scaffs[-1].id)
+    #             else:
+    #                 print("wtf, no neighbors in the hinge graph??: " + str(id))
+    #     print("end gen basic scaffs")
+    #     print("end gen basic scaffs")
 
     # Basically just removes non-unique lists
     def remove_duplicate_cycles(self, cycle_list):
@@ -985,6 +990,10 @@ class InputScaff:
         return merged_cycles
 
     def gen_mid_scaffs(self):
+        # If there are no basic scaffolds, return with an error
+        if len(self.basic_scaffs) == 0:
+            raise Exception("No basic scaffolds to generate mid level scaffolds from")
+
         di_graph_rep = self.hinge_graph.to_directed()
         cycles = sorted(nx.simple_cycles(di_graph_rep))
         cycles_big = []
@@ -1039,6 +1048,10 @@ class InputScaff:
         # TODO: For now, only foldabilize the first mid level scaffold.
         # TODO: Eventually I will need to do greedy one step lookahead.
 
+        # If no scaffolds, return with an error
+        if len(self.basic_scaffs) == 0:
+            raise Exception("No basic scaffolds to fold")
+
         # First, generate time zones for basic scaffolds
         self.mid_scaffs[0].gen_fold_times()
 
@@ -1056,40 +1069,40 @@ Purpose is to serve as a mini inputScaffold for now.
 '''
 
 
-# class FoldManager:
-#     def __init__(self):
-#         self.h_basic_scaff = None  # TODO: For now a hard coded H scaffold
-#         self.input_scaff = None
-#
-#     def generate_h_basic_scaff(self, bottom_patch: list, fold_patch: list, top_patch: list):
-#         print("generate_h_basic_scaff...")
-#         print("bottom patch")
-#         bPatch = Patch(bottom_patch)
-#         print("top patch")
-#         tPatch = Patch(top_patch)
-#         print("fold patch")
-#         fPatch = Patch(fold_patch)
-#
-#         scaff = HBasicScaff(fPatch, bPatch, tPatch)
-#         self.h_basic_scaff = scaff
-#
-#     def mainFold(self, nH, nS) -> FoldOption:
-#         print("entered mainFold...")
-#         # Outputs a hard coded fold option for now
-#
-#         # Experiment with alpha values
-#         alpha = 0.5
-#         cost1 = alpha * 0 / 1 + (1 - alpha) / 1
-#         mod1 = Modification(nH, 0, 3, nS, cost1)
-#         patch_list = [self.h_basic_scaff.f_patch, self.h_basic_scaff.b_patch, self.h_basic_scaff.t_patch]
-#         fo = FoldOption(False, mod1, patch_list)
-#         fo.gen_fold_transform()
-#
-#         # TODO: hard coded for now
-#         fo.fold_transform.startTime = 0
-#         fo.fold_transform.endTime = 90
-#
-#         return fo
+class FoldManager:
+    def __init__(self):
+        self.h_basic_scaff = None  # TODO: For now a hard coded H scaffold
+        self.input_scaff = None
+
+    def generate_h_basic_scaff(self, bottom_patch: np.ndarray, fold_patch: np.ndarray, top_patch: np.ndarray):
+        print("generate_h_basic_scaff...")
+        print("bottom patch")
+        bPatch = Patch(bottom_patch)
+        print("top patch")
+        tPatch = Patch(top_patch)
+        print("fold patch")
+        fPatch = Patch(fold_patch)
+
+        scaff = HBasicScaff(fPatch, bPatch, tPatch)
+        self.h_basic_scaff = scaff
+
+    def mainFold(self, nH, nS) -> FoldOption:
+        print("entered mainFold...")
+        # Outputs a hard coded fold option for now
+
+        # Experiment with alpha values
+        alpha = 0.5
+        cost1 = alpha * 0 / 1 + (1 - alpha) / 1
+        mod1 = Modification(nH, 0, 3, nS, cost1)
+        # patch_list = [self.h_basic_scaff.f_patch, self.h_basic_scaff.b_patch, self.h_basic_scaff.t_patch]
+        fo = FoldOption(False, mod1, self.h_basic_scaff)
+        fo.gen_fold_transform()
+
+        # TODO: hard coded for now
+        fo.fold_transform.startTime = 0
+        fo.fold_transform.endTime = 90
+
+        return fo
 
 
 def basic_t_scaffold():
