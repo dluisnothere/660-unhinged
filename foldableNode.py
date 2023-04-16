@@ -980,6 +980,7 @@ class MayaInputScaffoldWrapper():
     def fold(self, time, recreatePatches):
         # Given that we have each basic scaffold with a solution, take in the current time and see the fold status of each basic scaffold.
         # For each basic scaffold, if the solution's startTime is less than the current time, then fold it with some animations
+
         # TODO: need to later figure out how to do this with mid level scaffolds first
         # TODO: assume list of basic scaffolds is not sorted in any way
         for i in range(0, len(self.basicScaffolds)):
