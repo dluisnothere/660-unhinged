@@ -527,6 +527,7 @@ class MidScaff:
         self.conflict_graph = None
         self.start_time = -1
         self.end_time = -1
+        self.fold_Order = []
 
     def gen_conflict_graph(self):
         print("generating conflict graph...")
@@ -976,4 +977,21 @@ def interm2_input_scaff():
     for mid_scaff in input.mid_scaffs:
         print(mid_scaff.node_mappings)
 
-# interm2_input_scaff()
+interm2_input_scaff()
+
+def basic_t_scaffold_conflict():
+    coords1 = np.array([(-1, 2, 2), (-1, 2, 0), (1, 2, 0), (1, 2, 2)])  # top base patch
+    coords2 = np.array([(-1, 0, 2), (-1, 0, 0), (1, 0, 0), (1, 0, 2)])  # bottom base patch
+    coords3 = np.array([(0, 0, 2), (0, 2, 2), (0, 2, 0), (0, 0, 0)])  # foldable patch
+
+    foldable = Patch(coords3)
+    base = Patch(coords2)
+    tscaff = TBasicScaff(foldable, base)
+    tscaff.gen_fold_options(1, 1, .5)
+    print("Begin test")
+
+    for scaff in tscaff.fold_options:
+        scaff.calc_projected_region(Axis.X)
+        print('------------------------------')
+    
+# basic_t_scaffold_conflict()
