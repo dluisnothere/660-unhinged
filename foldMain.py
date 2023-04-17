@@ -646,7 +646,7 @@ MidScaff: a mid level folding unit that contains basic scaffolds
 
 class MidScaff:
     def __init__(self, bs, nm):
-        self.basic_scaffs = bs
+        self.basic_scaffs: List[BasicScaff] = bs
         self.node_mappings = nm
         self.conflict_graph = None  # TODO: actually the complement of the conflict graph
 
@@ -861,17 +861,17 @@ class InputScaff:
         # TODO: commented out for testing purposes, recomment back in
         # self.gen_scaffs()
 
-    def gen_scaffs(self):
-        # TODO: Di
-
-        # generates hinge graph
-        self.gen_hinge_graph()
-
-        # generates basic scaffolds
-        self.gen_basic_scaffs()
-
-        # generates mid-level scaffolds
-        self.gen_mid_scaffs()
+    # def gen_scaffs(self):
+    #     # TODO: Di
+    #
+    #     # generates hinge graph
+    #     self.gen_hinge_graph()
+    #
+    #     # generates basic scaffolds
+    #     self.gen_basic_scaffs()
+    #
+    #     # generates mid-level scaffolds
+    #     self.gen_mid_scaffs()
 
     def gen_hinge_graph(self):
         print("gen_hinge_graph...")
@@ -890,58 +890,74 @@ class InputScaff:
         for edge in self.edge_list:
             self.hinge_graph.add_edge(edge[0], edge[1])
 
-    # def gen_basic_scaffs(self):
-    #     print("gen basic scaffs")
-    #     for patch in self.node_list:
-    #         if patch.patch_type == PatchType.Fold:
-    #             id: int = patch.id
-    #             neighbors = list(self.hinge_graph.neighbors(id))
-    #             if len(neighbors) == 2:
-    #                 # TODO: Always assume push axis is negative for now
-    #
-    #                 # If push axis is negative, base_hi is the one with higher value along the pos of push axis
-    #                 base1: Patch = self.node_list[neighbors[0]]
-    #                 base2: Patch = self.node_list[neighbors[1]]
-    #
-    #                 if (self.push_dir == XAxis).all():
-    #                     if (base1.coords[0][0] > base2.coords[0][0]):
-    #                         base_hi = base1
-    #                         base_lo = base2
-    #                     else:
-    #                         base_hi = base2
-    #                         base_lo = base1
-    #                 elif (self.push_dir == YAxis).all():
-    #                     if (base1.coords[0][1] > base2.coords[0][1]):
-    #                         base_hi = base1
-    #                         base_lo = base2
-    #                     else:
-    #                         base_hi = base2
-    #                         base_lo = base1
-    #                 elif (self.push_dir == ZAxis).all():
-    #                     if (base1.coords[0][2] > base2.coords[0][2]):
-    #                         base_hi = base1
-    #                         base_lo = base2
-    #                     else:
-    #                         base_hi = base2
-    #                         base_lo = base1
-    #                 else:
-    #                     raise Exception("Invalid push direction")
-    #
-    #                 fold0 = self.node_list[id]
-    #                 self.basic_scaffs.append(HBasicScaff(base_lo, fold0, base_hi))
-    #                 self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id,
-    #                                                                  self.node_list[neighbors[1]].id]
-    #                 print(self.basic_scaffs[-1].id)
-    #             elif len(neighbors) == 1:
-    #                 base0 = self.node_list[neighbors[0]]
-    #                 fold0 = self.node_list[id]
-    #                 self.basic_scaffs.append(TBasicScaff(base0, fold0))
-    #                 self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id]
-    #                 print(self.basic_scaffs[-1].id)
-    #             else:
-    #                 print("wtf, no neighbors in the hinge graph??: " + str(id))
-    #     print("end gen basic scaffs")
-    #     print("end gen basic scaffs")
+    # Basic scaffold objects already created by the foldNode
+    def gen_basic_scaffs(self):
+        print("gen basic scaffs")
+        if (len(self.basic_scaffs) < 1):
+            raise Exception("No basic scaffolds!")
+
+        # At this point there should be at least one basic scaffold in here
+        for basic_scaff in self.basic_scaffs:
+            if (type(basic_scaff) is HBasicScaff):
+                scaffid = basic_scaff.id
+                patchid = basic_scaff.f_patch.id
+                # Produce basic mappings in the same way I produced them foldNode.
+                print("scaffid: " + str(scaffid))
+                print("patch ids: " + str(basic_scaff.b_patch.id) + ", " + str(basic_scaff.t_patch.id))
+                self.basic_mappings[scaffid] = [patchid, basic_scaff.b_patch.id, basic_scaff.t_patch.id]
+            elif (type(basic_scaff) is TBasicScaff):
+                raise Exception("Found a T scaffold, not implemented yet!")
+        # for patch in self.node_list:
+        #     if patch.patch_type == PatchType.Fold:
+        #         id: int = patch.id
+        #         print("id: " + str(id))
+        #         neighbors = list(self.hinge_graph.neighbors(id))
+        #         if len(neighbors) == 2:
+        #             # TODO: Always assume push axis is negative for now
+        #
+        #             # If push axis is negative, base_hi is the one with higher value along the pos of push axis
+        #             base1: Patch = self.node_list[neighbors[0]]
+        #             base2: Patch = self.node_list[neighbors[1]]
+        #
+        #             if (self.push_dir == XAxis).all():
+        #                 if (base1.coords[0][0] > base2.coords[0][0]):
+        #                     base_hi = base1
+        #                     base_lo = base2
+        #                 else:
+        #                     base_hi = base2
+        #                     base_lo = base1
+        #             elif (self.push_dir == YAxis).all():
+        #                 if (base1.coords[0][1] > base2.coords[0][1]):
+        #                     base_hi = base1
+        #                     base_lo = base2
+        #                 else:
+        #                     base_hi = base2
+        #                     base_lo = base1
+        #             elif (self.push_dir == ZAxis).all():
+        #                 if (base1.coords[0][2] > base2.coords[0][2]):
+        #                     base_hi = base1
+        #                     base_lo = base2
+        #                 else:
+        #                     base_hi = base2
+        #                     base_lo = base1
+        #             else:
+        #                 raise Exception("Invalid push direction")
+        #
+        #             fold0 = self.node_list[id]
+        #             self.basic_scaffs.append(HBasicScaff(base_lo, fold0, base_hi))
+        #             self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id,
+        #                                                              self.node_list[neighbors[1]].id]
+        #             print(self.basic_scaffs[-1].id)
+        #         elif len(neighbors) == 1:
+        #             base0 = self.node_list[neighbors[0]]
+        #             fold0 = self.node_list[id]
+        #             self.basic_scaffs.append(TBasicScaff(base0, fold0))
+        #             self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id]
+        #             print(self.basic_scaffs[-1].id)
+        #         else:
+        #             print("wtf, no neighbors in the hinge graph??: " + str(id))
+        # print("end gen basic scaffs")
+        # print("end gen basic scaffs")
 
     # Basically just removes non-unique lists
     def remove_duplicate_cycles(self, cycle_list):
@@ -994,6 +1010,9 @@ class InputScaff:
         if len(self.basic_scaffs) == 0:
             raise Exception("No basic scaffolds to generate mid level scaffolds from")
 
+        if len(self.basic_mappings) == 0:
+            raise Exception("No basic scaffold mappings")
+
         di_graph_rep = self.hinge_graph.to_directed()
         cycles = sorted(nx.simple_cycles(di_graph_rep))
         cycles_big = []
@@ -1009,20 +1028,29 @@ class InputScaff:
 
         # Iterate through all cycles
         for cycle in cycles_filtered:
+            print("analyzing cycle...")
+            print(cycle)
+
             basic_scaff_id_list = []
             patch_id_list = []
 
             # A basic scaffold is part of a mid level scaffolds if it's part of a cycle
             for scaff_id, patch_ids in self.basic_mappings.items():
+                print("scaff_id: " + str(scaff_id))
+                print("patch_ids: " + str(patch_ids))
+
                 reject = False
                 patch_id_temp = []
                 for id in patch_ids:
+                    print("id: " + str(id))
                     if id not in cycle:
+                        print("rejecting id...")
                         reject = True
                         break
                     else:
                         patch_id_temp.append(id)
                 if not reject:
+                    print("adding scaff_id: " + str(scaff_id))
                     basic_scaff_id_list.append(scaff_id)
                     tracker[scaff_id] = True
                     patch_id_list = patch_id_list + patch_id_temp
@@ -1032,6 +1060,8 @@ class InputScaff:
             for scaff_id in basic_scaff_id_list:
                 basic_scaff_list.append(self.basic_scaffs[scaff_id])
 
+            if (len(basic_scaff_list) == 0):
+                raise Exception("Found no basic scaffolds to generate Mid level scaffolds")
             self.mid_scaffs.append(HMidScaff(basic_scaff_list, pruned_id_list))
 
         # For midlevels that just compose a basic scaff
@@ -1363,7 +1393,7 @@ def test_conflict_graph():
 
 # test_conflict_graph()
 
-def test_conflict_graph2():
+def test_conflict_graph_2midScaffs():
     coords1 = np.array([(0, 0, 1), (1, 0, 1), (1, 0, 0), (0, 0, 0)])  # top base patch # 0
     coords2 = np.array([(0, 1, 1), (1, 1, 1), (1, 1, 0), (0, 1, 0)])  # bottom base patch # 1
     coords3 = np.array([(0.25, 0, 1), (0.25, 0, 0), (0.25, 1, 0), (0.25, 1, 1)])  # middle base patch # 2
@@ -1437,9 +1467,9 @@ def test_conflict_graph2():
             print(sol.projected_region)
 
 
-# test_conflict_graph2()
+# test_conflict_graph_2midScaffs()
 
-def test_conflict_graph3():
+def test_conflict_graph_inconsistentFoldPatch():
     coords1 = np.array([(0, 0, 1), (1, 0, 1), (1, 0, 0), (0, 0, 0)])  # top base patch # 0
     coords2 = np.array([(0, 1, 1), (1, 1, 1), (1, 1, 0), (0, 1, 0)])  # bottom base patch # 1
     coords3 = np.array([(0, 0, 0.5), (1, 0, 0.5), (1, 1, 0.5), (0, 1, 0.5)])  # middle base patch # 2
@@ -1510,7 +1540,7 @@ def test_conflict_graph3():
             print(sol.projected_region)
 
 
-# test_conflict_graph3()
+# test_conflict_graph_inconsistentFoldPatch()
 
 def test_cube_shape():
     coords1 = np.array([(0, 0, 1), (1, 0, 1), (1, 0, 0), (0, 0, 0)])  # bottom base patch # 0
