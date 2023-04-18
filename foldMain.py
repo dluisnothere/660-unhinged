@@ -894,7 +894,7 @@ class InputScaff:
             self.hinge_graph.add_edge(edge[0], edge[1])
 
     # Basic scaffold objects already created by the foldNode
-    def gen_basic_scaffs(self):
+    def set_basic_mappings(self):
         print("gen basic scaffs")
         if (len(self.basic_scaffs) < 1):
             raise Exception("No basic scaffolds!")
@@ -910,57 +910,6 @@ class InputScaff:
                 self.basic_mappings[scaffid] = [patchid, basic_scaff.b_patch.id, basic_scaff.t_patch.id]
             elif (type(basic_scaff) is TBasicScaff):
                 raise Exception("Found a T scaffold, not implemented yet!")
-        # for patch in self.node_list:
-        #     if patch.patch_type == PatchType.Fold:
-        #         id: int = patch.id
-        #         print("id: " + str(id))
-        #         neighbors = list(self.hinge_graph.neighbors(id))
-        #         if len(neighbors) == 2:
-        #             # TODO: Always assume push axis is negative for now
-        #
-        #             # If push axis is negative, base_hi is the one with higher value along the pos of push axis
-        #             base1: Patch = self.node_list[neighbors[0]]
-        #             base2: Patch = self.node_list[neighbors[1]]
-        #
-        #             if (self.push_dir == XAxis).all():
-        #                 if (base1.coords[0][0] > base2.coords[0][0]):
-        #                     base_hi = base1
-        #                     base_lo = base2
-        #                 else:
-        #                     base_hi = base2
-        #                     base_lo = base1
-        #             elif (self.push_dir == YAxis).all():
-        #                 if (base1.coords[0][1] > base2.coords[0][1]):
-        #                     base_hi = base1
-        #                     base_lo = base2
-        #                 else:
-        #                     base_hi = base2
-        #                     base_lo = base1
-        #             elif (self.push_dir == ZAxis).all():
-        #                 if (base1.coords[0][2] > base2.coords[0][2]):
-        #                     base_hi = base1
-        #                     base_lo = base2
-        #                 else:
-        #                     base_hi = base2
-        #                     base_lo = base1
-        #             else:
-        #                 raise Exception("Invalid push direction")
-        #
-        #             fold0 = self.node_list[id]
-        #             self.basic_scaffs.append(HBasicScaff(base_lo, fold0, base_hi))
-        #             self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id,
-        #                                                              self.node_list[neighbors[1]].id]
-        #             print(self.basic_scaffs[-1].id)
-        #         elif len(neighbors) == 1:
-        #             base0 = self.node_list[neighbors[0]]
-        #             fold0 = self.node_list[id]
-        #             self.basic_scaffs.append(TBasicScaff(base0, fold0))
-        #             self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id]
-        #             print(self.basic_scaffs[-1].id)
-        #         else:
-        #             print("wtf, no neighbors in the hinge graph??: " + str(id))
-        # print("end gen basic scaffs")
-        # print("end gen basic scaffs")
 
     # Basically just removes non-unique lists
     def remove_duplicate_cycles(self, cycle_list):
