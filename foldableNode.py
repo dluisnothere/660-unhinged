@@ -37,6 +37,10 @@ kPluginNodeTypeName = "foldableNode"
 # other nodes!
 foldableNodeId = OpenMaya.MTypeId(0x8706)
 
+def resetFoldClass():
+    fold.InputScaff.id_incr = 0
+    fold.BasicScaff.id_incr = 0
+    fold.Patch.id_incr = 0
 
 # Static helper functions
 def getObjectTransformFromDag(name: str) -> OpenMaya.MFnTransform:
@@ -1205,6 +1209,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
                 self.defaultInputScaffWrapper.cleanUpSplitPatches()
 
             # Create new MayaInputScaffoldWrapper
+            resetFoldClass()
             self.defaultInputScaffWrapper = None
             self.defaultInputScaffWrapper = MayaInputScaffoldWrapper(patches, OpenMaya.MVector(pushAxis[0], pushAxis[1],
                                                                                                pushAxis[2]), numHinges,
