@@ -164,9 +164,12 @@ Patch: Our proxy for a rectangle and only contains a rectangle
 class Patch:
     id_incr = 0
 
-    def __init__(self, rect_coords):
+    def __init__(self, rect_coords, name=''):
         # numpy arrays
         self.coords: np.ndarray = rect_coords
+
+        # name of the patch (FOR MAYA NODE PURPOSES ONLY. OPTIONAL PARAM)
+        self.name = name
 
         # a point on the plane, used for SDF
         self.constant = np.mean(rect_coords, axis=0)

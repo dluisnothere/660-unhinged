@@ -35,7 +35,7 @@ kPluginNodeTypeName = "foldableNode"
 
 # Give the node a unique ID. Make sure this ID is different from all of your
 # other nodes!
-foldableNodeId = OpenMaya.MTypeId(0x8706)
+foldableNodeId = OpenMaya.MTypeId(0x8710)
 
 def resetFoldClass():
     fold.InputScaff.id_incr = 0
@@ -866,51 +866,79 @@ class MayaInputScaffoldWrapper():
             exit(1)
 
         # TODO: Refactor, everything here is essentially being done twice for the mainFold and
+        # foldPatchDiction: Dict[str, list[str]] = {}
         foldPatchObjDiction: Dict[fold.Patch, list[fold.Patch]] = {}
         for eidx in range(len(self.edges)):
+            # edge = self.edges[eidx]
             edgeObj = self.edgesObjs[eidx]
+            # if edge[1] not in foldPatchDiction:
             if edgeObj[1] not in foldPatchObjDiction:
+                # foldPatchDiction[edge[1]] = [edge[0]]
                 foldPatchObjDiction[edgeObj[1]] = [edgeObj[0]]
             else:
+                # foldPatchDiction[edge[1]].append(edge[0])
                 foldPatchObjDiction[edgeObj[1]].append(edgeObj[0])
 
         # TODO: Refactor
         # For each entry in foldPatchDiction, create a basic scaffold
+        # for fidx in range(len(foldPatchDiction.keys())):
         for fidx in range(len(foldPatchObjDiction.keys())):
+            # foldPatch = list(foldPatchDiction.keys())[fidx]
             foldPatchObj = list(foldPatchObjDiction.keys())[fidx]
 
             print("Basic scaffold creation...")
             # Get the hinge graph id of the foldPatch
+            # if len(foldPatchDiction[foldPatch]) == 2:
             if len(foldPatchObjDiction[foldPatchObj]) == 2:
                 # Create a basic scaffold with the foldPatch and the base patches it is connected to
 
                 # If the pushAxis is positive, then the basePatch with the lower value in that axis is basePatch
                 # If the pushAxis is negative, then the basePatch with the higher value in that axis is basePatch
                 # TODO: change this to be edges
+                # basePatch0 = foldPatchDiction[foldPatch][0]
+                # basePatch1 = foldPatchDiction[foldPatch][1]
                 basePatchObj0 = foldPatchObjDiction[foldPatchObj][0]
                 basePatchObj1 = foldPatchObjDiction[foldPatchObj][1]
 
                 ## should be a list of 3 items
-                basePatch0Vertices = basePatchObj0.coords
-                basePatch1Vertices = basePatchObj1.coords
+                # basePatch0Vertices = list(getObjectVerticeNamesAndPositions(basePatch0).values())
+                # basePatch1Vertices = list(getObjectVerticeNamesAndPositions(basePatch1).values())
+                basePatch0Vertices = basePatchObj0.coords # list(getObjectVerticeNamesAndPositions(basePatchObj0).values())
+                basePatch1Vertices = basePatchObj1.coords # list(getObjectVerticeNamesAndPositions(basePatchObj1).values())
 
+                # # TODO: Refactor god damn this is so gross
+                # basePatchObj0 = foldPatchObjDiction[foldPatchObj][0]
+                # basePatchObj1 = foldPatchObjDiction[foldPatchObj][1]
 
                 # TODO: hard coded to be Y axis for now so y axis cannot be 0
                 if self.pushAxis[1] > 0:
                     if basePatch0Vertices[0][1] < basePatch1Vertices[0][1]:
+                        # topPatch = basePatch0
+                        # basePatch = basePatch1
+
                         topPatchObj = basePatchObj0
                         basePatchObj = basePatchObj1
                     else:
+                        # topPatch = basePatch1
+                        # basePatch = basePatch0
+
                         topPatchObj = basePatchObj1
                         basePatchObj = basePatchObj0
                 else:
                     if basePatch0Vertices[0][1] > basePatch1Vertices[0][1]:
+                        # topPatch = basePatch0
+                        # basePatch = basePatch1
+
                         topPatchObj = basePatchObj0
                         basePatchObj = basePatchObj1
                     else:
+                        # topPatch = basePatch1
+                        # basePatch = basePatch0
+
                         topPatchObj = basePatchObj1
                         basePatchObj = basePatchObj0
 
+                # patchList = [foldPatch, topPatch]
                 basePatch = basePatchObj.name
                 patchList = [foldPatchObj.name, topPatchObj.name]
                 patchObjList = [basePatchObj, foldPatchObj, topPatchObj]
@@ -918,12 +946,14 @@ class MayaInputScaffoldWrapper():
                 basicScaffWrapper = MayaHBasicScaffoldWrapper(patchObjList, basePatch, patchList, self.pushAxis, self.maxHinges, self.shrinks)
 
                 for scaffWrapper in self.basicScaffoldWrappers:
+                    # if topPatch == scaffWrapper.basePatch:
                     if topPatchObj.name == scaffWrapper.basePatch:
                         # TODO: INVESTIGATE WHETHER THIS IS NECESSARY
                         if (scaffWrapper.parent is None):
                             scaffWrapper.setParent(basicScaffWrapper)
                         basicScaffWrapper.addChild(scaffWrapper)
                         print("Found child for basicScaff")
+                    # elif basePatch == scaffWrapper.patches[1]:
                     elif basePatchObj.name == scaffWrapper.patches[1]:
                         if basicScaffWrapper.parent is None:
                             basicScaffWrapper.setParent(scaffWrapper)
@@ -1161,6 +1191,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
             # Create new MayaInputScaffoldWrapper
             resetFoldClass()
+            # self.defaultInputScaffWrapper = None
             self.defaultInputScaffWrapper = MayaInputScaffoldWrapper(patches, OpenMaya.MVector(pushAxis[0], pushAxis[1],
                                                                                                pushAxis[2]), numHinges,
                                                                      numShrinks)
