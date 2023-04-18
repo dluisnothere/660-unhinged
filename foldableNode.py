@@ -749,15 +749,15 @@ class MayaInputScaffoldWrapper():
         self.bases: List[str] = []
         self.foldables: List[str] = []
 
-        # Edges are full of (str, str) pairs
-        self.edges = []
-
         # Both of the following are used purely for the InputScaffold's initialization
         # List of patch objects, same as patches, but not strings
         self.patchesObjs: List[fold.Patch] = []
+
+        # Patches split into foldable and base patches
         self.basesObjs: List[fold.Patch] = []
         self.foldablesObjs: List[fold.Patch] = []
-        # List of edges, using patch Object ids
+
+        # List of edges, using patch Objecs
         self.edgesObjs: List[List[fold.Patch]] = []
 
         self.maxHinges = nH
@@ -808,7 +808,7 @@ class MayaInputScaffoldWrapper():
                 self.foldablesObjs.append(patchObj)
                 self.foldables.append(patch)
 
-        edges = []
+        # edges = []
         edgesObjs = []
 
         # For every base in basePatches, test for connectivity with every foldable_patch
@@ -833,9 +833,8 @@ class MayaInputScaffoldWrapper():
                     foldObj = self.foldablesObjs[fidx]
 
                     edgesObjs.append([baseObj, foldObj])
-                    edges.append([base, foldpatch])
+                    # edges.append([base, foldpatch])
 
-        self.edges = edges
         self.edgesObjs = edgesObjs
 
     def cleanUpSplitPatches(self):
@@ -861,13 +860,13 @@ class MayaInputScaffoldWrapper():
             raise Exception("Input scaffold is not set yet!")
 
         # Create a dictionary where the key is the foldablePatch and the values are the patches it is connected to
-        if (len(self.edges) == 0):
+        if (len(self.edgesObjs) == 0):
             print("Error! No edges, yet genBasicScaffolds is called!")
             exit(1)
 
         # TODO: Refactor, everything here is essentially being done twice for the mainFold and
         foldPatchObjDiction: Dict[fold.Patch, list[fold.Patch]] = {}
-        for eidx in range(len(self.edges)):
+        for eidx in range(len(self.edgesObjs)):
             edgeObj = self.edgesObjs[eidx]
             if edgeObj[1] not in foldPatchObjDiction:
                 foldPatchObjDiction[edgeObj[1]] = [edgeObj[0]]
