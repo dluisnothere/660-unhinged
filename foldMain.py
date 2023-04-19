@@ -388,10 +388,10 @@ class FoldOption:
                 bottom_edge_verts = np.array([[b_patch.coords[0][0], maxY, f_patch.coords[0][2]],
                                               [b_patch.coords[0][0], minY, f_patch.coords[0][2]]])
             else:
-                print("b_norm")
-                print(b_norm)
-                print("f_norm")
-                print(f_norm)
+                # print("b_norm")
+                # print(b_norm)
+                # print("f_norm")
+                # print(f_norm)
                 raise Exception("FoldOption::get_patch_width_length_bottom: f_patch and b_patch share the same normal?")
         elif (abs(np.dot(b_norm, YAxis)) == 1):
             if (abs(np.dot(f_norm, XAxis)) == 1):
@@ -602,27 +602,27 @@ class HBasicScaff(BasicScaff):
         # Generates all possible fold solutions for TBasicScaff
         # ns: max number of patch cuts
         # nh: max number of hinges, let's enforce this to be an odd number for now
-        print("GEN FOLD OPTIONS FOR SCAFF: " + str(self.id) + "==================")
+        # print("GEN FOLD OPTIONS FOR SCAFF: " + str(self.id) + "==================")
 
         # TODO: hard coded only doing odd number of hinges. Even numbers are too unpredictable for this purpose.
         for i in range(1, nh + 1, 2):
             for j in range(1, ns + 1):
                 for h in range(1, j + 1):
                     for k in range(0, h):
-                        print("creating modifications ------------")
-                        print("num hinges: " + str(i))
-                        print("num shrinks: " + str(j))
-                        print("start range: " + str(k))
-                        print("end range: " + str(h))
-
-                        print("max hinges: " + str(nh))
-                        print("max shrinks: " + str(ns))
+                        # print("creating modifications ------------")
+                        # print("num hinges: " + str(i))
+                        # print("num shrinks: " + str(j))
+                        # print("start range: " + str(k))
+                        # print("end range: " + str(h))
+                        #
+                        # print("max hinges: " + str(nh))
+                        # print("max shrinks: " + str(ns))
 
                         cost = alpha * i / nh + (1 - alpha) * ((j - (h - k)) / j) ** 2
 
                         # print("cost of hinges: " + str(alpha * i / nh))
                         # print("cost of shrinks: " + str((1 - alpha) * ((j - (h - k)) / j)**2))
-                        print("cost: " + str(cost))
+                        # print("cost: " + str(cost))
 
                         # TODO: Check if this is correct
                         # mod = Modification(i, j, k, j - k, cost)
@@ -785,8 +785,8 @@ class HMidScaff(MidScaff):
         # TODO: this might be really slow.
         max_clique, weight = nx.algorithms.clique.max_weight_clique(self.conflict_graph, weight="weight")
 
-        print("RESULTING MAX CLIQU")
-        print(max_clique)
+        # print("RESULTING MAX CLIQU")
+        # print(max_clique)
 
         for fold_option in max_clique:
             # TODO: clean this up messy.
@@ -880,7 +880,7 @@ class InputScaff:
         print("gen_hinge_graph...")
         for patch in self.node_list:
             ang = abs(np.dot(normalize(self.push_dir), normalize(patch.normal)))
-            print(normalize(patch.normal))
+            # print(normalize(patch.normal))
             if ang < .1:
                 patch.patch_type = PatchType.Fold
             else:
@@ -905,8 +905,8 @@ class InputScaff:
                 scaffid = basic_scaff.id
                 patchid = basic_scaff.f_patch.id
                 # Produce basic mappings in the same way I produced them foldNode.
-                print("scaffid: " + str(scaffid))
-                print("patch ids: " + str(basic_scaff.b_patch.id) + ", " + str(basic_scaff.t_patch.id))
+                # print("scaffid: " + str(scaffid))
+                # print("patch ids: " + str(basic_scaff.b_patch.id) + ", " + str(basic_scaff.t_patch.id))
                 self.basic_mappings[scaffid] = [patchid, basic_scaff.b_patch.id, basic_scaff.t_patch.id]
             elif (type(basic_scaff) is TBasicScaff):
                 raise Exception("Found a T scaffold, not implemented yet!")
@@ -980,29 +980,29 @@ class InputScaff:
 
         # Iterate through all cycles
         for cycle in cycles_filtered:
-            print("analyzing cycle...")
-            print(cycle)
+            # print("analyzing cycle...")
+            # print(cycle)
 
             basic_scaff_id_list = []
             patch_id_list = []
 
             # A basic scaffold is part of a mid level scaffolds if it's part of a cycle
             for scaff_id, patch_ids in self.basic_mappings.items():
-                print("scaff_id: " + str(scaff_id))
-                print("patch_ids: " + str(patch_ids))
+                # print("scaff_id: " + str(scaff_id))
+                # print("patch_ids: " + str(patch_ids))
 
                 reject = False
                 patch_id_temp = []
                 for id in patch_ids:
-                    print("id: " + str(id))
+                    # print("id: " + str(id))
                     if id not in cycle:
-                        print("rejecting id...")
+                        # print("rejecting id...")
                         reject = True
                         break
                     else:
                         patch_id_temp.append(id)
                 if not reject:
-                    print("adding scaff_id: " + str(scaff_id))
+                    # print("adding scaff_id: " + str(scaff_id))
                     basic_scaff_id_list.append(scaff_id)
                     tracker[scaff_id] = True
                     patch_id_list = patch_id_list + patch_id_temp
@@ -1057,19 +1057,19 @@ class FoldManager:
         self.input_scaff = None
 
     def generate_h_basic_scaff(self, bottom_patch: np.ndarray, fold_patch: np.ndarray, top_patch: np.ndarray):
-        print("generate_h_basic_scaff...")
-        print("bottom patch")
+        # print("generate_h_basic_scaff...")
+        # print("bottom patch")
         bPatch = Patch(bottom_patch)
-        print("top patch")
+        # print("top patch")
         tPatch = Patch(top_patch)
-        print("fold patch")
+        # print("fold patch")
         fPatch = Patch(fold_patch)
 
         scaff = HBasicScaff(fPatch, bPatch, tPatch)
         self.h_basic_scaff = scaff
 
     def mainFold(self, nH, nS) -> FoldOption:
-        print("entered mainFold...")
+        # print("entered mainFold...")
         # Outputs a hard coded fold option for now
 
         # Experiment with alpha values
