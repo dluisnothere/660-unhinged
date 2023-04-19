@@ -714,7 +714,7 @@ class MayaHBasicScaffoldWrapper():
         print("time: " + str(t))
 
         # TODO: make more generic in the future
-        rotAxis = [0,0, 1]
+        rotAxis = self.basicScaffold.rot_axis
 
         # Update the list of shape_traverse_order to include the new patches where the old patch was
         if (recreatePatches and numHinges > 0):
@@ -1050,10 +1050,11 @@ class foldableNode(OpenMayaMPx.MPxNode):
         # patches = ["cBase", "cFold", "cFold1", "cTop", "cFold2", "cTop1", "cFold3", "cFold4", "cTop2"]
         # patches = ["pBaseBottomH", "pFoldH", "pBaseTopH"]
         # patches = ["mBase", "mFold1", "mFold2", "mTop", "mFold3", "mTop1"]
-        # patches = ["dBase", "dFold1", "dFold2", "dTop"]
+        patches = ["dBase", "dFold1", "dFold2", "dTop"]
         # patches = ["gBase", "gFold1", "gFold2", "gBase1", "gFold3", "gBase2"]
         # patches = ["lBase", "lFold", "lBase1"]
-        patches = ["jBase1", "jFold1", "jBase2", "jFold2", "jBase3", "jFold3", "jBase4", "jFold4", "jBase5", "jFold5"]
+        # patches = ["jBase1", "jFold1", "jBase2", "jFold2", "jBase3", "jFold3", "jBase4", "jFold4", "jBase5", "jFold5"]
+        # patches = ["rBase1", "rFold1", "rFold2", "rFold3", "rBase2"]
 
         # b1Patches = ["mBase", "mFold1", "mTop"]
         # b2Patches = ["mBase", "mFold2", "mTop"]
@@ -1111,7 +1112,7 @@ def nodeInitializer():
         foldableNode.inNumHinges = nAttr.create("numHinges", "nH", OpenMaya.MFnNumericData.kInt, 3)
         MAKE_INPUT(nAttr)
 
-        foldableNode.inNumShrinks = nAttr.create("numShrinks", "nS", OpenMaya.MFnNumericData.kInt, 1)
+        foldableNode.inNumShrinks = nAttr.create("numShrinks", "nS", OpenMaya.MFnNumericData.kInt, 2)
         MAKE_INPUT(nAttr)
 
         # defaultList = OpenMaya.MFnStringArrayData().create()

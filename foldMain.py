@@ -785,8 +785,8 @@ class HMidScaff(MidScaff):
         # TODO: this might be really slow.
         max_clique, weight = nx.algorithms.clique.max_weight_clique(self.conflict_graph, weight="weight")
 
-        # print("RESULTING MAX CLIQU")
-        # print(max_clique)
+        print("RESULTING MAX CLIQU")
+        print(max_clique)
 
         for fold_option in max_clique:
             # TODO: clean this up messy.
@@ -905,8 +905,8 @@ class InputScaff:
                 scaffid = basic_scaff.id
                 patchid = basic_scaff.f_patch.id
                 # Produce basic mappings in the same way I produced them foldNode.
-                # print("scaffid: " + str(scaffid))
-                # print("patch ids: " + str(basic_scaff.b_patch.id) + ", " + str(basic_scaff.t_patch.id))
+                print("scaffid: " + str(scaffid))
+                print("patch ids: " + str(basic_scaff.b_patch.id) + ", " + str(basic_scaff.t_patch.id))
                 self.basic_mappings[scaffid] = [patchid, basic_scaff.b_patch.id, basic_scaff.t_patch.id]
             elif (type(basic_scaff) is TBasicScaff):
                 raise Exception("Found a T scaffold, not implemented yet!")
