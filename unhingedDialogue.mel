@@ -13,7 +13,7 @@ global proc int genFoldNode()
 global int $planeID = 0;
 
 
-global proc int genPatch()
+global proc int genFoldPatch()
 {
     // Access the global variable for the ID increment
     global int $planeID;
@@ -46,12 +46,53 @@ global proc int genPatch()
     return true;
 }
 
+global proc int genBasePatch()
+{
+    // Access the global variable for the ID increment
+    global int $planeID;
+    
+    // Create the PolyPlane with size 1x1 and only one subdivision
+    string $polyPlane[] = `polyPlane -w 1 -h 1 -sx 1 -sy 1`;
+    
+    // Rename the PolyPlane with the incremented ID
+    string $newName = "plane_" + $planeID;
+    $polyPlaneCurr = `rename $polyPlane[0] $newName`;
+
+    // Make the displayScalePivot and displayRotatePivot visible
+    string $displayRotatePivot = $newName + ".displayRotatePivot";
+    setAttr ($displayRotatePivot) 1;
+
+    // Increment the global ID
+    $planeID++;
+    
+    return true;
+}
+
+global proc int densifyGrid()
+{
+    grid -d 10 -sp 1;
+    return true;
+}
+
+global proc int onCheckboxChange(int $checked) 
+{
+    if ($checked) {
+        snapMode -grid on -dsi 0.1;
+    } else {
+        snapMode -grid off;
+    }
+    return true;
+}
+
 global proc int genMenu()
 {
     window -title "Unhinged Plugin: Di Lu and David Li CIS 660";
     	columnLayout -w 500;
-    		button -label "Create Patch" -command "genPatch";
+    		button -label "Create Fold Patch" -command "genFoldPatch";
+    		button -label "Create Base Patch" -command "genBasePatch";
     	    button -label "Create Foldable Node" -command "genFoldNode";
+    	    button -label "Densify Grid" -command "densifyGrid";
+            checkBox -label "Snap to Grid" -changeCommand "onCheckboxChange #1" snapCheckbox;
     	setParent ..;
     showWindow;
     return true;

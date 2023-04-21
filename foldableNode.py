@@ -1108,10 +1108,10 @@ class foldableNode(OpenMayaMPx.MPxNode):
         # patches = ["gBase", "gFold1", "gFold2", "gBase1", "gFold3", "gBase2"]
         # patches = ["lBase", "lFold", "lBase1"]
         # patches = ["jBase1", "jFold1", "jBase2", "jFold2", "jBase3", "jFold3", "jBase4", "jFold4", "jBase5", "jFold5"]
-        # patches = ["jBase1", "jBase5", "jFold1", "jBase4", "jBase2", "jFold2", "jBase3", "jFold4", "jFold5", "jFold3"]
+        patches = ["jBase1", "jBase5", "jFold1", "jBase4", "jBase2", "jFold2", "jBase3", "jFold4", "jFold5", "jFold3"]
 
         # patches = ["rBase1", "rFold1", "rFold2", "rFold3", "rBase2"]
-        patches = ["kBase1", "kFold1", "kBase2", "kFold2", "kBase3", "kFold3", "kBase4", "kFold4", "kBase5", "kFold5"]
+        # patches = ["kBase1", "kFold1", "kBase2", "kFold2", "kBase3", "kFold3", "kBase4", "kFold4", "kBase5", "kFold5"]
         # patches = ["gtBase1", "gtFold1", "gtFold2", "gtBase2", "gtFold3", "gtBase3"]
 
         # b1Patches = ["mBase", "mFold1", "mTop"]
