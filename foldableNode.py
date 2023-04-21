@@ -37,6 +37,8 @@ kPluginNodeTypeName = "foldableNode"
 # other nodes!
 foldableNodeId = OpenMaya.MTypeId(0x8706)
 
+EPS = 0.005
+
 def resetFoldClass():
     fold.InputScaff.id_incr = 0
     fold.BasicScaff.id_incr = 0
@@ -53,6 +55,7 @@ def getObjectTransformFromDag(name: str) -> OpenMaya.MFnTransform:
 
 def getObjectObjectFromDag(name: str) -> OpenMaya.MDagPath:
     # Create an MSelectionList object to store the plane name
+    print("getting dag path for: {}".format(name))
     selection_list = OpenMaya.MSelectionList()
     selection_list.add(name)
     transform_dag_path = OpenMaya.MDagPath()
@@ -114,6 +117,34 @@ def getClosestVertices(vertices: dict, p: OpenMaya.MVector, n: int) -> list:
     distList.sort(key=lambda x: x[1])
     return distList[:n]
 
+def getClosestVerticesTopBase(vertices: dict, base: str, n: int) -> list:
+    print("finding closest vertices top base")
+
+    transformDagPath = getObjectObjectFromDag(base)
+
+    # Get the shape node
+    # print("Getting shape node")
+    transformDagPath.extendToShape()
+
+    # print("Checking if shape node is of type mesh")
+    # Check if the shape node is of type "mesh"
+    if transformDagPath.node().hasFn(OpenMaya.MFn.kMesh):
+        # print("creating mesh")
+        # Create an MFnMesh function set
+        fnMesh = OpenMaya.MFnMesh(transformDagPath)
+        distList = []
+        for vertex_name, vertex_position in vertices.items():
+            vertexPoint = OpenMaya.MPoint(vertex_position[0], vertex_position[1], vertex_position[2])
+            closestPointOnPlane = OpenMaya.MPoint()
+
+            fnMesh.getClosestPoint(vertexPoint, closestPointOnPlane, OpenMaya.MSpace.kWorld)
+
+            dist = OpenMaya.MVector(vertexPoint - closestPointOnPlane).length()
+            distList.append((vertex_name, dist, OpenMaya.MVector(closestPointOnPlane)))
+
+        distList.sort(key=lambda x: x[1])
+        return distList[:n]
+
 
 def checkScaffoldConnection(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVector):
     dist = OpenMaya.MVector(pivot - middlepoint).length()
@@ -145,25 +176,25 @@ def checkScaffoldConnectionTopBase(parent, childPatch: str):
         vertex = element[2]
         # print("vertex: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
         if abs(vertex[1] - childY) > 0.0001:
-            # print("Y values are not the same!")
-            # print("Parent Y: {}".format(vertex[1]))
-            # print("Child Y: {}".format(childY))
+            print("Y values are not the same!")
+            print("Parent Y: {}".format(vertex[1]))
+            print("Child Y: {}".format(childY))
             connected = False
             break
-        if vertex[0] < childMinX:
-            # print("X value is less than minX")
+        if vertex[0] < childMinX - EPS:
+            print("X value is less than minX")
             connected = False
             break
-        if vertex[0] > childMaxX:
-            # print("X value is larger than maxX")
+        if vertex[0] > childMaxX + EPS:
+            print("X value is larger than maxX")
             connected = False
             break
-        if vertex[2] < childMinZ:
-            # print("Z value is smaller childMinZ")
+        if vertex[2] < childMinZ - EPS:
+            print("Z value is smaller childMinZ")
             connected = False
             break
-        if vertex[2] > childMaxZ:
-            # print("Z value is larger than childMaxZ")
+        if vertex[2] > childMaxZ + EPS:
+            print("Z value is larger than childMaxZ")
             connected = False
             break
 
@@ -194,25 +225,27 @@ def checkScaffoldConnectionBaseNoErr(base: str, foldable) -> bool:
         vertex = element[2]
         # print("verices in foldable closest to base: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
         if abs(vertex[1] - baseY) > 0.0001:
-            # print("Y values are not the same!")
-            # print("Parent Y: {}".format(vertex[1]))
-            # print("Child Y: {}".format(baseY))
+            print("Y values are not the same!")
+            print("Parent Y: {}".format(vertex[1]))
+            print("Child Y: {}".format(baseY))
             connected = False
             break
-        if vertex[0] < baseMinX:
-            # print("X value is less than minX")
+        if (vertex[0] < baseMinX - EPS):
+            print("X value is less than minX")
+            print("X value: {}".format(vertex[0]))
+            print("minX: {}".format(baseMinX))
             connected = False
             break
-        if vertex[0] > baseMaxX:
-            # print("X value is larger than maxX")
+        if vertex[0] > baseMaxX + EPS:
+            print("X value is larger than maxX")
             connected = False
             break
-        if vertex[2] < baseMinZ:
-            # print("Z value is smaller childMinZ")
+        if vertex[2] < baseMinZ - EPS:
+            print("Z value is smaller childMinZ")
             connected = False
             break
-        if vertex[2] > baseMaxZ:
-            # print("Z value is larger than childMaxZ")
+        if vertex[2] > baseMaxZ + EPS:
+            print("Z value is larger than childMaxZ")
             connected = False
             break
     return connected
@@ -574,8 +607,25 @@ class MayaHBasicScaffoldWrapper():
 
             # find two vertices that are closest to childPivot. Print their name, location, and distance.
             vertId = len(closestVertices)
-            currentClosest = getClosestVertices(bottomVertices, childPivot, 2)
+            if (i == len(shapeTraverseOrder) - 2):
+                currentClosest = getClosestVerticesTopBase(bottomVertices, child, 2)
+            else:
+                # TODO: figure out why commenting the top line ends up shifting a scaffold for nor eaosn
+                # currentClosest = getClosestVerticesTopBase(bottomVertices, child, 2)
+                currentClosest = getClosestVertices(bottomVertices, childPivot, 2)
+
             closestVertices.append(currentClosest)
+            print("Current Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(currentClosest[0][0],
+                                                                                             currentClosest[0][1],
+                                                                                             currentClosest[0][2][0],
+                                                                                             currentClosest[0][2][1],
+                                                                                             currentClosest[0][2][2]))
+            print("Current Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(currentClosest[1][0],
+                                                                                                currentClosest[1][1],
+                                                                                                currentClosest[1][2][0],
+                                                                                                currentClosest[1][2][1],
+                                                                                                currentClosest[1][2][2]))
+
             # print("Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(closestVertices[vertId][0][0],
             #                                                                           closestVertices[vertId][0][1],
             #                                                                           closestVertices[vertId][0][2][0],
@@ -847,17 +897,21 @@ class MayaInputScaffoldWrapper():
         for baseObj in self.basesObjs:
             for foldpatchObj in self.foldablesObjs:
                 # Find pivot of base
+                print("Checking connectivity between " + baseObj.name + " AND " + foldpatchObj.name)
                 pivot = getObjectTransformFromDag(baseObj.name).rotatePivot(OpenMaya.MSpace.kWorld)
 
                 # find the closest vertices from fold to pivot
                 vertices = getObjectVerticeNamesAndPositions(foldpatchObj.name)
                 closestVertices = getClosestVertices(vertices, pivot, 2)
+                # TODO: figure out why the below doesn't work
+                # closestVertices = getClosestVerticesTopBase(vertices, baseObj.name, 2)
 
                 # TODO: might get scaffolds where they're not connected like this..
                 status = checkScaffoldConnectionBaseNoErr(baseObj.name, closestVertices)
                 if status:
                     # generate edges using patch ids
                     edgesObjs.append([baseObj, foldpatchObj])
+                    print("Adding edges to the list: ", baseObj.name, foldpatchObj.name)
 
         self.edgesObjs = edgesObjs
 
@@ -1050,11 +1104,15 @@ class foldableNode(OpenMayaMPx.MPxNode):
         # patches = ["cBase", "cFold", "cFold1", "cTop", "cFold2", "cTop1", "cFold3", "cFold4", "cTop2"]
         # patches = ["pBaseBottomH", "pFoldH", "pBaseTopH"]
         # patches = ["mBase", "mFold1", "mFold2", "mTop", "mFold3", "mTop1"]
-        patches = ["dBase", "dFold1", "dFold2", "dTop"]
+        # patches = ["dBase", "dFold1", "dFold2", "dTop"]
         # patches = ["gBase", "gFold1", "gFold2", "gBase1", "gFold3", "gBase2"]
         # patches = ["lBase", "lFold", "lBase1"]
         # patches = ["jBase1", "jFold1", "jBase2", "jFold2", "jBase3", "jFold3", "jBase4", "jFold4", "jBase5", "jFold5"]
+        # patches = ["jBase1", "jBase5", "jFold1", "jBase4", "jBase2", "jFold2", "jBase3", "jFold4", "jFold5", "jFold3"]
+
         # patches = ["rBase1", "rFold1", "rFold2", "rFold3", "rBase2"]
+        patches = ["kBase1", "kFold1", "kBase2", "kFold2", "kBase3", "kFold3", "kBase4", "kFold4", "kBase5", "kFold5"]
+        # patches = ["gtBase1", "gtFold1", "gtFold2", "gtBase2", "gtFold3", "gtBase3"]
 
         # b1Patches = ["mBase", "mFold1", "mTop"]
         # b2Patches = ["mBase", "mFold2", "mTop"]

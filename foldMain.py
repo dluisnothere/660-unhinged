@@ -791,6 +791,26 @@ class HMidScaff(MidScaff):
         for fold_option in max_clique:
             # TODO: clean this up messy.
             fold_option.scaff.optimal_fold_option = fold_option
+            print("FOLD SOLUTION FOR: " + str(fold_option.scaff.id) + "===================")
+            sol: FoldOption = fold_option
+            print("start time:")
+            print(fold_option.scaff.start_time)
+            print("end time:")
+            print(fold_option.scaff.end_time)
+            print("num hinges: ")
+            print(sol.modification.num_hinges)
+            print("num shrinks: ")
+            print(sol.modification.num_pieces)
+            print("range start: ")
+            print(sol.modification.range_start)
+            print("range end: ")
+            print(sol.modification.range_end)
+            print("isleft:")
+            print(sol.isleft)
+            print("original vertices: ")
+            print(fold_option.scaff.f_patch.coords)
+            print("Projected region of solution: ")
+            print(sol.projected_region)
 
     def fold(self):
         self.gen_conflict_graph()

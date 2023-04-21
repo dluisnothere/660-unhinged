@@ -10,6 +10,54 @@ global proc int genFoldNode()
     return true;
 }
 
+global int $planeID = 0;
+
+
+global proc int genPatch()
+{
+    // Access the global variable for the ID increment
+    global int $planeID;
+    
+    // Create the PolyPlane with size 1x1 and only one subdivision
+    string $polyPlane[] = `polyPlane -w 1 -h 1 -sx 1 -sy 1`;
+    
+    // Rename the PolyPlane with the incremented ID
+    string $newName = "plane_" + $planeID;
+    $polyPlaneCurr = `rename $polyPlane[0] $newName`;
+
+    // Rotate the PolyPlane by (0, 0, -90)
+    rotate -r 0 0 -90 $polyPlaneCurr;
+    
+    // Make the displayScalePivot and displayRotatePivot visible
+    string $displayRotatePivot = $newName + ".displayRotatePivot";
+    setAttr ($displayRotatePivot) 1;
+    
+    // Move the rotate pivot to the local position (0.5, 0, 0) in world space
+    string $rotatePivotAttr = $newName + ".rotatePivot";
+    setAttr ($rotatePivotAttr + "X") 0.5;
+    setAttr ($rotatePivotAttr + "Y") 0;
+    setAttr ($rotatePivotAttr + "Z") 0;
+
+    // Increment the global ID
+    $planeID++;
+    setAttr ($newName + ".translateX") -0.5;
+    makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 -pn 1;
+    
+    return true;
+}
+
+global proc int genMenu()
+{
+    window -title "Unhinged Plugin: Di Lu and David Li CIS 660";
+    	columnLayout -w 500;
+    		button -label "Create Patch" -command "genPatch";
+    	    button -label "Create Foldable Node" -command "genFoldNode";
+    	setParent ..;
+    showWindow;
+    return true;
+
+}
+
 {
     if(`menu -exists FoldableMenu`)
     {
@@ -20,5 +68,6 @@ global proc int genFoldNode()
 {   
     global string $gMainWindow;
     string $lsystemMenu = `menu -p $gMainWindow -label "Unhinged" FoldableMenu`;
-    menuItem -label "Create" -command "genFoldNode" MyMenuItem;
+    menuItem -label "Open" -command "genMenu" genMenuItem;
+    // menuItem -label "Create" -command "genFoldNode" MyMenuItem;
 }
