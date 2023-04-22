@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import copy
 import os
 import sys
 import random
@@ -32,8 +35,12 @@ kPluginNodeTypeName = "foldableNode"
 
 # Give the node a unique ID. Make sure this ID is different from all of your
 # other nodes!
-foldableNodeId = OpenMaya.MTypeId(0x8709)
+foldableNodeId = OpenMaya.MTypeId(0x8710)
 
+def resetFoldClass():
+    fold.InputScaff.id_incr = 0
+    fold.BasicScaff.id_incr = 0
+    fold.Patch.id_incr = 0
 
 # Static helper functions
 def getObjectTransformFromDag(name: str) -> OpenMaya.MFnTransform:
@@ -79,8 +86,12 @@ def getObjectVerticeNamesAndPositions(name: str) -> Dict[str, List[float]]:
     vertices = {}
     for i in range(vertex_count):
         vertex_name = "{}.vtx[{}]".format(name, i)
-
         vertex_translation = cmds.pointPosition(vertex_name, world=True)
+
+        # print
+        print("vertex_name: {}".format(vertex_name))
+        print("vertex_translation: {}".format(vertex_translation))
+
         vertices[vertex_name] = vertex_translation
 
     return vertices
@@ -162,7 +173,7 @@ def checkScaffoldConnectionTopBase(parent, childPatch: str):
 
 
 def checkScaffoldConnectionBaseNoErr(base: str, foldable) -> bool:
-    print("CHECKING SCAFFOLD CONNECTION BASE...")
+    # Check scaffold connection between a base patch and closest points on the foldable patch
     baseVertices = getObjectVerticeNamesAndPositions(base)
 
     # Get child's global Y position
@@ -204,7 +215,6 @@ def checkScaffoldConnectionBaseNoErr(base: str, foldable) -> bool:
             print("Z value is larger than childMaxZ")
             connected = False
             break
-
     return connected
 
 
@@ -232,9 +242,10 @@ def isPolyPlane(obj):
     return False
 
 
+# TODO: bring a lot of the functions into a parent class
 class MayaHBasicScaffoldWrapper():
 
-    def __init__(self, basePatch: str, patches: List[str], pushAxis: OpenMaya.MVector, maxHinges: int, shrinks: int):
+    def __init__(self, patchObjects: List[fold.Patch], basePatch: str, patches: List[str], pushAxis: OpenMaya.MVector, maxHinges: int, shrinks: int):
         self.basePatch = basePatch
         self.patches = patches
 
@@ -251,8 +262,13 @@ class MayaHBasicScaffoldWrapper():
 
         self.inInitialPatches = []
         self.shapeTraverseOrder: List[str] = []
-        self.shapeBase = []
-        self.shapeResetTransforms = {}
+        self.shapeResetTransforms: Dict[str, List[List[float]]] = {}
+
+        self.shapeOriginalTransforms: Dict[str, List[List[float]]] = {}
+
+        # # TODO:remove later
+        # self.foldManagerOption = None
+        # self.foldManager = None
 
         '''
         Basic scaffold peek:
@@ -269,11 +285,23 @@ class MayaHBasicScaffoldWrapper():
             - rotationalAxis
 
         '''
-        self.basicScaffold: fold.HBasicScaff = None
+        # TODO: currently basicScaffolds are being created by the inputScaffold manually for testing purposes.
+        # patchVerts = np.array(self.getAllPatchVertices())
+        # bottomPatch = fold.Patch(patchVerts[0])
+        # foldPatch = fold.Patch(patchVerts[1])
+        # topPatch = fold.Patch(patchVerts[2])
+        self.basicScaffold: fold.HBasicScaff = fold.HBasicScaff(patchObjects[0], patchObjects[1], patchObjects[2])
 
-        # TODO: for now, use FoldManager instead of basicScaffold to output hard coded results
-        # self.foldManager: fold.FoldManager = None
-        # self.foldManagerOption: fold.FoldOption = None
+        # Parent/Child relationships
+        # TODO: can get away with only one parent for now
+        self.parent = None
+        self.children = []
+
+    def setParent(self, parent: MayaHBasicScaffoldWrapper):
+        self.parent = parent
+
+    def addChild(self, child: MayaHBasicScaffoldWrapper):
+        self.children.append(child)
 
     def getBasePatch(self) -> str:
         return self.basePatch
@@ -305,7 +333,20 @@ class MayaHBasicScaffoldWrapper():
         # Clear the new shapes list.
         self.newShapes = []
 
-    def setUpGenericScene(self, upperPatches: List[str], basePatch: str):
+    # When a parent scaffold translates, the child scaffold must also translate with it on every reset to treat it
+    # as the new origin
+    def translateWithParentScaff(self, translateVector: OpenMaya.MVector):
+        print("Translating CHILD with parent scaff")
+        for shapeKey in self.shapeOriginalTransforms.keys():
+            # Get the original translation
+            original_translate = self.shapeOriginalTransforms[shapeKey][0]
+
+            translate_vec = OpenMaya.MVector(original_translate[0], original_translate[1], original_translate[2])
+            translate_vec += translateVector
+            # Replace the translation with the new translation
+            self.shapeResetTransforms[shapeKey][0] = [translate_vec.x, translate_vec.y, translate_vec.z]
+
+    def setUpGenericScene(self, upperPatches: List[str]):
         print("Setting up Generic scene...")
         # TODO: theoretically we should only need to move things in the upper patches
         # Get the transforms for each item in upper patches
@@ -332,7 +373,7 @@ class MayaHBasicScaffoldWrapper():
         # Sets the shapeTraverseOrder to the original scaff's patches
         # Sets
         print("Restoring Initial State...")
-        self.shapeTraverseOrder = self.getPatches()
+        self.shapeTraverseOrder = self.getPatchesIncludeBase()
 
         # Clears self.shapeResetTransforms
         self.shapeResetTransforms = {}
@@ -344,14 +385,19 @@ class MayaHBasicScaffoldWrapper():
             rotate = cmds.getAttr(shape + ".rotate")
 
             # Reset self.shapeResetTransforms
-            self.shapeResetTransforms[shape] = [translate, rotate]
+            self.shapeResetTransforms[shape] = [[translate[0], translate[1], translate[2]], rotate]
+
+        # ShapeOriginalTransforms will be used to calculate shapeResetTransforms when parent scaffolds move
+        self.shapeOriginalTransforms = copy.deepcopy(self.shapeResetTransforms)
 
         # Reset back to original shapes so you can break them again
         self.cleanUpSplitPatches()
 
     def shrinkPatch(self, shapeTraverseOrder, endPiece, numPieces, startPiece):
         print("shrinking patches...")
-        for i in range(0, len(shapeTraverseOrder) - 1):
+
+        # Shrink the patches except first and last
+        for i in range(1, len(shapeTraverseOrder) - 1):
             foldable_patch = shapeTraverseOrder[i]
             middle = 1 / 2  # hard coded for now
 
@@ -362,15 +408,15 @@ class MayaHBasicScaffoldWrapper():
             print("newMiddle in Z direction: {}".format(newMiddle))
             transform = getObjectTransformFromDag(foldable_patch)
             translation = OpenMaya.MVector(0, 0, newMiddle) - OpenMaya.MVector(0, 0, middle)
-            print("translation: {}".format(translation))
+            print("translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
             transform.translateBy(translation, OpenMaya.MSpace.kTransform)
 
             # Shrink patch by numPieces in the hard coded z direction
-            transform = getObjectTransformFromDag(foldable_patch)
             shrinkFactor = (endPiece - startPiece) / numPieces
             cmds.setAttr(foldable_patch + ".scaleZ", shrinkFactor)
 
     def generateNewPatches(self, originalPatch: str, numHinges: int) -> (List[str], List[List[List[float]]]):
+
         # Compute the new patch scale values based on original_patch's scale and num_patches
         # TODO: Hard coded for split in the x Direction, but need to be more general later on.
         numPatches = numHinges + 1
@@ -438,12 +484,15 @@ class MayaHBasicScaffoldWrapper():
             cmds.setAttr(patch + ".visibility", False)
 
         print("break patches called")
-        for j in range(0, len(shapeTraverseOrder) - 1):  # every patch except last guy is foldable
+        # Break every patch except the last one
+        for j in range(1, len(shapeTraverseOrder) - 1):  # every patch except last guy is foldable
             foldablePatch = shapeTraverseOrder[
                 j]  # TODO: make more generic, currently assumes foldable patch is at the center
 
+            # Remove the foldable patch from the shape_traverse_order and delete its transforms
             shapeTraverseOrder.remove(foldablePatch)
             del self.shapeResetTransforms[foldablePatch]
+            del self.shapeOriginalTransforms[foldablePatch]
 
             newPatches, newTransforms = self.generateNewPatches(foldablePatch, numHinges)
 
@@ -451,6 +500,7 @@ class MayaHBasicScaffoldWrapper():
             for i in range(0, len(newPatches)):
                 shapeTraverseOrder.insert(j, newPatches[i])
                 self.shapeResetTransforms[newPatches[i]] = [newTransforms[i][0], newTransforms[i][1]]
+                self.shapeOriginalTransforms[newPatches[i]] = [newTransforms[i][0], newTransforms[i][1]]
 
                 # Keep track of the new patches just created so we can delete it on the next iteration
                 self.newShapes.append(newPatches[i])
@@ -460,13 +510,14 @@ class MayaHBasicScaffoldWrapper():
         for shape in shapeTraverseOrder:
             pivot = getObjectTransformFromDag(shape).rotatePivot(OpenMaya.MSpace.kWorld)
             patchPivots.append(pivot)
-            print("Pivot: {:.6f}, {:.6f}, {:.6f}".format(pivot[0], pivot[1], pivot[2]))
         return patchPivots
 
     def findClosestMidpointsOnPatches(self, patchPivots: List[OpenMaya.MPoint], shapeTraverseOrder: List[str]) -> (
             List[List], List[float]):
+        print("finding cloest midpoints on patches... ===========")
         closestVertices = []
         midPoints = []
+
         for i in range(0, len(shapeTraverseOrder) - 1):
             # For each parent patch, get their vertices.
             shape = shapeTraverseOrder[i]
@@ -501,37 +552,45 @@ class MayaHBasicScaffoldWrapper():
 
             # Ensure the parent and child are actually connected
             # TODO: generalize to T scaffolds as well
+            if (i == 0):
+                # TODO: should probably eventually check but bypass for now
+                continue
             if (i == len(shapeTraverseOrder) - 2):
                 # TODO: generalize to the one without the error
-                print("Checking connectivity Top Base findClosestMidpointsOnPatches 501...")
-                print("TOP BASE PATCH: ", child)
-                print("CURRENT PATCH: ", shape)
                 checkScaffoldConnectionTopBase(currentClosest, child)
             else:
-                print("Checking regular connectivity findClosestMidpointsOnPatches 504...")
                 checkScaffoldConnection(childPivot, middlePoint)
 
         return closestVertices, midPoints
 
-    # TODO: might be a member function of basic scaff
-    def rotatePatches(self, angle: float, rotAxis: List[float], shapeTraverseOrder: List[str], isLeft: bool) -> List[
-        OpenMaya.MFnTransform]:
+    def getPatchTransforms(self, shapeTraverseOrder: List[str]) -> List[OpenMaya.MFnTransform]:
         patchTransforms = []
+        for shape in shapeTraverseOrder:
+            pTransform = getObjectTransformFromDag(shape)
+            patchTransforms.append(pTransform)
+        return patchTransforms
+
+    def computeAngle(self, endAngles, endTime, numHinges, startTime, t):
+        targetPatchHeight = (endTime - t) / (endTime - startTime) * self.origFoldPatchHeight
+        rightTriangleHeight = targetPatchHeight / (numHinges + 1)
+        rightTriangleHypotenuse = self.origFoldPatchHeight / (numHinges + 1)
+        asin = math.asin(rightTriangleHeight / rightTriangleHypotenuse)
+        angle = endAngles[0] - math.degrees(asin)
+        print("angle: " + str(angle))
+        return angle
+
+    def rotatePatches(self, angle: float, rotAxis: List[float], shapeTraverseOrder: List[str], isLeft: bool):
         if (isLeft):
             angle = -angle
 
-        for i in range(0, len(shapeTraverseOrder)):
+        for i in range(1, len(shapeTraverseOrder) - 1):
             shape = shapeTraverseOrder[i]
             pTransform = getObjectTransformFromDag(shape)
-            patchTransforms.append(pTransform)
-            if (i == len(shapeTraverseOrder) - 1):  # TODO: fix this bc it won't work for T scaffolds
-                break
 
             q = OpenMaya.MQuaternion(math.radians(angle), OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2]))
             pTransform.rotateBy(q, OpenMaya.MSpace.kTransform)
 
             angle = -angle
-        return patchTransforms
 
     def updatePatchTranslations(self, closestVertices: List, midPoints: List, patchPivots: List, patchTransforms: List,
                                 shapeTraverseOrder: List[str]):
@@ -539,7 +598,6 @@ class MayaHBasicScaffoldWrapper():
         newClosestVertices = closestVertices.copy()
         for i in range(0, len(patchPivots) - 1):
             # Obtain child pivot so we can use it later for translation
-            childPivot = patchPivots[i + 1]
             for j in range(0, len(newClosestVertices[
                                       i])):  # index and use information from updated vertex positions. There should only be 2 verts here
                 vertex_name, dist, vertexPoint = newClosestVertices[i][j]
@@ -547,6 +605,8 @@ class MayaHBasicScaffoldWrapper():
                 # Get the world position of the vertex and convert it to an MVector
                 vertexPoint = cmds.pointPosition(vertex_name, world=True)
                 vertexPoint = OpenMaya.MVector(vertexPoint[0], vertexPoint[1], vertexPoint[2])
+
+                print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertexPoint[0], vertexPoint[1], vertexPoint[2]))
 
                 newClosestVertices[i][j] = (
                     vertex_name, 0,  # not sure if dist is important anymore
@@ -575,27 +635,31 @@ class MayaHBasicScaffoldWrapper():
                                                                             translation[2]))
 
             # Translate child patch by the translation.
-            print("Translating child patch: " + shapeTraverseOrder[i + 1])
+            print("TRANSLATING THE CHILD PATCH CALLED: " + shapeTraverseOrder[i + 1])
             childPatchTransform = patchTransforms[i + 1]
             print("Translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
             childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
 
-    def genBestFoldOption(self):
-        # Return the hard coded object from foldManager for now
-        print("Generate Best fold Option... TODO: implement me!")
-        # patchVertices = self.getAllPatchVertices()
-        # patchVertices = np.array(patchVertices)
-        #
-        # # TODO: get its own best fold option
-        # self.foldManager = fold.FoldManager()
-        # self.foldManager.generate_h_basic_scaff(patchVertices[0], patchVertices[1], patchVertices[2])
-        #
-        # self.foldManagerOption = self.foldManager.mainFold(self.maxHinges, self.shrinks)
+            if (i == len(shapeTraverseOrder) - 2):
+                # If we are on the second to last patch, then we updated the top patch's location
+                # and we need to update the children's reset locations.
+                for child in self.children:
+                    child.translateWithParentScaff(translation)
+
+    # def genBestFoldOption(self):
+    #     # Return the hard coded object from foldManager for now
+    #     print("Generate Best fold Option... TODO: implement me!")
+    #     patchVertices = self.getAllPatchVertices()
+    #     patchVertices = np.array(patchVertices)
+    #
+    #     # TODO: NOT TESTED YET, PROBABLY DOESN'T WORK.
+    #     self.foldManagerOption = self.basicScaffold.optimal_fold_option
 
     # Splits the foldTest function into two parts.
-    def foldKeyframe(self, time, shapeTraverseOrder: List[str], foldSolution: fold.FoldOption, recreatePatches: bool, startTime: int, endTime: int):
+    def foldKeyframe(self, time, shapeTraverseOrder: List[str], foldSolution: fold.FoldOption, recreatePatches: bool,
+                     startTime: int, endTime: int):
         # Get the relevant information from the fold_solution
-        startAngles = foldSolution.fold_transform.startAngles
+        startAngles = foldSolution.fold_transform.startAngles  # TODO: lowkey aren't start angles always 0??
         endAngles = foldSolution.fold_transform.endAngles
 
         isLeft = foldSolution.isleft
@@ -610,19 +674,17 @@ class MayaHBasicScaffoldWrapper():
 
         t = time  # dictate that the end time is 90 frames hard coded for now
 
-        print("local time: " + str(t))
+        print("time: " + str(t))
 
         # TODO: make more generic in the future
-        rotAxis = (0, 0, 1)
+        rotAxis = [0,0, 1]
 
         # Update the list of shape_traverse_order to include the new patches where the old patch was
         if (recreatePatches and numHinges > 0):
-            print("about to break patches... number of hinges... " + str(numHinges))
             self.breakPatches(shapeTraverseOrder, numHinges)
 
         # TODO: let author dictate end time.. but this doesn't realy matter.
         # TODO: THIS FORMULA DOES NOT WORK
-        # angle = t * (endAngles[0] - startAngles[0]) / (endTime - startTime)  # The angle we fold at this particular time is time / 90 *
 
         # Moved from the recreate_patches condition because we always want this to be visible if no hinges
         # TODO: ventually move this to a better place
@@ -636,32 +698,19 @@ class MayaHBasicScaffoldWrapper():
         # Find the closest vertices to the patch pivots and calculate the midPoints, also check scaff is connected
         closestVertices, midPoints = self.findClosestMidpointsOnPatches(patchPivots, shapeTraverseOrder)
 
-        # Rotation logic
-        print("startTime: " + str(startTime))
-        print("endTime: " + str(endTime))
-        print("time: " + str(t))
+        # Compute angle
         if (endTime > t >= startTime):
-            targetPatchHeight = (endTime - t) / (endTime - startTime) * self.origFoldPatchHeight
-            print("targetPatchHeight: " + str(targetPatchHeight))
-
-            rightTriangleHeight = targetPatchHeight / (numHinges + 1)
-            rightTriangleHypotenuse = self.origFoldPatchHeight / (numHinges + 1)
-
-            asin = math.asin(rightTriangleHeight / rightTriangleHypotenuse)
-            print("arcsin: " + str(asin) + " radians")
-            angle = endAngles[0] - math.degrees(asin)
-
-            print("angle: " + str(angle))
+            angle = self.computeAngle(endAngles, endTime, numHinges, startTime, t)
         elif (t < startTime):
-            # do not rotate
-            # TODO: see if there's a better way to do this
-            angle = startAngles[0]
+            return
         else:
-            # if t >= endTime
             angle = endAngles[0]
 
+        # Get the transforms of the patches
+        patchTransforms = self.getPatchTransforms(shapeTraverseOrder)
+
         # Perform rotations at once, but do not rotate the last patch
-        patchTransforms = self.rotatePatches(angle, rotAxis, shapeTraverseOrder, isLeft)
+        self.rotatePatches(angle, rotAxis, shapeTraverseOrder, isLeft)
 
         # Update location of closest vertices after rotation and update children translations
         self.updatePatchTranslations(closestVertices, midPoints, patchPivots, patchTransforms, shapeTraverseOrder)
@@ -671,18 +720,10 @@ class MayaHBasicScaffoldWrapper():
 
     # Fold test for non hard coded transforms: Part 1 of the logic from foldTest, calls foldKeyframe()
     # AT this point should already have the best fold option
-    def foldGeneric(self, time: int, recreatePatches: bool):
-        # foldOption = self.basicScaffold.fold_options[0]
-        foldOption = self.foldManagerOption
-        startTime = foldOption.fold_transform.startTime
-        endTime = foldOption.fold_transform.endTime
-
-        # If folding for this scaff hasn't started yet, don't do anything
-        # if (time >= startTime):
-            # if (time >= endTime):
-                # Cap animation at endTime
-                # TODO: might make it so that it doesn't even translate after endTime but not sure.
-                # time = endTime - 1
+    def foldAnimateBasic(self, time: int, recreatePatches: bool):
+        foldOption = self.basicScaffold.optimal_fold_option
+        startTime = foldOption.fold_transform.start_time
+        endTime = foldOption.fold_transform.end_time
 
         self.inInitialPatches = self.getPatchesIncludeBase()
 
@@ -692,40 +733,62 @@ class MayaHBasicScaffoldWrapper():
         else:
             # Reset the scene
             # TODO; Might not work anymore in a bit
-            self.setUpGenericScene(self.shapeTraverseOrder, self.shapeBase)
+            self.setUpGenericScene(self.shapeTraverseOrder)
 
         # Call the keyframe funtion but with the LOCAL TIME rather than the current global time
-        # localTime = time - startTime
         # TODO: get rid of these params since some of them are just member vars
         self.foldKeyframe(time, self.shapeTraverseOrder, foldOption, recreatePatches, startTime, endTime)
 
 
 class MayaInputScaffoldWrapper():
     def __init__(self, patches: List[str], pushAxis: OpenMaya.MVector, nH: int, nS: int):
-        self.pushAxis = pushAxis
-        self.patches = patches
-        self.bases = []
-        self.foldables = []
+        self.pushAxis: OpenMaya.MVector = pushAxis
+        self.patches: List[str] = patches
+
+        # Split self.pathces into bases and foldables
+        self.bases: List[str] = []
+        self.foldables: List[str] = []
+
+        # Edges are full of (str, str) pairs
         self.edges = []
+
+        # Both of the following are used purely for the InputScaffold's initialization
+        # List of patch objects, same as patches, but not strings
+        self.patchesObjs: List[fold.Patch] = []
+        self.basesObjs: List[fold.Patch] = []
+        self.foldablesObjs: List[fold.Patch] = []
+        # List of edges, using patch Object ids
+        self.edgesObjs: List[List[fold.Patch]] = []
+
         self.maxHinges = nH
         self.shrinks = nS
 
         self.inputScaffold = None
-        self.basicScaffolds: List[MayaHBasicScaffoldWrapper] = []
 
-    def getPatches(self) -> List[str]:
+        # Should be a list of MayaHBasicScaffoldWrapper or MayaTBasicScaffoldWrapper
+        self.basicScaffoldWrappers: List = []
+
+    def getAllPatches(self) -> List[str]:
         return self.patches
+
+    def addBasicScaffold(self, basicScaffoldWrapper: MayaHBasicScaffoldWrapper):
+        self.basicScaffoldWrappers.append(basicScaffoldWrapper)
+        self.inputScaffold.basic_scaffs.append(basicScaffoldWrapper.basicScaffold)
 
     def genConnectivityInfo(self):
         # Test each patch for connectivity to other patches
         # First, only get the patches that are normal to the pushing direction called base patch
         # For each base patch, test for connectivity against all other patches (foldable patches)
         # If they are close enough to each other via check-scaffold connectivity, then add an edge between them in the form of
-        # [base_patch, foldable_patch]
 
+        print("Generating connectivity Info...")
         for patch in self.patches:
+            # Create a patch object and add it to self.patchesObjs
+            patchVertices = np.array(list(getObjectVerticeNamesAndPositions(patch).values()))
+            patchObj = fold.Patch(patchVertices, patch)
+            self.patchesObjs.append(patchObj)
+
             # Get the surface normal of the patch in world space
-            # print("getting surface normal for {}".format(patch))
             planeDagPath = getObjectObjectFromDag(patch)
             fnMesh = OpenMaya.MFnMesh(planeDagPath)
 
@@ -735,23 +798,25 @@ class MayaInputScaffoldWrapper():
             # Apparently the normal agument is the SECOND argument in this dumbass function
             fnMesh.getPolygonNormal(0, normal, OpenMaya.MSpace.kWorld)
 
-            # print("normal: {:.6f}, {:.6f}, {:.6f}".format(normal[0],
-            #                                               normal[1],
-            #                                               normal[2]))
-
             # Get the dot product of normal and pushDir
             dot = self.pushAxis * normal
             if (abs(abs(dot) - 1) < 0.0001):
                 # Parallel
+                self.basesObjs.append(patchObj)
                 self.bases.append(patch)
             else:
+                self.foldablesObjs.append(patchObj)
                 self.foldables.append(patch)
 
         edges = []
+        edgesObjs = []
 
         # For every base in basePatches, test for connectivity with every foldable_patch
-        for base in self.bases:
-            for foldpatch in self.foldables:
+        for bidx in range(len(self.bases)):
+            base = self.bases[bidx]
+            for fidx in range(len(self.foldables)):
+                foldpatch = self.foldables[fidx]
+
                 # Since this is at the very beginning, checkScaffoldConnection should work as is
                 # Find pivot of base
                 pivot = getObjectTransformFromDag(base).rotatePivot(OpenMaya.MSpace.kWorld)
@@ -760,98 +825,166 @@ class MayaInputScaffoldWrapper():
                 vertices = getObjectVerticeNamesAndPositions(foldpatch)
                 closestVertices = getClosestVertices(vertices, pivot, 2)
 
-                # Check if the middle point is close enough to the pivot
-                middlePoint = (closestVertices[0][2] + closestVertices[1][2]) / 2
-
-                # TODO: might get scaffolds where they're not connected like this...
-                print("Checking connectivity genConnectivityInfo 742")
+                # TODO: might get scaffolds where they're not connected like this..
                 status = checkScaffoldConnectionBaseNoErr(base, closestVertices)
-                # status = checkScaffoldConnectionNoErr(pivot, middlePoint)
                 if status:
+                    # Obtain the obs to generate edges using patch ids
+                    baseObj = self.basesObjs[bidx]
+                    foldObj = self.foldablesObjs[fidx]
+
+                    edgesObjs.append([baseObj, foldObj])
                     edges.append([base, foldpatch])
 
-        print("Edges:")
-        print(edges)
-
         self.edges = edges
+        self.edgesObjs = edgesObjs
 
     def cleanUpSplitPatches(self):
         print("InputScaff: cleaning up split patches...")
-        for bScaff in self.basicScaffolds:
+        for bScaff in self.basicScaffoldWrappers:
             bScaff.cleanUpSplitPatches()
 
     def genInputScaffold(self):
-        # TODO: not super important yet
-        print("genInputScaffold: Implement me!")
+        # Generate the input scaffold
+        print("Generating Input Scaffold...")
+        npAxis = np.array([self.pushAxis.x, self.pushAxis.y, self.pushAxis.z])
+        edgesIds = [[e[0].id, e[1].id] for e in self.edgesObjs]
+
+        self.inputScaffold = fold.InputScaff(self.patchesObjs, edgesIds, npAxis, self.maxHinges, self.shrinks)
+
+        # Generate hinge graph
+        self.inputScaffold.gen_hinge_graph()
 
     def genBasicScaffolds(self):
+
         print("Generating Basic Scaffolds...")
+        if (self.inputScaffold == None):
+            raise Exception("Input scaffold is not set yet!")
 
         # Create a dictionary where the key is the foldablePatch and the values are the patches it is connected to
         if (len(self.edges) == 0):
             print("Error! No edges, yet genBasicScaffolds is called!")
             exit(1)
 
-        foldPatchDiction = {}
-        for edge in self.edges:
-            if edge[1] not in foldPatchDiction:
-                foldPatchDiction[edge[1]] = [edge[0]]
+        # TODO: Refactor, everything here is essentially being done twice for the mainFold and
+        # foldPatchDiction: Dict[str, list[str]] = {}
+        foldPatchObjDiction: Dict[fold.Patch, list[fold.Patch]] = {}
+        for eidx in range(len(self.edges)):
+            # edge = self.edges[eidx]
+            edgeObj = self.edgesObjs[eidx]
+            # if edge[1] not in foldPatchDiction:
+            if edgeObj[1] not in foldPatchObjDiction:
+                # foldPatchDiction[edge[1]] = [edge[0]]
+                foldPatchObjDiction[edgeObj[1]] = [edgeObj[0]]
             else:
-                foldPatchDiction[edge[1]].append(edge[0])
+                # foldPatchDiction[edge[1]].append(edge[0])
+                foldPatchObjDiction[edgeObj[1]].append(edgeObj[0])
 
+        # TODO: Refactor
         # For each entry in foldPatchDiction, create a basic scaffold
-        for foldPatch in foldPatchDiction:
-            print("BASIC SCAFFOLD CREATION...")
-            # Create a basic scaffold with the foldPatch and the base patches it is connected to
+        # for fidx in range(len(foldPatchDiction.keys())):
+        for fidx in range(len(foldPatchObjDiction.keys())):
+            # foldPatch = list(foldPatchDiction.keys())[fidx]
+            foldPatchObj = list(foldPatchObjDiction.keys())[fidx]
 
-            # If the pushAxis is positive, then the basePatch with the lower value in that axis is basePatch
-            # If the pushAxis is negative, then the basePatch with the higher value in that axis is basePatch
-            basePatch0 = foldPatchDiction[foldPatch][0]
-            basePatch1 = foldPatchDiction[foldPatch][1]
+            print("Basic scaffold creation...")
+            # Get the hinge graph id of the foldPatch
+            # if len(foldPatchDiction[foldPatch]) == 2:
+            if len(foldPatchObjDiction[foldPatchObj]) == 2:
+                # Create a basic scaffold with the foldPatch and the base patches it is connected to
 
-            # should be a list of 3 items
-            basePatch0Vertices = list(getObjectVerticeNamesAndPositions(basePatch0).values())
-            basePatch1Vertices = list(getObjectVerticeNamesAndPositions(basePatch1).values())
+                # If the pushAxis is positive, then the basePatch with the lower value in that axis is basePatch
+                # If the pushAxis is negative, then the basePatch with the higher value in that axis is basePatch
+                # TODO: change this to be edges
+                # basePatch0 = foldPatchDiction[foldPatch][0]
+                # basePatch1 = foldPatchDiction[foldPatch][1]
+                basePatchObj0 = foldPatchObjDiction[foldPatchObj][0]
+                basePatchObj1 = foldPatchObjDiction[foldPatchObj][1]
 
-            print("basePatch0Vertices: {}".format(basePatch0Vertices))
-            print("basePatch1Vertices: {}".format(basePatch1Vertices))
+                ## should be a list of 3 items
+                # basePatch0Vertices = list(getObjectVerticeNamesAndPositions(basePatch0).values())
+                # basePatch1Vertices = list(getObjectVerticeNamesAndPositions(basePatch1).values())
+                basePatch0Vertices = basePatchObj0.coords # list(getObjectVerticeNamesAndPositions(basePatchObj0).values())
+                basePatch1Vertices = basePatchObj1.coords # list(getObjectVerticeNamesAndPositions(basePatchObj1).values())
 
-            # TODO: hard coded to be Y axis for now so y axis cannot be 0
-            basePatch = None
-            topPatch = None
-            if self.pushAxis[1] > 0:
-                if basePatch0Vertices[0][1] < basePatch1Vertices[0][1]:
-                    topPatch = basePatch0
-                    basePatch = basePatch1
+                # # TODO: Refactor god damn this is so gross
+                # basePatchObj0 = foldPatchObjDiction[foldPatchObj][0]
+                # basePatchObj1 = foldPatchObjDiction[foldPatchObj][1]
+
+                # TODO: hard coded to be Y axis for now so y axis cannot be 0
+                if self.pushAxis[1] > 0:
+                    if basePatch0Vertices[0][1] < basePatch1Vertices[0][1]:
+                        # topPatch = basePatch0
+                        # basePatch = basePatch1
+
+                        topPatchObj = basePatchObj0
+                        basePatchObj = basePatchObj1
+                    else:
+                        # topPatch = basePatch1
+                        # basePatch = basePatch0
+
+                        topPatchObj = basePatchObj1
+                        basePatchObj = basePatchObj0
                 else:
-                    topPatch = basePatch1
-                    basePatch = basePatch0
-            else:
-                if basePatch0Vertices[0][1] > basePatch1Vertices[0][1]:
-                    topPatch = basePatch0
-                    basePatch = basePatch1
-                else:
-                    topPatch = basePatch1
-                    basePatch = basePatch0
+                    if basePatch0Vertices[0][1] > basePatch1Vertices[0][1]:
+                        # topPatch = basePatch0
+                        # basePatch = basePatch1
 
-            print("Generate basic scaffold...")
-            print("my Base Patch: {}".format(basePatch))
-            print("my Fold Patch: {}".format(foldPatch))
-            print("my Top Patch: {}".format(topPatch))
+                        topPatchObj = basePatchObj0
+                        basePatchObj = basePatchObj1
+                    else:
+                        # topPatch = basePatch1
+                        # basePatch = basePatch0
 
-            patchList = [foldPatch, topPatch]
-            basicScaff = MayaHBasicScaffoldWrapper(basePatch, patchList, self.pushAxis, self.maxHinges, self.shrinks)
-            self.basicScaffolds.append(basicScaff)
+                        topPatchObj = basePatchObj1
+                        basePatchObj = basePatchObj0
+
+                # patchList = [foldPatch, topPatch]
+                basePatch = basePatchObj.name
+                patchList = [foldPatchObj.name, topPatchObj.name]
+                patchObjList = [basePatchObj, foldPatchObj, topPatchObj]
+
+                basicScaffWrapper = MayaHBasicScaffoldWrapper(patchObjList, basePatch, patchList, self.pushAxis, self.maxHinges, self.shrinks)
+
+                for scaffWrapper in self.basicScaffoldWrappers:
+                    # if topPatch == scaffWrapper.basePatch:
+                    if topPatchObj.name == scaffWrapper.basePatch:
+                        # TODO: INVESTIGATE WHETHER THIS IS NECESSARY
+                        if (scaffWrapper.parent is None):
+                            scaffWrapper.setParent(basicScaffWrapper)
+                        basicScaffWrapper.addChild(scaffWrapper)
+                        print("Found child for basicScaff")
+                    # elif basePatch == scaffWrapper.patches[1]:
+                    elif basePatchObj.name == scaffWrapper.patches[1]:
+                        if basicScaffWrapper.parent is None:
+                            basicScaffWrapper.setParent(scaffWrapper)
+                        scaffWrapper.addChild(basicScaffWrapper)
+                        print("Found parent for basicScaff")
+
+                self.addBasicScaffold(basicScaffWrapper)
+
+                # TODO: DO THE SAME FOR T SCAFF UGH
+
+        self.inputScaffold.gen_basic_scaffs()
+        print("end gen basic scaffs")
 
     def genFoldSolutions(self):
-        # TODO: not super important yet
-        # Call genFoldSolution of the input scaffold, which will hopefully populate each basic scaffold with a solution and the time interval of the solution
-        print("TODO: genFoldSolutions... implement me!")
-        # raise Exception("ERROR: GenFoldSolutions not implemented")
+        print("Genearating Fold Solutions...")
+        # Responsible for invoking the foldMain APIs
 
-        # TODO: comment this back eventually
-        # for bScaff in self.basicScaffolds:
-        #     bScaff.genBestFoldOption()
+        # generate connectivity info
+        self.genConnectivityInfo()
+
+        # generate the input scaffold
+        self.genInputScaffold()
+
+        # generate and insert the basic scaffs
+        self.genBasicScaffolds()
+
+        # generate the mid level scaffolds
+        self.inputScaffold.gen_mid_scaffs()
+
+        # generate solutions. After this step, each basic scaffold should have its favorite solution
+        self.inputScaffold.fold()
 
         # TODO: manually set fold option rather than generate them for now
 
@@ -891,48 +1024,45 @@ class MayaInputScaffoldWrapper():
 
         # TODO: note that I've flipped the order they go in
         # FOLD OPTION 3
-        fm1 = fold.FoldManager()
-        cost1 = 3  # dummy card coded value
-        mod1 = fold.Modification(1, 0, 1, 1, cost1)
-        patchList1 = np.array(self.basicScaffolds[2].getAllPatchVertices())
-
-        fm1.generate_h_basic_scaff(patchList1[0], patchList1[1], patchList1[2])
-        patchObjList = [fm1.h_basic_scaff.b_patch, fm1.h_basic_scaff.f_patch, fm1.h_basic_scaff.b_patch_high]
-        fo1 = fold.FoldOption(True, mod1, patchObjList)
-        fo1.gen_fold_transform()
-        fo1.fold_transform.startTime = 0
-        fo1.fold_transform.endTime = 90
-
-        self.basicScaffolds[2].foldManagerOption = fo1
-
-        # FOLD OPTION 2
-        fm2 = fold.FoldManager()
-        mod2 = fold.Modification(3, 0, 1, 1, cost1)
-        patchList2 = np.array(self.basicScaffolds[1].getAllPatchVertices())
-
-        fm2.generate_h_basic_scaff(patchList2[0], patchList2[1], patchList2[2])
-        patchObjList2 = [fm2.h_basic_scaff.b_patch, fm2.h_basic_scaff.f_patch, fm2.h_basic_scaff.b_patch_high]
-        fo2 = fold.FoldOption(True, mod2, patchObjList2)
-        fo2.gen_fold_transform()
-        fo2.fold_transform.startTime = 0
-        fo2.fold_transform.endTime = 180
-
-        self.basicScaffolds[1].foldManagerOption = fo2
-
-        # FOLD OPTION 1
-        fm3 = fold.FoldManager()
-        cost1 = 2
-        mod3 = fold.Modification(1, 0, 1, 1, cost1)
-        patchList3 = np.array(self.basicScaffolds[0].getAllPatchVertices())
-
-        fm3.generate_h_basic_scaff(patchList3[0], patchList3[1], patchList3[2])
-        patchObjList3 = [fm3.h_basic_scaff.b_patch, fm3.h_basic_scaff.f_patch, fm3.h_basic_scaff.b_patch_high]
-        fo3 = fold.FoldOption(True, mod3, patchObjList3)
-        fo3.gen_fold_transform()
-        fo3.fold_transform.startTime = 90
-        fo3.fold_transform.endTime = 180
-
-        self.basicScaffolds[0].foldManagerOption = fo3
+        # fm1 = fold.FoldManager()
+        # cost1 = 3  # dummy card coded value
+        # mod1 = fold.Modification(1, 0, 1, 2, cost1)
+        # patchList1 = np.array(self.basicScaffolds[2].getAllPatchVertices())
+        #
+        # fm1.generate_h_basic_scaff(patchList1[0], patchList1[1], patchList1[2])
+        # fm1.h_basic_scaff.start_time = 0
+        # fm1.h_basic_scaff.end_time = 90
+        # fo1 = fold.FoldOption(True, mod1, fm1.h_basic_scaff)
+        # fo1.gen_fold_transform()
+        #
+        # self.basicScaffolds[2].foldManagerOption = fo1
+        #
+        # # FOLD OPTION 2
+        # fm2 = fold.FoldManager()
+        # mod2 = fold.Modification(3, 0, 1, 1, cost1)
+        # patchList2 = np.array(self.basicScaffolds[1].getAllPatchVertices())
+        #
+        # fm2.generate_h_basic_scaff(patchList2[0], patchList2[1], patchList2[2])
+        # fm2.h_basic_scaff.start_time = 0
+        # fm2.h_basic_scaff.end_time = 180
+        # fo2 = fold.FoldOption(True, mod2, fm2.h_basic_scaff)
+        # fo2.gen_fold_transform()
+        #
+        # self.basicScaffolds[1].foldManagerOption = fo2
+        #
+        # # FOLD OPTION 1
+        # fm3 = fold.FoldManager()
+        # cost1 = 2
+        # mod3 = fold.Modification(1, 0, 1, 1, cost1)
+        # patchList3 = np.array(self.basicScaffolds[0].getAllPatchVertices())
+        #
+        # fm3.generate_h_basic_scaff(patchList3[0], patchList3[1], patchList3[2])
+        # fm3.h_basic_scaff.start_time = 90
+        # fm3.h_basic_scaff.end_time = 180
+        # fo3 = fold.FoldOption(True, mod3, fm3.h_basic_scaff)
+        # fo3.gen_fold_transform()
+        #
+        # self.basicScaffolds[0].foldManagerOption = fo3
 
         # fm1 = fold.FoldManager()
         # cost1 = 3  # dummy card coded value
@@ -962,14 +1092,15 @@ class MayaInputScaffoldWrapper():
         #
         # self.basicScaffolds[1].foldManagerOption = fo2
 
-    def fold(self, time, recreatePatches):
+    def foldAnimate(self, time, recreatePatches):
         # Given that we have each basic scaffold with a solution, take in the current time and see the fold status of each basic scaffold.
         # For each basic scaffold, if the solution's startTime is less than the current time, then fold it with some animations
+
         # TODO: need to later figure out how to do this with mid level scaffolds first
         # TODO: assume list of basic scaffolds is not sorted in any way
-        print("folding...")
-        for bScaff in self.basicScaffolds:
-            bScaff.foldGeneric(time, recreatePatches)
+        for i in range(0, len(self.basicScaffoldWrappers)):
+            bScaff = self.basicScaffoldWrappers[i]
+            bScaff.foldAnimateBasic(time, recreatePatches)
 
 
 # Node definition
@@ -989,19 +1120,11 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
     # inStringList = OpenMaya.MObject()  # TODO make into inInitialpatches
 
-    # Dummy output plug that can be connected to the input of an instancer node
-    # so our node can "live" somewhere.
+    # Dummy output plug that can be connected to the input of an instancer node so our node can live somewhere
     outPoint = OpenMaya.MObject()
 
-    # basicScaffolds: List[MayaHBasicScaffold] = []
-
     # TODO: later on we will iterate through basicScaffolds instead
-    # defaultScaff: MayaHBasicScaffold = None
     defaultInputScaffWrapper: MayaInputScaffoldWrapper = None
-
-    # shapeTraverseOrder: List[str] = []
-    # shapeBase = []
-    # shapeResetTransforms = {}
 
     new_shapes = []
 
@@ -1038,7 +1161,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
         numShrinksData = data.inputValue(self.inNumShrinks)  # TODO: Represents maximum allowed shrinks
         numShrinks = numShrinksData.asInt()
 
-        # hardcode patches for now for an input scaffold which contains some mid level scaffolds in arbitrary order
+        # TODO: Eventually remove, hard coded patches for now
         # patches = ["cBase", "cFold", "cFold1", "cTop", "cFold2", "cTop1", "cFold3", "cFold4", "cTop2"]
         # patches = ["pBaseBottomH", "pFoldH", "pBaseTopH"]
         # patches = ["mBase", "mFold1", "mFold2", "mTop", "mFold3", "mTop1"]
@@ -1049,12 +1172,14 @@ class foldableNode(OpenMayaMPx.MPxNode):
         # b1Patches = ["mBase", "mFold1", "mTop"]
         # b2Patches = ["mBase", "mFold2", "mTop"]
 
-        # hard code push axis
+        # TODO: hard code push axis for now
         pushAxis = [0, -1, 0]
 
         recreatePatches = False
-        # TODO: maybe only need to create a new MayaInputScaffoldWrapper if patches, pushAxis, numHinges, numShrinks has changed
+
+        # If any of the input variables have changed, then create new scaffold
         if (self.prevNumHinges != numHinges or self.prevShrinks != numShrinks or self.prevPushAxis != pushAxis):
+
             # Reset variables
             self.prevNumHinges = numHinges
             self.prevShrinks = numShrinks
@@ -1065,23 +1190,20 @@ class foldableNode(OpenMayaMPx.MPxNode):
                 self.defaultInputScaffWrapper.cleanUpSplitPatches()
 
             # Create new MayaInputScaffoldWrapper
-            self.defaultInputScaffWrapper = None
+            resetFoldClass()
+            # self.defaultInputScaffWrapper = None
             self.defaultInputScaffWrapper = MayaInputScaffoldWrapper(patches, OpenMaya.MVector(pushAxis[0], pushAxis[1],
                                                                                                pushAxis[2]), numHinges,
                                                                      numShrinks)
-            self.defaultInputScaffWrapper.genConnectivityInfo()
-            self.defaultInputScaffWrapper.genInputScaffold()
-            self.defaultInputScaffWrapper.genBasicScaffolds()
 
-            # TODO: For testing purposes, hard code solutions and don't calling this yet
             self.defaultInputScaffWrapper.genFoldSolutions()
 
             recreatePatches = True
 
-        # always perform this step regardless
-        # TODO: figure out the foldMain.py before calling this
-        self.defaultInputScaffWrapper.fold(time, recreatePatches)
+        # Regardless of whether we have a new scaffold or not, we need to animate the current one
+        self.defaultInputScaffWrapper.foldAnimate(time, recreatePatches)
 
+        # Mandatory data clean
         data.setClean(plug)
 
 
