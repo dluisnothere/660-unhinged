@@ -5,11 +5,11 @@ import numpy as np
 from enum import Enum
 from typing import Dict, List, Set
 
+# Predefined constants
 
-class Axis(Enum):
-    X = [1, 0, 0]
-    Y = [0, 1, 0]
-    Z = [0, 0, 1]
+XAxis = np.array([-1, 0, 0])
+YAxis = np.array([0, -1, 0])
+ZAxis = np.array([0, 0, -1])
 
 
 class PatchType(Enum):
@@ -23,8 +23,8 @@ Static helper functions for linear algebra
 
 
 def normalize(vec1):
-    len = np.linalg.norm(vec1)
-    return vec1 / len
+    length = np.linalg.norm(vec1)
+    return vec1 / length
 
 
 # Might not even need this for now
@@ -52,18 +52,108 @@ def is_rectangle(coords):
         return True
 
 
-def rectangleOverlap(rect1: List[List[float]], rect2: List[List[float]]) -> bool:
-    rect1_minX = min(rect1[0][0], rect1[1][0], rect1[2][0], rect1[3][0])
-    rect1_maxX = max(rect1[0][0], rect1[1][0], rect1[2][0], rect1[3][0])
-    rect1_minY = min(rect1[0][1], rect1[1][1], rect1[2][1], rect1[3][1])
-    rect1_maxY = max(rect1[0][1], rect1[1][1], rect1[2][1], rect1[3][1])
+def calc_normal(rect: np.ndarray(np.ndarray(float))) -> np.ndarray(float):
+    # calculates the normal of the patch
+    # it can have two norms: and they're the negative of each other, but this function only returns one
+    hvec = rect[1] - rect[0]
+    wvec = rect[3] - rect[0]
 
-    # if any vertex lies within the rectangle above, then there is some degree of overlap
-    for vertex in rect2:
-        if rect1_minX <= vertex[0] <= rect1_maxX and rect1_minY <= vertex[1] <= rect1_maxY:
-            return True
+    # Take the cross product, then normalize
+    surf = np.cross(hvec, wvec)
+    return normalize(surf)
 
-    return False
+
+def rectangle_overlap(rect1: np.ndarray(np.ndarray(float)), rect2: np.ndarray(np.ndarray(float))) -> bool:
+    # If rectangles not in the same plane or don't have the same/opposite normals, then don't overlap
+    norm1 = calc_normal(rect1)
+    norm2 = calc_normal(rect2)
+
+    if (abs(np.dot(norm1, norm2)) != 1):
+        return False
+
+    isXAxis: bool = abs(np.dot(norm1, XAxis)) == 1
+    isYAxis: bool = abs(np.dot(norm1, YAxis)) == 1
+    isZAxis: bool = abs(np.dot(norm1, ZAxis)) == 1
+
+    if not isXAxis and not isZAxis and not isYAxis:
+        raise Exception("Rectangles are not axis aligned...?")
+    else:
+        # If rectangles not coplanar
+        if (isXAxis):
+            rect1_minY = min(rect1[0][1], rect1[1][1], rect1[2][1], rect1[3][1])
+            rect1_maxY = max(rect1[0][1], rect1[1][1], rect1[2][1], rect1[3][1])
+            rect1_minZ = min(rect1[0][2], rect1[1][2], rect1[2][2], rect1[3][2])
+            rect1_maxZ = max(rect1[0][2], rect1[1][2], rect1[2][2], rect1[3][2])
+
+            # if any vertex lies within the rectangle above, then there is some degree of overlap
+            for vertex in rect2:
+                if rect1_minY <= vertex[1] <= rect1_maxY and rect1_minZ <= vertex[2] <= rect1_maxZ:
+                    return True
+
+            rect2_minY = min(rect2[0][1], rect2[1][1], rect2[2][1], rect2[3][1])
+            rect2_maxY = max(rect2[0][1], rect2[1][1], rect2[2][1], rect2[3][1])
+            rect2_minZ = min(rect2[0][2], rect2[1][2], rect2[2][2], rect2[3][2])
+            rect2_maxZ = max(rect2[0][2], rect2[1][2], rect2[2][2], rect2[3][2])
+
+            for vertex in rect1:
+                if rect2_minY <= vertex[1] <= rect2_maxY and rect2_minZ <= vertex[2] <= rect2_maxZ:
+                    return True
+
+            return False
+
+        elif (isYAxis):
+            rect1_minX = min(rect1[0][0], rect1[1][0], rect1[2][0], rect1[3][0])
+            rect1_maxX = max(rect1[0][0], rect1[1][0], rect1[2][0], rect1[3][0])
+            rect1_minZ = min(rect1[0][2], rect1[1][2], rect1[2][2], rect1[3][2])
+            rect1_maxZ = max(rect1[0][2], rect1[1][2], rect1[2][2], rect1[3][2])
+
+            # if any vertex lies within the rectangle above, then there is some degree of overlap
+            for vertex in rect2:
+                if rect1_minX <= vertex[0] <= rect1_maxX and rect1_minZ <= vertex[2] <= rect1_maxZ:
+                    return True
+
+            rect2_minX = min(rect2[0][0], rect2[1][0], rect2[2][0], rect2[3][0])
+            rect2_maxX = max(rect2[0][0], rect2[1][0], rect2[2][0], rect2[3][0])
+            rect2_minZ = min(rect2[0][2], rect2[1][2], rect2[2][2], rect2[3][2])
+            rect2_maxZ = max(rect2[0][2], rect2[1][2], rect2[2][2], rect2[3][2])
+
+            for vertex in rect1:
+                if rect2_minX <= vertex[0] <= rect2_maxX and rect2_minZ <= vertex[2] <= rect2_maxZ:
+                    return True
+
+            return False
+
+        elif (isZAxis):
+            rect1_minX = min(rect1[0][0], rect1[1][0], rect1[2][0], rect1[3][0])
+            rect1_maxX = max(rect1[0][0], rect1[1][0], rect1[2][0], rect1[3][0])
+            rect1_minY = min(rect1[0][1], rect1[1][1], rect1[2][1], rect1[3][1])
+            rect1_maxY = max(rect1[0][1], rect1[1][1], rect1[2][1], rect1[3][1])
+
+            # if any vertex lies within the rectangle above, then there is some degree of overlap
+            for vertex in rect2:
+                if rect1_minX <= vertex[0] <= rect1_maxX and rect1_minY <= vertex[1] <= rect1_maxY:
+                    return True
+
+            rect2_minX = min(rect2[0][0], rect2[1][0], rect2[2][0], rect2[3][0])
+            rect2_maxX = max(rect2[0][0], rect2[1][0], rect2[2][0], rect2[3][0])
+            rect2_minY = min(rect2[0][1], rect2[1][1], rect2[2][1], rect2[3][1])
+            rect2_maxY = max(rect2[0][1], rect2[1][1], rect2[2][1], rect2[3][1])
+
+            for vertex in rect1:
+                if rect2_minX <= vertex[0] <= rect2_maxX and rect2_minY <= vertex[1] <= rect2_maxY:
+                    return True
+
+            return False
+        else:
+            raise Exception("WTF? should never hit here")
+
+
+def rectangle_area(rect: np.ndarray(np.ndarray(float))):
+    # calculate the area of the rectangle
+    h = np.linalg.norm(rect[1] - rect[0])
+    w = np.linalg.norm(rect[3] - rect[0])
+
+    return h * w
 
 
 """
@@ -74,23 +164,21 @@ Patch: Our proxy for a rectangle and only contains a rectangle
 class Patch:
     id_incr = 0
 
-    def __init__(self, rect_coords):
-        # if not (is_rectangle(rect_coords)):
-        #     raise Exception("Input is not a rectangle! Might be a trapezoid or parallelogram")
-        # print("Input is rectangle...")
-        # 3d coordinates corresponding to a rectangle
-
+    def __init__(self, rect_coords, name=''):
         # numpy arrays
         self.coords: np.ndarray = rect_coords
+
+        # name of the patch (FOR MAYA NODE PURPOSES ONLY. OPTIONAL PARAM)
+        self.name = name
 
         # a point on the plane, used for SDF
         self.constant = np.mean(rect_coords, axis=0)
 
         # calculate the normal of the surface immediately
-        self.normal = self.calc_normal()
+        self.normal = calc_normal(self.coords)
 
         # calculate area
-        self.area = self.calc_area()
+        self.area = rectangle_area(self.coords)
 
         # id for debug purposes
         self.id = Patch.id_incr
@@ -98,24 +186,6 @@ class Patch:
 
         # patch type:
         self.patch_type = None
-
-    def calc_area(self):
-        # calculates the area of the patch
-        h = np.linalg.norm(self.coords[1] - self.coords[0])
-        w = np.linalg.norm(self.coords[3] - self.coords[0])
-
-        # add check for whether the points are coplanar
-        return h * w
-
-    def calc_normal(self):
-        # calculates the normal of the patch
-        # it can have two norms: and they're the negative of each other, but this function only returns one
-        hvec = self.coords[1] - self.coords[0]
-        wvec = self.coords[3] - self.coords[0]
-
-        # Take the cross product, then normalize
-        surf = np.cross(hvec, wvec)
-        return normalize(surf)
 
     def calc_intersection(self, other):
         print("calc_intersection: implement me")
@@ -151,26 +221,6 @@ class Modification:
         # Hinge variables
         self.num_hinges = num_hinges
 
-    #     # region
-    #     self.projected_region = self.calc_region()
-    #
-    # def calc_region(self):
-    #     print("calc_region: implement me")
-    #     return -1
-
-
-"""
-FoldConfig: A list of i angles corresponding to i hinges
-Notes: May not actually need this as a class
-"""
-
-
-class FoldConfig:
-    def __init__(self):
-        # A list of i angles corresponding to i hinges
-        self.angles = []  # think of it as an empty numpy array
-        self.time = 0
-
 
 """
 FoldTransform: An association of start and end angles with their associated time step
@@ -178,15 +228,15 @@ FoldTransform: An association of start and end angles with their associated time
 
 
 class FoldTransform:
-    def __init__(self, a_st, a_en):
+    def __init__(self, a_st, a_en, start_time, end_time):
         # FoldConfig
         self.startAngles = a_st
         # FoldConfig
         self.endAngles = a_en
 
-        # TODO: maybe move elsewhere
-        self.starTime = 0
-        self.endTime = 90
+        # TODO: maybe move elsewhere, or will become a float
+        self.start_time = start_time
+        self.end_time = end_time
 
 
 """
@@ -208,10 +258,10 @@ class FoldOption:
         self.scaff: BasicScaff = scaff
 
         # Traversal vector of the modification
-        self.patch_traversal: List[float] = []
+        self.patch_trajectory: np.ndarray(float) = None
 
         # Projected region of the modification, a list of vertices in world space
-        self.projected_region: List[float] = []
+        self.projected_region: np.ndarray(np.ndarray(float)) = None
 
     def gen_fold_transform(self):
         print("Entered gen_fold_transform...")
@@ -259,108 +309,135 @@ class FoldOption:
             start_config.append(start_ang)
             end_config.append(end_ang)
 
-            # start_config.angles.append(start_ang)
-            # end_config.angles.append(end_ang)
+        # print("scaff object: ")
+        # print(self.scaff)
+        # print("scaff start time: " + str(self.scaff.start_time))
+        # print("scaff end time: " + str(self.scaff.end_time))
 
-        # If isHScaff is True, then we need to add the final hinge
-        # if isHScaff:
-        #     start_config.append(0.0)
-        #     end_config.append(-90.0)
+        if (self.scaff.start_time == -1 or self.scaff.end_time == -1):
+            raise Exception("Error: start or end time not set for scaffold")
 
-        self.fold_transform = FoldTransform(start_config, end_config)
+        self.fold_transform = FoldTransform(start_config, end_config, self.scaff.start_time, self.scaff.end_time)
 
     def conflicts_with(self, other: FoldOption) -> bool:
-        print("Checking conflict relationship...")
         if (other.scaff.id == self.scaff.id):
-            # If they belong to the same scaffold, return true
             return True
-        elif (other.fold_transform.startTime > self.fold_transform.endTime or
-              other.fold_transform.endTime < self.fold_transform.startTime):
+        elif (other.fold_transform.start_time > self.fold_transform.end_time or
+              other.fold_transform.end_time < self.fold_transform.start_time):
             # If they don't overlap in time, return false
             return False
         else:
             # If they overlap in time, then check if they share any of the same base patches
             # They should both be H scaffolds
             if (type(self.scaff) == HBasicScaff and type(other.scaff) == HBasicScaff):
-                if (self.scaff.b_patch_low.id == other.scaff.b_patch_low.id and
-                        self.scaff.b_patch_high.id == other.scaff.b_patch_high.id):
-
-                    # Check their patch traversal trajectory is the same.
-                    # If they are the same, then they are not conflicting
-                    # TODO: If fold scaffs are actually really close to each other, then they should allow slanted folding STRETCH GOAL
-                    # if (self.modification.patch_traversal == other.modification.patch_traversal):
-                    #     return False
-
-                    # I think, if they share the base patch and if they have an EVEN number of hinges
-                    # UNLESS the number of hinges are the same, and fold direction is the same
-                    # then they are always conflicting bc trajectory is not the same
-                    if (self.modification.num_hinges % 2 == 0 and other.modification.num_hinges % 2 == 0
-                            and self.isleft == other.isleft):
-                        if (self.modification.num_hinges == other.modification.num_hinges):
-                            return True
-                        else:
-                            return False
-
-                    # if odd number of patches, trajectory will always be down and then move on.
-
-                elif (self.scaff.b_patch_high.id == other.scaff.b_patch_high.id):
+                if (self.scaff.t_patch.id == other.scaff.t_patch.id):
                     # Special case, if the scaffolds share the same high base patch,
                     # then their start time should be the same
-                    if (self.fold_transform.startTime != other.fold_transform.startTime):
+                    if (self.fold_transform.start_time != other.fold_transform.start_time):
                         return True
-
+                    # if (self.modification.num_hinges % 2 != other.modification.num_hinges % 2):
+                    #     # If one has even number and another has odd number hinges... immediately false Since they
+                    #     # share the same top patch.
+                    #     return True
+                    # if (self.modification.num_hinges % 2 == 0 and other.modification.num_hinges % 2 == 0):
+                    #     if (self.isleft != other.isleft):
+                    #         return True
+                    #     if (self.modification.num_hinges != other.modification.num_hinges):
+                    #         return True
+                elif (self.scaff.b_patch.id == other.scaff.b_patch.id):
+                    if (self.fold_transform.end_time != other.fold_transform.end_time):
+                        return True
+                # STill need to check to make sure they are either both even or both odd.
                 # Check their projected foldable areas for the foldable patches don't overlap
                 self_region_vertices = self.projected_region
                 other_region_vertices = other.projected_region
-                if (rectangleOverlap(self_region_vertices, other_region_vertices)):
+                if (rectangle_overlap(self_region_vertices, other_region_vertices)):
+                    # print("Conflict between: " + str(self.scaff.id) + " and " + str(other.scaff.id))
+                    # print("Times overlap and rectangle overlap detected!")
                     return True
-                return False
+                else:
+                    return False
 
             else:
                 raise Exception("FoldOption::conflicts_with: Not both HBasicScaff")
 
-    def get_patch_width_length_bottom(self, norm, rotAxis, minX, maxX, minY, maxY, minZ, maxZ):
-        params = {
-            Axis.X: {
-                Axis.Y: {
-                    'patch_width': maxY - minY,
-                    'patch_length': maxZ - minZ,
-                    'bottom_verts': [[maxX, maxY, minZ], [maxX, minY, minZ]]
-                },
-                Axis.Z: {
-                    'patch_width': maxZ - minZ,
-                    'patch_length': maxY - minY,
-                    'bottom_verts': [[maxX, minY, minZ], [maxX, minY, maxZ]]
-                }
-            },
-            Axis.Y: {
-                Axis.X: {
-                    'patch_width': maxX - minX,
-                    'patch_length': maxZ - minZ,
-                    'bottom_verts': [[minX, maxY, minZ], [maxX, maxY, minZ]]
-                },
-                Axis.Z: {
-                    'patch_width': maxZ - minZ,
-                    'patch_length': maxX - minX,
-                    'bottom_verts': [[minX, maxY, minZ], [minX, maxY, maxZ]]
-                }
-            },
-            Axis.Z: {
-                Axis.X: {
-                    'patch_width': maxX - minX,
-                    'patch_length': maxY - minY,
-                    'bottom_verts': [[minX, maxY, minZ], [maxX, maxY, minZ]]
-                },
-                Axis.Y: {
-                    'patch_width': maxY - minY,
-                    'patch_length': maxX - minX,
-                    'bottom_verts': [[minX, maxY, minZ], [minX, minY, minZ]]
-                }
-            }
-        }
-        return params.get(norm, {}).get(rotAxis, None)
+    def get_patch_width_length_bottom(self, rotAxis, b_patch: Patch, f_patch: Patch) -> (float, float, np.ndarray):
+        f_norm = calc_normal(f_patch.coords)
+        b_norm = calc_normal(b_patch.coords)
 
-    def calc_projected_region(self, rotAxis: List[float]) -> List[List[float]]:
+        # Get the maximum and minimum x,y,z of the foldable patch
+        maxX = max(f_patch.coords[0][0], f_patch.coords[1][0], f_patch.coords[2][0], f_patch.coords[3][0])
+        minX = min(f_patch.coords[0][0], f_patch.coords[1][0], f_patch.coords[2][0], f_patch.coords[3][0])
+        maxY = max(f_patch.coords[0][1], f_patch.coords[1][1], f_patch.coords[2][1], f_patch.coords[3][1])
+        minY = min(f_patch.coords[0][1], f_patch.coords[1][1], f_patch.coords[2][1], f_patch.coords[3][1])
+        maxZ = max(f_patch.coords[0][2], f_patch.coords[1][2], f_patch.coords[2][2], f_patch.coords[3][2])
+        minZ = min(f_patch.coords[0][2], f_patch.coords[1][2], f_patch.coords[2][2], f_patch.coords[3][2])
+
+        # The f_patch edge that attaches to b_patch is the bottom edge, and also the width
+        # The other edge is the height
+
+        if (abs(np.dot(b_norm, XAxis)) == 1):
+            if (abs(np.dot(f_norm, YAxis)) == 1):
+                height = maxX - minX
+                width = maxZ - minZ
+                bottom_edge_verts = np.array([[b_patch.coords[0][0], f_patch.coords[0][1], maxZ],
+                                              [b_patch.coords[0][0], f_patch.coords[0][1], minZ]])
+            elif (abs(np.dot(f_norm, ZAxis)) == 1):
+                height = maxX - minX
+                width = maxY - minY
+                bottom_edge_verts = np.array([[b_patch.coords[0][0], maxY, f_patch.coords[0][2]],
+                                              [b_patch.coords[0][0], minY, f_patch.coords[0][2]]])
+            else:
+                # print("b_norm")
+                # print(b_norm)
+                # print("f_norm")
+                # print(f_norm)
+                raise Exception("FoldOption::get_patch_width_length_bottom: f_patch and b_patch share the same normal?")
+        elif (abs(np.dot(b_norm, YAxis)) == 1):
+            if (abs(np.dot(f_norm, XAxis)) == 1):
+                height = maxY - minY
+                width = maxZ - minZ
+                bottom_edge_verts = np.array([[f_patch.coords[0][0], b_patch.coords[0][1], maxZ],
+                                              [f_patch.coords[0][0], b_patch.coords[0][1], minZ]])
+            elif (abs(np.dot(f_norm, ZAxis)) == 1):
+                height = maxY - minY
+                width = maxX - minX
+                bottom_edge_verts = np.array([[maxX, b_patch.coords[0][1], f_patch.coords[0][2]],
+                                              [minX, b_patch.coords[0][1], f_patch.coords[0][2]]])
+            else:
+                # print("b_norm")
+                # print(b_norm)
+                # print("f_norm")
+                # print(f_norm)
+                raise Exception("FoldOption::get_patch_width_length_bottom: f_patch and b_patch share the same normal?")
+        elif (abs(np.dot(b_norm, ZAxis)) == 1):
+            if (abs(np.dot(f_norm, XAxis)) == 1):
+                height = maxZ - minZ
+                width = maxY - minY
+                bottom_edge_verts = np.array([[f_patch.coords[0][0], maxY, b_patch.coords[0][2]],
+                                              [f_patch.coords[0][0], minY, b_patch.coords[0][2]]])
+            elif (abs(np.dot(f_norm, YAxis)) == 1):
+                height = maxZ - minZ
+                width = maxX - minX
+                bottom_edge_verts = np.array([[maxX, f_patch.coords[0][1], b_patch.coords[0][2]],
+                                              [minX, f_patch.coords[0][1], b_patch.coords[0][2]]])
+
+            else:
+                # print("b_norm")
+                # print(b_norm)
+                # print("f_norm")
+                # print(f_norm)
+                raise Exception("FoldOption::get_patch_width_length_bottom: f_patch and b_patch share the same normal?")
+        else:
+            # print("b_norm")
+            # print(b_norm)
+            # print("f_norm")
+            # print(f_norm)
+            raise Exception("FoldOption::get_patch_width_length_bottom: patch normal incorrect?")
+
+        return (width, height, bottom_edge_verts)
+
+    def gen_projected_region(self, rotAxis: np.ndarray(float)):
         # calculates the projected region of the patch after a modification is applied
         # returns a list of 4 points
 
@@ -368,32 +445,20 @@ class FoldOption:
         # If right fold solution, then add points to current middle point
 
         f_patch = self.scaff.f_patch
+        b_patch = self.scaff.b_patch
 
-        pMinX = min(f_patch.coords[0][0], f_patch.coords[1][0], f_patch.coords[2][0], f_patch.coords[3][0])
-        pMaxX = max(f_patch.coords[0][0], f_patch.coords[1][0], f_patch.coords[2][0], f_patch.coords[3][0])
-        pMinY = min(f_patch.coords[0][1], f_patch.coords[1][1], f_patch.coords[2][1], f_patch.coords[3][1])
-        pMaxY = max(f_patch.coords[0][1], f_patch.coords[1][1], f_patch.coords[2][1], f_patch.coords[3][1])
-        pMinZ = min(f_patch.coords[0][2], f_patch.coords[1][2], f_patch.coords[2][2], f_patch.coords[3][2])
-        pMaxZ = max(f_patch.coords[0][2], f_patch.coords[1][2], f_patch.coords[2][2], f_patch.coords[3][2])
+        patchWidth, patchHeight, bottomVerts = self.get_patch_width_length_bottom(rotAxis, b_patch, f_patch)
 
-        norm = f_patch.calc_normal()
-
-        result = self.get_patch_width_length_bottom(norm, rotAxis, pMinX, pMaxX, pMinY, pMaxY, pMinZ, pMaxZ)
-
-        if result is None:
-            raise Exception("Invalid rotation axis... Returning")
-
-        patchWidth = result['patch_width']
-        patchLength = result['patch_length']
-        bottomVerts = result['bottom_verts']
-
-        print("PatchWidth: " + str(patchWidth))
-        print("PatchLength: " + str(patchLength))
-        print("BottomVerts: ")
-        print(bottomVerts)
+        # print("patchWidth: ", patchWidth)
+        # print("patchHeight: ", patchHeight)
+        # print("bottomVerts: ", bottomVerts)
 
         # Compute final length based on number of hinges
-        finalLength = patchLength / (self.modification.num_hinges + 1)
+        finalLength = patchHeight / (self.modification.num_hinges + 1)
+        # Compute a translation vector based on finalLength in the direction of the normal of the foldable patch
+        translationVec = finalLength * calc_normal(f_patch.coords)
+
+        # print("translationVec: ", translationVec)
 
         # Compute final width based on shrink value
         finalWidth = patchWidth / self.modification.num_pieces
@@ -401,21 +466,58 @@ class FoldOption:
         # compute the bottom vertices based on finalWidth and range_start and range_end
         # TODO: for now, hard code place to shrink from as the first element of bottomVerts
         newBottomVerts = []
-        newBottomVerts[0] = bottomVerts[0] + self.modification.range_start * finalWidth
-        newBottomVerts[1] = bottomVerts[0] + self.modification.range_end * finalWidth
 
-        # Get base patch location
+        # # TODO: debug print bottomVertis[0]
+        # print("bottomVerts[0]: ", bottomVerts[0])
+        # print("bottomVerts[1]: ", bottomVerts[1])
+
+        # Compute a shrinkVec based on finalWidth in the direction of the rotationAxis
+        shrinkVec0 = self.modification.range_start * finalWidth * np.abs(rotAxis)
+        shrinkVec1 = self.modification.range_end * finalWidth * np.abs(rotAxis)
+
+        # print("shrinkVec0: ", shrinkVec0)
+        # print("shrinkVec1: ", shrinkVec1)
+
+        if (abs(np.dot(rotAxis, XAxis)) == 1):
+            if (bottomVerts[0][0] < bottomVerts[1][0]):
+                startPos = bottomVerts[0]
+            else:
+                startPos = bottomVerts[1]
+        elif (abs(np.dot(rotAxis, YAxis)) == 1):
+            if (bottomVerts[0][1] < bottomVerts[1][1]):
+                startPos = bottomVerts[0]
+            else:
+                startPos = bottomVerts[1]
+        elif (abs(np.dot(rotAxis, ZAxis)) == 1):
+            if (bottomVerts[0][2] < bottomVerts[1][2]):
+                startPos = bottomVerts[0]
+            else:
+                startPos = bottomVerts[1]
+        else:
+            raise Exception("FoldOption::gen_projected_region: rotAxis is not a valid axis")
+
+        newBottomVert0 = startPos + shrinkVec0
+        # TODO: for now we are arbitrarily picking one of the bottom verts to shrink from
+        newBottomVert1 = startPos + shrinkVec1
+
+        # print("newCalcVert0: ", newBottomVert0)
+        # print("newCalcVert1: ", newBottomVert1)
+
+        newBottomVerts.append(newBottomVert0)
+        newBottomVerts.append(newBottomVert1)
+
+        # turn into a numpy array
         newBottomVerts = np.array(newBottomVerts)
 
         # if Solution is left
         if (self.isleft):
             # Additional verts is on the left
-            additionalVerts = newBottomVerts - finalLength
+            additionalVerts: np.ndarray = newBottomVerts - translationVec
         else:
             # Additional verts is on the right
-            additionalVerts = newBottomVerts + finalLength
+            additionalVerts: np.ndarray = newBottomVerts + translationVec
 
-        return [newBottomVerts[0], newBottomVerts[1], additionalVerts[1], additionalVerts[0]]
+        self.projected_region = np.array([newBottomVerts[0], newBottomVerts[1], additionalVerts[1], additionalVerts[0]])
 
 
 """
@@ -435,6 +537,11 @@ class BasicScaff():
         self.optimal_fold_option = None
         self.conflict_id = -1
 
+        # To be filled by gen_fold_times
+        # TODO: this logic may not even be correct to have them here.
+        self.start_time = -1
+        self.end_time = -1
+
 
 """
 TBasicScaff: A basic scaffold of type T
@@ -442,7 +549,7 @@ TBasicScaff: A basic scaffold of type T
 
 
 class TBasicScaff(BasicScaff):
-    def __init__(self, f_patch, b_patch):
+    def __init__(self, b_patch, f_patch):
         super().__init__()
         self.f_patch = f_patch
         self.b_patch = b_patch
@@ -454,24 +561,28 @@ class TBasicScaff(BasicScaff):
         # ns: max number of patch cuts
         # nh: max number of hinges, let's enforce this to be an odd number for now
         print("gen_fold_options...")
-        patch_list = [self.f_patch, self.b_patch]
         for i in range(0, nh + 1):
-            for j in range(0, ns + 1):
-                for k in range(0, j):
-                    cost = alpha * i / nh + (1 - alpha) / ns
-                    mod = Modification(i, j, k, j - k, cost)
-                    # fo_left = FoldOption(True, mod, patch_list)
-                    # fo_right = FoldOption(False, mod, patch_list)
+            for j in range(1, ns + 1):
+                for h in range(1, j + 1):
+                    for k in range(0, h):
+                        cost = alpha * i / nh + (1 - alpha) * ((ns - (h - k)) / ns) ** 2
 
-                    fo_left = FoldOption(True, mod, self)
-                    fo_right = FoldOption(False, mod, self)
+                        # TODO: check this later
+                        # mod = Modification(i, j, k, j - k, cost)
+                        mod = Modification(i, k, h, j, cost)
 
-                    # generate the fold transform from start to end?
-                    fo_left.gen_fold_transform()
-                    fo_right.gen_fold_transform()
+                        fo_left = FoldOption(True, mod, self)
+                        fo_right = FoldOption(False, mod, self)
 
-                    self.fold_options.append(fo_left)
-                    self.fold_options.append(fo_right)
+                        # generate the fold transform from start to end?
+                        fo_left.gen_fold_transform()
+                        fo_right.gen_fold_transform()
+
+                        fo_left.gen_projected_region(self.rot_axis)
+                        fo_right.gen_projected_region(self.rot_axis)
+
+                        self.fold_options.append(fo_left)
+                        self.fold_options.append(fo_right)
 
 
 """
@@ -480,40 +591,56 @@ HBasicScaff: A basic scaffold of type H
 
 
 class HBasicScaff(BasicScaff):
-    def __init__(self, f_patch, b_patch_low, b_patch_high):
+    def __init__(self, b_patch, f_patch, t_patch):
         super().__init__()
         self.f_patch = f_patch
-        self.b_patch_low = b_patch_low
-        self.b_patch_high = b_patch_high
+        self.b_patch = b_patch
+        self.t_patch = t_patch
 
-        self.rot_axis = np.cross(f_patch.calc_normal(), b_patch_low.calc_normal())
+        self.rot_axis: np.ndarray = np.cross(calc_normal(f_patch.coords), calc_normal(b_patch.coords))
 
-    def gen_fold_options(self, ns, nh, alpha):
+    def gen_fold_options(self, nh, ns, alpha):
         # Generates all possible fold solutions for TBasicScaff
         # ns: max number of patch cuts
         # nh: max number of hinges, let's enforce this to be an odd number for now
-        print("gen_fold_options...")
-        patch_list = [self.f_patch, self.b_patch_low, self.b_patch_high]
-        for i in range(0, nh + 1):
-            for j in range(0, ns + 1):
-                for k in range(0, j):
-                    print(k)
-                    print(j)
-                    print("end")
-                    cost = alpha * i / nh + (1 - alpha) / ns
-                    mod = Modification(i, j, k, j - k, cost)
-                    # fo_left = FoldOption(True, mod, patch_list)
-                    # fo_right = FoldOption(False, mod, patch_list)
+        # print("GEN FOLD OPTIONS FOR SCAFF: " + str(self.id) + "==================")
 
-                    fo_left = FoldOption(True, mod, self)
-                    fo_right = FoldOption(False, mod, self)
+        # TODO: hard coded only doing odd number of hinges. Even numbers are too unpredictable for this purpose.
+        for i in range(1, nh + 1, 2):
+            for j in range(1, ns + 1):
+                for h in range(1, j + 1):
+                    for k in range(0, h):
+                        # print("creating modifications ------------")
+                        # print("num hinges: " + str(i))
+                        # print("num shrinks: " + str(j))
+                        # print("start range: " + str(k))
+                        # print("end range: " + str(h))
+                        #
+                        # print("max hinges: " + str(nh))
+                        # print("max shrinks: " + str(ns))
 
-                    # generate the fold transform from start to end?
-                    fo_left.gen_fold_transform()
-                    fo_right.gen_fold_transform()
+                        cost = alpha * i / nh + (1 - alpha) * ((j - (h - k)) / j) ** 2
 
-                    self.fold_options.append(fo_left)
-                    self.fold_options.append(fo_right)
+                        # print("cost of hinges: " + str(alpha * i / nh))
+                        # print("cost of shrinks: " + str((1 - alpha) * ((j - (h - k)) / j)**2))
+                        # print("cost: " + str(cost))
+
+                        # TODO: Check if this is correct
+                        # mod = Modification(i, j, k, j - k, cost)
+                        mod = Modification(i, k, h, j, cost)
+
+                        fo_left = FoldOption(True, mod, self)
+                        fo_right = FoldOption(False, mod, self)
+
+                        # generate the fold transform from start to end?
+                        fo_left.gen_fold_transform()
+                        fo_right.gen_fold_transform()
+
+                        fo_left.gen_projected_region(self.rot_axis)
+                        fo_right.gen_projected_region(self.rot_axis)
+
+                        self.fold_options.append(fo_left)
+                        self.fold_options.append(fo_right)
 
 
 """
@@ -523,17 +650,62 @@ MidScaff: a mid level folding unit that contains basic scaffolds
 
 class MidScaff:
     def __init__(self, bs, nm):
-        self.basic_scaffs = bs
-        conflict_mapping = 0
+        self.basic_scaffs: List[BasicScaff] = bs
         for scaff in self.basic_scaffs:
             scaff.conflict_id = conflict_mapping
             conflict_mapping += 1
-
         self.node_mappings = nm
-        self.conflict_graph = None
+        self.conflict_graph = None  # TODO: actually the complement of the conflict graph
         self.conflict_mappings = []
-        self.start_time = -1
-        self.end_time = -1
+
+        # TODO: this variable will influence the fold time of the basic scaffolds
+        # For now, hard code as 0 to 90 but will eventually become floats.
+        self.start_time = 0
+        self.end_time = 90
+
+
+class TMidScaff(MidScaff):
+    def __init__(self, bs, nm):
+        super().__init__(bs, nm)
+
+    # Only one solution? Is there any case where this solution could impact another guy?
+    # Probably not since they all fold at different times? Sequentially?
+    def fold(self):
+        print("TMidScaff: Implement me!")
+
+
+class HMidScaff(MidScaff):
+    def __init__(self, bs, nm):
+        super().__init__(bs, nm)
+
+    def gen_fold_times(self):
+        print("GENERATING FOLD TIMES....")
+        # If no basic scaffolds, return with error.
+        if len(self.basic_scaffs) == 0:
+            raise Exception("No basic scaffolds to gen fold time for!")
+
+        # Sort basic scaffold by the position of their top patch (This only happens for HMidScaff so we can assume there is one)
+        # TODO: hard coded in the Y direction, but need to generalize this
+        # Sort by the Y coordinate of the top patch, which in our case should be constant for now.
+        # In-place sorting should be okay for now...
+        self.basic_scaffs.sort(reverse=True, key=lambda x: x.t_patch.coords[0][1])
+
+        highest_patch = self.basic_scaffs[0].t_patch
+        h0 = highest_patch.coords[0][1]
+
+        for basic_scaff in self.basic_scaffs:
+            h = basic_scaff.t_patch.coords[0][1]
+            b = basic_scaff.b_patch.coords[0][1]
+
+            # print("basic scaff:")
+            # print(basic_scaff)
+            basic_scaff.start_time = (h0 - h) * self.end_time / h0
+            # print("start time: " + str(basic_scaff.start_time))
+            basic_scaff.end_time = (h0 - b) * self.end_time / h0
+            # print("end time: " + str(basic_scaff.end_time))
+
+        print("Finished generating fold times for HMidScaff")
+
 
         self.added_tracker = []
         self.fold_Order = []
@@ -541,20 +713,59 @@ class MidScaff:
     def gen_conflict_graph(self):
         print("generating conflict graph...")
 
-        # We are generating the complement of the conflict graph, actually
-        # self.conflict_graph = nx.Graph()
-
         # Assuming at this point we havea  list of basic scaffolds
+        if (len(self.basic_scaffs) == 0):
+            raise Exception("No basic scaffolds to generate conflict graph from!")
+
         # For each scaffold, get its fold options and add them as nodes to the conflict grpah
         nodes = []
         node_weights = {}
-        conflict_mapping = 0
+
+        # Sum of all the folded areas
+        sum_fold_area = 0
+
+        # Cost of the most expensive solution
+        max_cost_v = -1
+
+        for scaff in self.basic_scaffs:
+            patch_area = rectangle_area(scaff.f_patch.coords)
+            sum_fold_area += patch_area
+            # Sum of the final area of every modification
+            for option in scaff.fold_options:
+                max_cost_v = max(max_cost_v, option.modification.cost)
+
         for scaff in self.basic_scaffs:
             for option in scaff.fold_options:
                 if not self.added_tracker[conflict_mapping]:
+                    patch_area = rectangle_area(scaff.f_patch.coords)
+                    lambda_i = patch_area / sum_fold_area
+                    cost_vj = lambda_i * option.modification.cost
+
+                    weight = max_cost_v - cost_vj + 1
+
+                    # print weight and fold option elements
+                    # print("COST of the NODE: " + str(scaff.id) + " is " + str(option.modification.cost))
+                    # print("max_cost_v: " + str(max_cost_v))
+                    # print("weight: " + str(weight))
+                    # print("num hinges: ")
+                    # print(option.modification.num_hinges)
+                    # print("num shrinks: ")
+                    # print(option.modification.num_pieces)
+                    # print("start range:")
+                    # print(option.modification.range_start)
+                    # print("end range:")
+                    # print(option.modification.range_end)
+
+                    # print("original vertices: ")
+                    # print(scaff.f_patch.coords)
+                    # print("Projected region of solution: ")
+                    # print(sol.projected_region)
+
+                    # Need to convert the weight from a double to an int by multiplying by 100
+                    weight = int(weight * 100)
+
                     nodes.append(option)
-                    # TODO: Feel like wwe might wanna invert the weights
-                    node_weights[option] = option.modification.cost
+                    node_weights[option] = weight
                 conflict_mapping += 1
 
         self.conflict_graph = nx.complete_graph(nodes)
@@ -565,11 +776,17 @@ class MidScaff:
         for option in self.conflict_graph.nodes:
             for other_option in self.conflict_graph.nodes:
                 # if the two options are not the same and their relationship hasn't been evaluated yet
-                if option != other_option and self.conflict_graph.has_edge(option, other_option) == False:
+                if option != other_option and self.conflict_graph.has_edge(option, other_option) == True:
                     # Check if the two nodes conflict
-                    if not option.conflicts_with(other_option):
+                    if option.conflicts_with(other_option):
                         # if they conflict, remove this edge
                         self.conflict_graph.remove_edge(option, other_option)
+
+                    # # TODO: debug test for now, to see which nodes will pop out
+                    # if (option.scaff.id == other_option.scaff.id):
+                    #     self.conflict_graph.remove_edge(option, other_option)
+
+        print("done generating conflict graph")
 
     def run_mwisp(self):
         print("running MWISP")
@@ -577,13 +794,36 @@ class MidScaff:
         # Run MWISP on the conflict graph
         # This will return a list of nodes (FoldOptions) that are in the maximum weight independent set
         # TODO: this might be really slow.
-        max_clique, clique_weights = nx.algorithms.approximation.clique.max_weight_clique(self.conflict_graph, weight="weight")
+        max_clique, weight = nx.algorithms.clique.max_weight_clique(self.conflict_graph, weight="weight")
+
+        print("RESULTING MAX CLIQU")
+        print(max_clique)
 
         for fold_option in max_clique:
-            # TODO: clean this up messy.
-            fold_option.basic_scaff.optimal_fold_option = fold_option
-        
-        return max_clique, clique_weights
+        # TODO: clean this up messy.
+            fold_option.scaff.optimal_fold_option = fold_option
+            print("FOLD SOLUTION FOR: " + str(fold_option.scaff.id) + "===================")
+            sol: FoldOption = fold_option
+            print("start time:")
+            print(fold_option.scaff.start_time)
+            print("end time:")
+            print(fold_option.scaff.end_time)
+            print("num hinges: ")
+            print(sol.modification.num_hinges)
+            print("num shrinks: ")
+            print(sol.modification.num_pieces)
+            print("range start: ")
+            print(sol.modification.range_start)
+            print("range end: ")
+            print(sol.modification.range_end)
+            print("isleft:")
+            print(sol.isleft)
+            print("original vertices: ")
+            print(fold_option.scaff.f_patch.coords)
+            print("Projected region of solution: ")
+            print(sol.projected_region)
+
+        return max_clique, weight
 
     def build_execute_conflict_graph(self):
         self.gen_conflict_graph()
@@ -611,15 +851,43 @@ class MidScaff:
         self.added_tracker = [False for i in range(size)]
         self.fold_Order = ordered_folds
 
+    def fold(self):
+        self.gen_conflict_graph()
 
-class TMidScaff(MidScaff):
-    def __init__(self, bs, nm):
-        super().__init__(bs, nm)
+        # print conflict graph's edges
+        # print("conflict graph edges:")
+        # for edge in self.conflict_graph.edges:
+        # n1, n2 = edge
+        # print("NO CONFLICT BETWEEN =======================")
+        # print("SCAFF 1---------")
+        # print("scaffold id: " + str(n1.scaff.id))
+        # # print("num hinges: " + str(n1.modification.num_hinges))
+        # # print("num shrinks: " + str(n1.modification.num_pieces))
+        # # print("start range: " + str(n1.modification.range_start))
+        # # print("end range: " + str(n1.modification.range_end))
+        # # print("isleft: " + str(n1.isleft))
+        # # # print("original vertices: ")
+        # # # print(n1.scaff.f_patch.coords)
+        # # print("projected region: ")
+        # # print(n1.projected_region)
+        # print("SCAFF 2----------")
+        # print("scaffold id: " + str(n2.scaff.id))
+        # # print("num hinges: " + str(n2.modification.num_hinges))
+        # # print("num shrinks: " + str(n2.modification.num_pieces))
+        # # print("start range: " + str(n2.modification.range_start))
+        # # print("end range: " + str(n2.modification.range_end))
+        # # print("isleft: " + str(n2.isleft))
+        # # print("projected region: ")
+        # # print(n2.projected_region)
+        #
+        # # print("SAME SCAFFOLD:")
+        # # print(n1.scaff.id == n2.scaff.id)
+        # # print("OVERLAPS:")
+        # # print(rectangleOverlap(n1.projected_region, n2.projected_region))
 
+        self.run_mwisp()
 
-class HMidScaff(MidScaff):
-    def __init__(self, bs, nm):
-        super().__init__(bs, nm)
+        print("Completed running fold on HMidScaff...")
 
 
 """
@@ -630,7 +898,7 @@ InputScaff: The full input scaff
 class InputScaff:
     id_incr = 0
 
-    def __init__(self, node_list, edge_list, pushing_direction):
+    def __init__(self, node_list, edge_list, push_dir, max_hinges, num_shrinks):
         self.hinge_graph = None  # Gets created gen_hinge_graph
         self.mid_scaffs = []
 
@@ -639,7 +907,7 @@ class InputScaff:
         # refers to indices in patch list
         self.edge_list = edge_list
         # axis vec3
-        self.pushing_direction = pushing_direction
+        self.push_dir: np.ndarray = push_dir
 
         # debug purposes for ease of our test algorithm
         # for now we manually define basic scaffolds
@@ -648,27 +916,30 @@ class InputScaff:
         # This is for mapping for basic scaffs ids (ints) to node ids (list of ints)
         self.basic_mappings = {}
 
+        self.max_hinges = max_hinges
+        self.num_shrinks = num_shrinks
+
         # Decomposes self and generates scaffolds
         # TODO: commented out for testing purposes, recomment back in
         # self.gen_scaffs()
 
-    def gen_scaffs(self):
-        # TODO: Di
-        # generates basic scaffolds
-        # generates hinge graph
-        # generates mid-level scaffolds
-
-        self.gen_hinge_graph()
-
-        self.gen_basic_scaffs()
-
-        self.gen_mid_scaffs()
+    # def gen_scaffs(self):
+    #     # TODO: Di
+    #
+    #     # generates hinge graph
+    #     self.gen_hinge_graph()
+    #
+    #     # generates basic scaffolds
+    #     self.gen_basic_scaffs()
+    #
+    #     # generates mid-level scaffolds
+    #     self.gen_mid_scaffs()
 
     def gen_hinge_graph(self):
         print("gen_hinge_graph...")
         for patch in self.node_list:
-            ang = abs(np.dot(normalize(self.pushing_direction), normalize(patch.normal)))
-            print(normalize(patch.normal))
+            ang = abs(np.dot(normalize(self.push_dir), normalize(patch.normal)))
+            # print(normalize(patch.normal))
             if ang < .1:
                 patch.patch_type = PatchType.Fold
             else:
@@ -681,29 +952,23 @@ class InputScaff:
         for edge in self.edge_list:
             self.hinge_graph.add_edge(edge[0], edge[1])
 
-    def gen_basic_scaffs(self):
+    # Basic scaffold objects already created by the foldNode
+    def set_basic_mappings(self):
         print("gen basic scaffs")
-        for patch in self.node_list:
-            if patch.patch_type == PatchType.Fold:
-                id = patch.id
-                neighbors = list(self.hinge_graph.neighbors(id))
-                if len(neighbors) == 2:
-                    base0 = self.node_list[neighbors[0]]
-                    base1 = self.node_list[neighbors[1]]
-                    fold0 = self.node_list[id]
-                    self.basic_scaffs.append(HBasicScaff(fold0, base0, base1))
-                    self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id,
-                                                                     self.node_list[neighbors[1]].id]
-                    print(self.basic_scaffs[-1].id)
-                elif len(neighbors) == 1:
-                    base0 = self.node_list[neighbors[0]]
-                    fold0 = self.node_list[id]
-                    self.basic_scaffs.append(TBasicScaff(fold0, base0))
-                    self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id]
-                    print(self.basic_scaffs[-1].id)
-                else:
-                    print("wtf")
-        print("end gen basic scaffs")
+        if (len(self.basic_scaffs) < 1):
+            raise Exception("No basic scaffolds!")
+
+        # At this point there should be at least one basic scaffold in here
+        for basic_scaff in self.basic_scaffs:
+            if (type(basic_scaff) is HBasicScaff):
+                scaffid = basic_scaff.id
+                patchid = basic_scaff.f_patch.id
+                # Produce basic mappings in the same way I produced them foldNode.
+                print("scaffid: " + str(scaffid))
+                print("patch ids: " + str(basic_scaff.b_patch.id) + ", " + str(basic_scaff.t_patch.id))
+                self.basic_mappings[scaffid] = [patchid, basic_scaff.b_patch.id, basic_scaff.t_patch.id]
+            elif (type(basic_scaff) is TBasicScaff):
+                raise Exception("Found a T scaffold, not implemented yet!")
 
     # Basically just removes non-unique lists
     def remove_duplicate_cycles(self, cycle_list):
@@ -752,13 +1017,19 @@ class InputScaff:
         return merged_cycles
 
     def gen_mid_scaffs(self):
+        # If there are no basic scaffolds, return with an error
+        if len(self.basic_scaffs) == 0:
+            raise Exception("No basic scaffolds to generate mid level scaffolds from")
+
+        if len(self.basic_mappings) == 0:
+            raise Exception("No basic scaffold mappings")
+
         di_graph_rep = self.hinge_graph.to_directed()
         cycles = sorted(nx.simple_cycles(di_graph_rep))
         cycles_big = []
         for l in cycles:
             if len(l) > 2:
                 cycles_big.append(l)
-        # print(cycles_big)
 
         cycles_filtered = self.merge_cycles(self.remove_duplicate_cycles(cycles_big))
 
@@ -768,20 +1039,29 @@ class InputScaff:
 
         # Iterate through all cycles
         for cycle in cycles_filtered:
+            # print("analyzing cycle...")
+            # print(cycle)
+
             basic_scaff_id_list = []
             patch_id_list = []
 
             # A basic scaffold is part of a mid level scaffolds if it's part of a cycle
             for scaff_id, patch_ids in self.basic_mappings.items():
+                # print("scaff_id: " + str(scaff_id))
+                # print("patch_ids: " + str(patch_ids))
+
                 reject = False
                 patch_id_temp = []
                 for id in patch_ids:
+                    # print("id: " + str(id))
                     if id not in cycle:
+                        # print("rejecting id...")
                         reject = True
                         break
                     else:
                         patch_id_temp.append(id)
                 if not reject:
+                    # print("adding scaff_id: " + str(scaff_id))
                     basic_scaff_id_list.append(scaff_id)
                     tracker[scaff_id] = True
                     patch_id_list = patch_id_list + patch_id_temp
@@ -791,6 +1071,8 @@ class InputScaff:
             for scaff_id in basic_scaff_id_list:
                 basic_scaff_list.append(self.basic_scaffs[scaff_id])
 
+            if (len(basic_scaff_list) == 0):
+                raise Exception("Found no basic scaffolds to generate Mid level scaffolds")
             self.mid_scaffs.append(HMidScaff(basic_scaff_list, pruned_id_list))
 
         # For midlevels that just compose a basic scaff
@@ -802,6 +1084,24 @@ class InputScaff:
                     self.mid_scaffs.append(HMidScaff([self.basic_scaffs[idx]], self.basic_mappings[idx]))
                 else:
                     self.mid_scaffs.append(TMidScaff([self.basic_scaffs[idx]], self.basic_mappings[idx]))
+
+    def fold(self):
+        # TODO: For now, only foldabilize the first mid level scaffold.
+        # TODO: Eventually I will need to do greedy one step lookahead.
+
+        # If no scaffolds, return with an error
+        if len(self.basic_scaffs) == 0:
+            raise Exception("No basic scaffolds to fold")
+
+        # First, generate time zones for basic scaffolds
+        self.mid_scaffs[0].gen_fold_times()
+
+        # First, generate basic scaffold solutions
+        for scaff in self.basic_scaffs:
+            # TODO: hard code alpha to be 0.5
+            scaff.gen_fold_options(self.max_hinges, self.num_shrinks, 0.5)
+
+        self.mid_scaffs[0].fold()
 
 
 '''
@@ -815,28 +1115,28 @@ class FoldManager:
         self.h_basic_scaff = None  # TODO: For now a hard coded H scaffold
         self.input_scaff = None
 
-    def generate_h_basic_scaff(self, bottom_patch: list, fold_patch: list, top_patch: list):
-        print("generate_h_basic_scaff...")
-        print("bottom patch")
+    def generate_h_basic_scaff(self, bottom_patch: np.ndarray, fold_patch: np.ndarray, top_patch: np.ndarray):
+        # print("generate_h_basic_scaff...")
+        # print("bottom patch")
         bPatch = Patch(bottom_patch)
-        print("top patch")
+        # print("top patch")
         tPatch = Patch(top_patch)
-        print("fold patch")
+        # print("fold patch")
         fPatch = Patch(fold_patch)
 
         scaff = HBasicScaff(fPatch, bPatch, tPatch)
         self.h_basic_scaff = scaff
 
     def mainFold(self, nH, nS) -> FoldOption:
-        print("entered mainFold...")
+        # print("entered mainFold...")
         # Outputs a hard coded fold option for now
 
         # Experiment with alpha values
         alpha = 0.5
         cost1 = alpha * 0 / 1 + (1 - alpha) / 1
         mod1 = Modification(nH, 0, 3, nS, cost1)
-        patch_list = [self.h_basic_scaff.f_patch, self.h_basic_scaff.b_patch_low, self.h_basic_scaff.b_patch_high]
-        fo = FoldOption(False, mod1, patch_list)
+        # patch_list = [self.h_basic_scaff.f_patch, self.h_basic_scaff.b_patch, self.h_basic_scaff.t_patch]
+        fo = FoldOption(False, mod1, self.h_basic_scaff)
         fo.gen_fold_transform()
 
         # TODO: hard coded for now
@@ -853,7 +1153,7 @@ def basic_t_scaffold():
 
     foldable = Patch(coords3)
     base = Patch(coords2)
-    tscaff = TBasicScaff(foldable, base)
+    tscaff = TBasicScaff(base, foldable)
     tscaff.gen_fold_options(1, 1, .5)
     print("Begin test")
 
@@ -948,7 +1248,8 @@ def interm1_input_scaff():
     f2.id = 4
     f3.id = 5
 
-    input = InputScaff([b1, b2, b3, f1, f2, f3], [[0, 3], [0, 5], [1, 3], [1, 4], [2, 4], [2, 5]], normalize([0, 1, 0]))
+    input = InputScaff([b1, b2, b3, f1, f2, f3], [[0, 3], [0, 5], [1, 3], [1, 4], [2, 4], [2, 5]], normalize([0, 1, 0]),
+                       2, 1)
 
     input.gen_hinge_graph()
 
@@ -1018,22 +1319,314 @@ def interm2_input_scaff():
     for mid_scaff in input.mid_scaffs:
         print(mid_scaff.node_mappings)
 
+
 # interm2_input_scaff()
 
-def basic_t_scaffold_conflict():
-    print("basic_t_scaffold_conflict")
-    coords1 = np.array([(-1, 2, 2), (-1, 2, 0), (1, 2, 0), (1, 2, 2)])  # top base patch
-    coords2 = np.array([(-1, 0, 2), (-1, 0, 0), (1, 0, 0), (1, 0, 2)])  # bottom base patch
-    coords3 = np.array([(0, 0, 2), (0, 2, 2), (0, 2, 0), (0, 0, 0)])  # foldable patch
+def test_conflict_graph():
+    coords1 = np.array([(3, 2, 5.5), (4.5, 2, 5.5), (4.5, 2, 4.5), (3, 2, 4.5)])  # top base patch # 0
+    coords2 = np.array([(3, 0, 5.5), (5, 0, 5.5), (5, 0, 4.5), (3, 0, 4.5)])  # bottom base patch # 1
+    coords3 = np.array([(4, 1, 5.5), (5, 1, 5.5), (5, 1, 4.5), (4, 1, 4.5)])  # middle base patch # 2
+    coords4 = np.array([(4.75, 0, 5.5), (4.75, 0, 4.5), (4.75, 1, 4.5), (4.75, 1, 5.5)])  # left bot fold patch # 3
+    coords5 = np.array([(4.25, 1, 5.5), (4.25, 1, 4.5), (4.25, 2, 4.5), (4.25, 2, 5.5)])  # left top fold # 4
+    coords6 = np.array([(3.25, 0, 5.5), (3.25, 0, 4.5), (3.25, 2, 4.5), (3.25, 2, 5.5)])  # right fold # 5
 
-    foldable = Patch(coords3)
-    base = Patch(coords2)
-    tscaff = TBasicScaff(foldable, base)
-    tscaff.gen_fold_options(1, 1, .5)
-    print("Begin test")
+    b1 = Patch(coords1)
+    b2 = Patch(coords2)
+    b3 = Patch(coords3)
+    f1 = Patch(coords4)
+    f2 = Patch(coords5)
+    f3 = Patch(coords6)
 
-    for scaff in tscaff.fold_options:
-        scaff.calc_projected_region(Axis.X)
-        print('------------------------------')
-    
-basic_t_scaffold_conflict()
+    b1.id = 0
+    b2.id = 1
+    b3.id = 2
+
+    f1.id = 3
+    f2.id = 4
+    f3.id = 5
+
+    nodes = [b1, b2, b3, f1, f2, f3]
+    edges = [[3, 2], [1, 3], [2, 4], [4, 0], [5, 0], [1, 5]]
+
+    push_dir = YAxis
+
+    input = InputScaff(nodes, edges, push_dir, 5, 2)
+
+    input.gen_hinge_graph()
+
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+    print(input.hinge_graph)
+    input.gen_basic_scaffs()
+    print(input.basic_scaffs)
+
+    print("MIDSCAFFS")
+    input.gen_mid_scaffs()
+    print(input.mid_scaffs)
+    for mid_scaff in input.mid_scaffs:
+        print(mid_scaff.node_mappings)
+        for basic_scaff in mid_scaff.basic_scaffs:
+            print("SCAFF =================== ")
+            print("base high: " + str(basic_scaff.t_patch.id))
+            print("foldable: " + str(basic_scaff.f_patch.id))
+            print("base low: " + str(basic_scaff.b_patch.id))
+
+    # Generate solutions
+    input.fold()
+
+    # Print the generated solutions
+    for mid_scaff in input.mid_scaffs:
+        for basic_scaff in mid_scaff.basic_scaffs:
+            print("FOLD SOLUTION FOR: " + str(basic_scaff.id) + "===================")
+            sol: FoldOption = basic_scaff.optimal_fold_option
+            print("start time:")
+            print(basic_scaff.start_time)
+            print("end time:")
+            print(basic_scaff.end_time)
+            print("num hinges: ")
+            print(sol.modification.num_hinges)
+            print("num shrinks: ")
+            print(sol.modification.num_pieces)
+            print("range start: ")
+            print(sol.modification.range_start)
+            print("range end: ")
+            print(sol.modification.range_end)
+            print("isleft:")
+            print(sol.isleft)
+            print("original vertices: ")
+            print(basic_scaff.f_patch.coords)
+            print("Projected region of solution: ")
+            print(sol.projected_region)
+
+
+# test_conflict_graph()
+
+def test_conflict_graph_2midScaffs():
+    coords1 = np.array([(0, 0, 1), (1, 0, 1), (1, 0, 0), (0, 0, 0)])  # top base patch # 0
+    coords2 = np.array([(0, 1, 1), (1, 1, 1), (1, 1, 0), (0, 1, 0)])  # bottom base patch # 1
+    coords3 = np.array([(0.25, 0, 1), (0.25, 0, 0), (0.25, 1, 0), (0.25, 1, 1)])  # middle base patch # 2
+    coords4 = np.array([(0.75, 0, 1), (0.75, 0, 0), (0.25, 1, 0), (0.75, 1, 1)])  # left bot fold patch # 3
+
+    b1 = Patch(coords1)
+    b2 = Patch(coords2)
+    f1 = Patch(coords3)
+    f2 = Patch(coords4)
+
+    b1.id = 0
+    b2.id = 1
+
+    f1.id = 2
+    f2.id = 3
+
+    nodes = [b1, b2, f1, f2]
+    edges = [[2, 0], [1, 2], [3, 0], [1, 3]]
+
+    push_dir = YAxis
+
+    input = InputScaff(nodes, edges, push_dir, 5, 2)
+
+    input.gen_hinge_graph()
+
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+    print(input.hinge_graph)
+    input.gen_basic_scaffs()
+    print(input.basic_scaffs)
+
+    print("MIDSCAFFS")
+    input.gen_mid_scaffs()
+    print(input.mid_scaffs)
+    for mid_scaff in input.mid_scaffs:
+        print(mid_scaff.node_mappings)
+        for basic_scaff in mid_scaff.basic_scaffs:
+            print("SCAFF =================== ")
+            print("base high: " + str(basic_scaff.t_patch.id))
+            print("foldable: " + str(basic_scaff.f_patch.id))
+            print("base low: " + str(basic_scaff.b_patch.id))
+
+    # Generate solutions
+    input.fold()
+
+    # Print the generated solutions
+    for mid_scaff in input.mid_scaffs:
+        for basic_scaff in mid_scaff.basic_scaffs:
+            print("FOLD SOLUTION FOR: " + str(basic_scaff.id) + "===================")
+            sol: FoldOption = basic_scaff.optimal_fold_option
+            print("start time:")
+            print(basic_scaff.start_time)
+            print("end time:")
+            print(basic_scaff.end_time)
+            print("num hinges: ")
+            print(sol.modification.num_hinges)
+            print("num shrinks: ")
+            print(sol.modification.num_pieces)
+            print("range start: ")
+            print(sol.modification.range_start)
+            print("range end: ")
+            print(sol.modification.range_end)
+            print("isleft:")
+            print(sol.isleft)
+            print("original vertices: ")
+            print(basic_scaff.f_patch.coords)
+            print("Projected region of solution: ")
+            print(sol.projected_region)
+
+
+# test_conflict_graph_2midScaffs()
+
+def test_conflict_graph_inconsistentFoldPatch():
+    coords1 = np.array([(0, 0, 1), (1, 0, 1), (1, 0, 0), (0, 0, 0)])  # top base patch # 0
+    coords2 = np.array([(0, 1, 1), (1, 1, 1), (1, 1, 0), (0, 1, 0)])  # bottom base patch # 1
+    coords3 = np.array([(0, 0, 0.5), (1, 0, 0.5), (1, 1, 0.5), (0, 1, 0.5)])  # middle base patch # 2
+
+    b1 = Patch(coords1)
+    b2 = Patch(coords2)
+    f1 = Patch(coords3)
+
+    b1.id = 0
+    b2.id = 1
+
+    f1.id = 2
+
+    nodes = [b1, b2, f1]
+    edges = [[2, 0], [1, 2]]
+
+    push_dir = YAxis
+
+    input = InputScaff(nodes, edges, push_dir, 5, 2)
+
+    input.gen_hinge_graph()
+
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+    print(input.hinge_graph)
+    input.gen_basic_scaffs()
+    print(input.basic_scaffs)
+
+    print("MIDSCAFFS")
+    input.gen_mid_scaffs()
+    print(input.mid_scaffs)
+    for mid_scaff in input.mid_scaffs:
+        print(mid_scaff.node_mappings)
+        for basic_scaff in mid_scaff.basic_scaffs:
+            print("SCAFF =================== ")
+            print("base high: " + str(basic_scaff.t_patch.id))
+            print("foldable: " + str(basic_scaff.f_patch.id))
+            print("base low: " + str(basic_scaff.b_patch.id))
+
+    # Generate solutions
+    input.fold()
+
+    # Print the generated solutions
+    for mid_scaff in input.mid_scaffs:
+        for basic_scaff in mid_scaff.basic_scaffs:
+            print("FOLD SOLUTION FOR: " + str(basic_scaff.id) + "===================")
+            sol: FoldOption = basic_scaff.optimal_fold_option
+            print("start time:")
+            print(basic_scaff.start_time)
+            print("end time:")
+            print(basic_scaff.end_time)
+            print("num hinges: ")
+            print(sol.modification.num_hinges)
+            print("num shrinks: ")
+            print(sol.modification.num_pieces)
+            print("range start: ")
+            print(sol.modification.range_start)
+            print("range end: ")
+            print(sol.modification.range_end)
+            print("isleft:")
+            print(sol.isleft)
+            print("original vertices: ")
+            print(basic_scaff.f_patch.coords)
+            print("Projected region of solution: ")
+            print(sol.projected_region)
+
+
+# test_conflict_graph_inconsistentFoldPatch()
+
+def test_cube_shape():
+    coords1 = np.array([(0, 0, 1), (1, 0, 1), (1, 0, 0), (0, 0, 0)])  # bottom base patch # 0
+    coords2 = np.array([(0, 1, 1), (1, 1, 1), (1, 1, 0), (0, 1, 0)])  # top base patch # 1
+    coords3 = np.array([(0, 0, 1), (0, 0, 0), (0, 1, 0), (0, 1, 1)])  # fold patch 1 # 2
+    coords4 = np.array([(1, 0, 1), (1, 0, 0), (1, 1, 0), (1, 1, 1)])  # fold patch 2 # 3
+    coords5 = np.array([(1, 0, 0), (0, 0, 0), (0, 1, 0), (1, 1, 0)])  # fold patch 3 # 4
+
+    b1 = Patch(coords1)
+    b2 = Patch(coords2)
+    f1 = Patch(coords3)
+    f2 = Patch(coords4)
+    f3 = Patch(coords5)
+
+    b1.id = 0
+    b2.id = 1
+
+    f1.id = 2
+    f2.id = 3
+    f3.id = 4
+
+    nodes = [b1, b2, f1, f2, f3]
+    edges = [[2, 0], [3, 0], [4, 0], [1, 2], [1, 3], [1, 4]]
+
+    push_dir = YAxis
+
+    input = InputScaff(nodes, edges, push_dir, 5, 3)
+
+    input.gen_hinge_graph()
+
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+    print(input.hinge_graph)
+    input.gen_basic_scaffs()
+    print(input.basic_scaffs)
+
+    print("MIDSCAFFS")
+    input.gen_mid_scaffs()
+    print(input.mid_scaffs)
+    for mid_scaff in input.mid_scaffs:
+        print(mid_scaff.node_mappings)
+        for basic_scaff in mid_scaff.basic_scaffs:
+            print("SCAFF =================== ")
+            print("base high: " + str(basic_scaff.t_patch.id))
+            print("foldable: " + str(basic_scaff.f_patch.id))
+            print("base low: " + str(basic_scaff.b_patch.id))
+
+    # Generate solutions
+    input.fold()
+
+    # Print the generated solutions
+    for mid_scaff in input.mid_scaffs:
+        for basic_scaff in mid_scaff.basic_scaffs:
+            print("FOLD SOLUTION FOR: " + str(basic_scaff.id) + "===================")
+            sol: FoldOption = basic_scaff.optimal_fold_option
+            print("start time:")
+            print(basic_scaff.start_time)
+            print("end time:")
+            print(basic_scaff.end_time)
+            print("num hinges: ")
+            print(sol.modification.num_hinges)
+            print("num shrinks: ")
+            print(sol.modification.num_pieces)
+            print("range start: ")
+            print(sol.modification.range_start)
+            print("range end: ")
+            print(sol.modification.range_end)
+            print("isleft:")
+            print(sol.isleft)
+            print("original vertices: ")
+            print(basic_scaff.f_patch.coords)
+            print("Projected region of solution: ")
+            print(sol.projected_region)
+
+# test_cube_shape()
