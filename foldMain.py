@@ -433,6 +433,7 @@ class BasicScaff():
 
         # To be filled by the MWISP
         self.optimal_fold_option = None
+        self.conflict_id = -1
 
 
 """
@@ -523,10 +524,19 @@ MidScaff: a mid level folding unit that contains basic scaffolds
 class MidScaff:
     def __init__(self, bs, nm):
         self.basic_scaffs = bs
+        conflict_mapping = 0
+        for scaff in self.basic_scaffs:
+            scaff.conflict_id = conflict_mapping
+            conflict_mapping += 1
+
         self.node_mappings = nm
         self.conflict_graph = None
+        self.conflict_mappings = []
         self.start_time = -1
         self.end_time = -1
+
+        self.added_tracker = []
+        self.fold_Order = []
 
     def gen_conflict_graph(self):
         print("generating conflict graph...")
@@ -538,10 +548,14 @@ class MidScaff:
         # For each scaffold, get its fold options and add them as nodes to the conflict grpah
         nodes = []
         node_weights = {}
+        conflict_mapping = 0
         for scaff in self.basic_scaffs:
             for option in scaff.fold_options:
-                nodes.append(option)
-                node_weights[option] = option.modification.cost
+                if not self.added_tracker[conflict_mapping]:
+                    nodes.append(option)
+                    # TODO: Feel like wwe might wanna invert the weights
+                    node_weights[option] = option.modification.cost
+                conflict_mapping += 1
 
         self.conflict_graph = nx.complete_graph(nodes)
         nx.set_node_attributes(self.conflict_graph, node_weights, "weight")
@@ -563,11 +577,39 @@ class MidScaff:
         # Run MWISP on the conflict graph
         # This will return a list of nodes (FoldOptions) that are in the maximum weight independent set
         # TODO: this might be really slow.
-        max_clique = nx.algorithms.approximation.clique.max_weight_clique(self.conflict_graph, weight="weight")
+        max_clique, clique_weights = nx.algorithms.approximation.clique.max_weight_clique(self.conflict_graph, weight="weight")
 
         for fold_option in max_clique:
             # TODO: clean this up messy.
             fold_option.basic_scaff.optimal_fold_option = fold_option
+        
+        return max_clique, clique_weights
+
+    def build_execute_conflict_graph(self):
+        self.gen_conflict_graph()
+        return self.run_mwisp()
+
+    def order_folds(self):
+        ordered_folds = []
+        size = len(self.basic_scaffs)
+        self.added_tracker = [False for i in range(size)]
+        for i in range(0, size):
+            max_clique, clique_weights = self.build_execute_conflict_graph()
+            c1 = -1
+            c2 = -1
+            bestScaff = None
+            for (scaff1, weight1, id1) in zip(max_clique, clique_weights, range(0, len(max_clique))):
+                for (scaff2, weight2, id2) in zip(max_clique, clique_weights, range(0, len(max_clique))):
+                    if id1 != id2 and c1 + c2 < weight1 + weight2:
+                        c1 = weight1
+                        c2 = weight2
+                        best_Scaff = scaff1
+            ordered_folds.append(best_Scaff)
+            self.added_tracker[best_Scaff.conflict_id] = True
+
+
+        self.added_tracker = [False for i in range(size)]
+        self.fold_Order = ordered_folds
 
 
 class TMidScaff(MidScaff):
@@ -977,3 +1019,21 @@ def interm2_input_scaff():
         print(mid_scaff.node_mappings)
 
 # interm2_input_scaff()
+
+def basic_t_scaffold_conflict():
+    print("basic_t_scaffold_conflict")
+    coords1 = np.array([(-1, 2, 2), (-1, 2, 0), (1, 2, 0), (1, 2, 2)])  # top base patch
+    coords2 = np.array([(-1, 0, 2), (-1, 0, 0), (1, 0, 0), (1, 0, 2)])  # bottom base patch
+    coords3 = np.array([(0, 0, 2), (0, 2, 2), (0, 2, 0), (0, 0, 0)])  # foldable patch
+
+    foldable = Patch(coords3)
+    base = Patch(coords2)
+    tscaff = TBasicScaff(foldable, base)
+    tscaff.gen_fold_options(1, 1, .5)
+    print("Begin test")
+
+    for scaff in tscaff.fold_options:
+        scaff.calc_projected_region(Axis.X)
+        print('------------------------------')
+    
+basic_t_scaffold_conflict()
