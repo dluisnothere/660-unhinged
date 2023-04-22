@@ -1,12 +1,36 @@
+global proc string stringArrayToString(string $array[], string $separator)
+{
+    string $result = "";
+    for ($elem in $array) {
+        if ($result == "") {
+            $result = $elem;
+        } else {
+            $result = $result + $separator + $elem;
+        }
+    }
+    return $result;
+}
+
 global proc int genFoldNode()
 {    
-    instancer -n instancer1;
+    print("Hello");
+    string $selected[] = `ls -sl`;
+    print($selected);
     
-    createNode foldableNode -n foldableNode1;
+    //if (size($selected)) {
+        int $sizeSel = size($selected);
+        print($sizeSel);
+        
+        instancer -n instancer1;
     
-    connectAttr time1.outTime foldableNode1.inTime; 
-    connectAttr foldableNode1.outPoint instancer1.inputPoints;
-    
+        string $nodeName = `createNode foldableNode -n foldableNode1`;
+
+        connectAttr time1.outTime foldableNode1.inTime; 
+        connectAttr foldableNode1.outPoint instancer1.inputPoints;
+
+    //} else {
+        //print("nothing selected");
+    //}
     return true;
 }
 

@@ -467,9 +467,10 @@ class MayaHBasicScaffoldWrapper():
         # Reset back to original shapes so you can break them again
         self.cleanUpSplitPatches()
 
-    def shrinkPatch(self, shapeTraverseOrder, endPiece, numPieces, startPiece):
+    def shrinkPatch(self, shapeTraverseOrder, endPiece, numPieces, startPiece, rotAxis):
         # print("shrinking patches...")
 
+        # TODO: shrink only the middle patch
         # Shrink the patches except first and last
         for i in range(1, len(shapeTraverseOrder) - 1):
             foldable_patch = shapeTraverseOrder[i]
@@ -481,7 +482,10 @@ class MayaHBasicScaffoldWrapper():
 
             # print("newMiddle in Z direction: {}".format(newMiddle))
             transform = getObjectTransformFromDag(foldable_patch)
-            translation = OpenMaya.MVector(0, 0, newMiddle) - OpenMaya.MVector(0, 0, middle)
+
+            shrinkAxis = OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2])
+
+            translation = shrinkAxis * newMiddle - shrinkAxis * middle
             # print("translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
             transform.translateBy(translation, OpenMaya.MSpace.kTransform)
 
@@ -732,8 +736,20 @@ class MayaHBasicScaffoldWrapper():
             # Translate child patch by the translation.
             # print("TRANSLATING THE CHILD PATCH CALLED: " + shapeTraverseOrder[i + 1])
             childPatchTransform = patchTransforms[i + 1]
-            # print("Translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
+
+            # print the childPatch's transform before translation
+            print("SHAPE: " + shapeTraverseOrder[i + 1])
+            allVertices = list(getObjectVerticeNamesAndPositions(shapeTraverseOrder[i + 1]).values())
+            for vertex in allVertices:
+                print("PRE Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+
+            print("Translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
             childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
+
+            # print the childPatch's transform afer translation
+            allVertices = list(getObjectVerticeNamesAndPositions(shapeTraverseOrder[i + 1]).values())
+            for vertex in allVertices:
+                print("POST Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
             if (i == len(shapeTraverseOrder) - 2):
                 # If we are on the second to last patch, then we updated the top patch's location
@@ -803,7 +819,7 @@ class MayaHBasicScaffoldWrapper():
         self.updatePatchTranslations(closestVertices, midPoints, patchPivots, patchTransforms, shapeTraverseOrder)
 
         # Has to go at the end or something otherwise you'll get a space between top patch and the folds
-        self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece)
+        self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece, rotAxis)
 
     # Fold test for non hard coded transforms: Part 1 of the logic from foldTest, calls foldKeyframe()
     # AT this point should already have the best fold option
@@ -1057,7 +1073,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
     # maximum number of shrinks
     inNumShrinks = OpenMaya.MObject()
 
-    # inStringList = OpenMaya.MObject()  # TODO make into inInitialpatches
+    inPatchList = OpenMaya.MObject()  # TODO make into inInitialpatches
 
     # Dummy output plug that can be connected to the input of an instancer node so our node can live somewhere
     outPoint = OpenMaya.MObject()
@@ -1071,9 +1087,36 @@ class foldableNode(OpenMayaMPx.MPxNode):
     prevShrinks = -1
     prevPushAxis = [-1, -1, -1]  # TODO: make more generic
 
+    # TODO: would like to remove this in the future and not need it
+    prevPatchList = []
+
     # constructor
     def __init__(self):
         OpenMayaMPx.MPxNode.__init__(self)
+
+        # selected_objects = cmds.ls(selection=True)
+
+        # print("Maya Node Constructor")
+        # print("Selected objects: ")
+        # print(selected_objects)
+        #
+        # for i, obj in enumerate(selected_objects):
+        #     print("Selected object: " + obj)
+        #     # Create a string attribute for each selected object
+        #     cmds.addAttr(obj, longName='stringAttr', dataType='string')
+        #
+        #     # Set the value of the string attribute to the object's name
+        #     cmds.setAttr(obj + '.stringAttr', obj, type='string')
+        #
+        #     # Create a child string attribute for the compound attribute in the custom node
+        #     child_attr_name = 'patchListChild{}'.format(i)
+        #     cmds.addAttr('foldableNode1', longName=child_attr_name, dataType='string', parent='patchList')
+        #
+        #     # Connect the string attribute to the custom node's patchList attribute
+        #     cmds.connectAttr(obj + '.stringAttr', 'foldableNode1.' + child_attr_name)
+
+        print("End Maya Node Constructor")
+
 
     # compute
     def compute(self, plug, data):
@@ -1100,6 +1143,41 @@ class foldableNode(OpenMayaMPx.MPxNode):
         numShrinksData = data.inputValue(self.inNumShrinks)  # TODO: Represents maximum allowed shrinks
         numShrinks = numShrinksData.asInt()
 
+        stringListData = data.inputValue(self.inPatchList)
+        stringList = stringListData.asString()
+
+        # Parse the string list separated by commas into a list of individual strings
+        patches = stringList.split(',')
+
+        print("PATCHES:")
+        print(patches)
+
+        if (len(patches) == 0):
+            print("No patches inputted")
+            return
+
+        # try:
+        #     # Try to find an attribute called
+        #     print("trying to get patches")
+        #     patchesData = data.inputValue(self.inStringList)
+        #     print("trying to get object...")
+        #     patchesObject = patchesData.data()
+        #     print("trying to cast to MFnStringArrayData...")
+        #     if (patchesObject.isNull()):
+        #         raise Exception("patchesObject is null")
+        #
+        #     patchesFn = OpenMaya.MFnStringArrayData(patchesObject)
+        #     print("trying to get length...")
+        #     patchListLength = patchesFn.length()
+        #
+        #     for i in range(patchListLength):
+        #         stringElem = patchesFn[i]
+        #         print(stringElem)
+        #
+        # except():
+        #     print("No patches inputted")
+
+
         # TODO: Eventually remove, hard coded patches for now
         # patches = ["cBase", "cFold", "cFold1", "cTop", "cFold2", "cTop1", "cFold3", "cFold4", "cTop2"]
         # patches = ["pBaseBottomH", "pFoldH", "pBaseTopH"]
@@ -1108,7 +1186,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
         # patches = ["gBase", "gFold1", "gFold2", "gBase1", "gFold3", "gBase2"]
         # patches = ["lBase", "lFold", "lBase1"]
         # patches = ["jBase1", "jFold1", "jBase2", "jFold2", "jBase3", "jFold3", "jBase4", "jFold4", "jBase5", "jFold5"]
-        patches = ["jBase1", "jBase5", "jFold1", "jBase4", "jBase2", "jFold2", "jBase3", "jFold4", "jFold5", "jFold3"]
+        # patches = ["jBase1", "jBase5", "jFold1", "jBase4", "jBase2", "jFold2", "jBase3", "jFold4", "jFold5", "jFold3"]
 
         # patches = ["rBase1", "rFold1", "rFold2", "rFold3", "rBase2"]
         # patches = ["kBase1", "kFold1", "kBase2", "kFold2", "kBase3", "kFold3", "kBase4", "kFold4", "kBase5", "kFold5"]
@@ -1123,12 +1201,14 @@ class foldableNode(OpenMayaMPx.MPxNode):
         recreatePatches = False
 
         # If any of the input variables have changed, then create new scaffold
-        if (self.prevNumHinges != numHinges or self.prevShrinks != numShrinks or self.prevPushAxis != pushAxis):
+        if (self.prevNumHinges != numHinges or self.prevShrinks != numShrinks or self.prevPushAxis != pushAxis or
+        self.prevPatchList != patches):
 
             # Reset variables
             self.prevNumHinges = numHinges
             self.prevShrinks = numShrinks
             self.prevPushAxis = pushAxis
+            self.prevPatchList = patches
 
             # Current Scaffolds should clear their patches from the scene, if there is one
             if (self.defaultInputScaffWrapper != None):
@@ -1173,10 +1253,43 @@ def nodeInitializer():
         foldableNode.inNumShrinks = nAttr.create("numShrinks", "nS", OpenMaya.MFnNumericData.kInt, 2)
         MAKE_INPUT(nAttr)
 
+        # print("CHECK POINT 1180")
+
+        # foldableNode.inStringList = compoundFn.create('patchList', 'pl')
+
+        # print("CHECK POINT 1188")
+
+        # selected_objects = cmds.ls(selection=True)
+        #
+        # print("CHECK POINT 1192")
+        #
+        # for i, obj in enumerate(selected_objects):
+        #     print("Selected object: " + obj)
+        #     # Create a string attribute for each selected object
+        #     cmds.addAttr(obj, longName='stringAttr', dataType='string')
+        #
+        #     # Set the value of the string attribute to the object's name
+        #     cmds.setAttr(obj + '.stringAttr', obj, type='string')
+        #
+        #     # Create a child string attribute for the compound attribute in the custom node
+        #     child_attr_name = 'patchListChild{}'.format(i)
+        #     cmds.addAttr('foldableNode1', longName=child_attr_name, dataType='string', parent='patchList')
+        #
+        #     # Connect the string attribute to the custom node's patchList attribute
+        #     cmds.connectAttr(obj + '.stringAttr', 'foldableNode1.' + child_attr_name)
+
+        # print("CHECK POINT 1210")
+
         # defaultList = OpenMaya.MFnStringArrayData().create()
-        # foldableNode.inStringList = tAttr.create("initialPatches", "iP", OpenMaya.MFnStringArrayData.kStringArray,
-        #                                          defaultList)
+        # foldableNode.inStringList = tAttr.create("patchList", "pL", OpenMaya.MFnStringArrayData.kStringArray)
         # MAKE_INPUT(tAttr)
+
+        defaultList = OpenMaya.MFnStringData().create("")
+        foldableNode.inPatchList = tAttr.create("patchList", "pL", OpenMaya.MFnData.kString, defaultList)
+        MAKE_INPUT(tAttr)
+
+        foldableNode.textList = tAttr.create("textList", "tL", OpenMaya.MFnStringArrayData.kStringArray)
+        MAKE_INPUT(tAttr)
 
         foldableNode.outPoint = tAttr.create("outPoint", "oP", OpenMaya.MFnArrayAttrsData.kDynArrayAttrs)
         MAKE_OUTPUT(tAttr)
@@ -1191,13 +1304,13 @@ def nodeInitializer():
         foldableNode.addAttribute(foldableNode.inTime)
         foldableNode.addAttribute(foldableNode.inNumHinges)
         foldableNode.addAttribute(foldableNode.inNumShrinks)
-        # foldableNode.addAttribute(foldableNode.inStringList)
+        foldableNode.addAttribute(foldableNode.inPatchList)
         foldableNode.addAttribute(foldableNode.outPoint)
 
         foldableNode.attributeAffects(foldableNode.inTime, foldableNode.outPoint)
         foldableNode.attributeAffects(foldableNode.inNumHinges, foldableNode.outPoint)
         foldableNode.attributeAffects(foldableNode.inNumShrinks, foldableNode.outPoint)
-        # foldableNode.attributeAffects(foldableNode.inStringList, foldableNode.outPoint)
+        foldableNode.attributeAffects(foldableNode.inPatchList, foldableNode.outPoint)
 
     except Exception as e:
         print(e)
