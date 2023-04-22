@@ -1096,30 +1096,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
     def __init__(self):
         OpenMayaMPx.MPxNode.__init__(self)
 
-        # selected_objects = cmds.ls(selection=True)
-
-        # print("Maya Node Constructor")
-        # print("Selected objects: ")
-        # print(selected_objects)
-        #
-        # for i, obj in enumerate(selected_objects):
-        #     print("Selected object: " + obj)
-        #     # Create a string attribute for each selected object
-        #     cmds.addAttr(obj, longName='stringAttr', dataType='string')
-        #
-        #     # Set the value of the string attribute to the object's name
-        #     cmds.setAttr(obj + '.stringAttr', obj, type='string')
-        #
-        #     # Create a child string attribute for the compound attribute in the custom node
-        #     child_attr_name = 'patchListChild{}'.format(i)
-        #     cmds.addAttr('foldableNode1', longName=child_attr_name, dataType='string', parent='patchList')
-        #
-        #     # Connect the string attribute to the custom node's patchList attribute
-        #     cmds.connectAttr(obj + '.stringAttr', 'foldableNode1.' + child_attr_name)
-
-        print("End Maya Node Constructor")
-
-
     # compute
     def compute(self, plug, data):
         # Print the MDGContext
@@ -1155,30 +1131,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
         print(patches)
 
         if (len(patches) == 0):
-            print("No patches inputted")
-            return
-
-        # try:
-        #     # Try to find an attribute called
-        #     print("trying to get patches")
-        #     patchesData = data.inputValue(self.inStringList)
-        #     print("trying to get object...")
-        #     patchesObject = patchesData.data()
-        #     print("trying to cast to MFnStringArrayData...")
-        #     if (patchesObject.isNull()):
-        #         raise Exception("patchesObject is null")
-        #
-        #     patchesFn = OpenMaya.MFnStringArrayData(patchesObject)
-        #     print("trying to get length...")
-        #     patchListLength = patchesFn.length()
-        #
-        #     for i in range(patchListLength):
-        #         stringElem = patchesFn[i]
-        #         print(stringElem)
-        #
-        # except():
-        #     print("No patches inputted")
-
+            raise Exception("No patches inputted")
 
         # TODO: Eventually remove, hard coded patches for now
         # patches = ["cBase", "cFold", "cFold1", "cTop", "cFold2", "cTop1", "cFold3", "cFold4", "cTop2"]
@@ -1254,37 +1207,6 @@ def nodeInitializer():
 
         foldableNode.inNumShrinks = nAttr.create("numShrinks", "nS", OpenMaya.MFnNumericData.kInt, 2)
         MAKE_INPUT(nAttr)
-
-        # print("CHECK POINT 1180")
-
-        # foldableNode.inStringList = compoundFn.create('patchList', 'pl')
-
-        # print("CHECK POINT 1188")
-
-        # selected_objects = cmds.ls(selection=True)
-        #
-        # print("CHECK POINT 1192")
-        #
-        # for i, obj in enumerate(selected_objects):
-        #     print("Selected object: " + obj)
-        #     # Create a string attribute for each selected object
-        #     cmds.addAttr(obj, longName='stringAttr', dataType='string')
-        #
-        #     # Set the value of the string attribute to the object's name
-        #     cmds.setAttr(obj + '.stringAttr', obj, type='string')
-        #
-        #     # Create a child string attribute for the compound attribute in the custom node
-        #     child_attr_name = 'patchListChild{}'.format(i)
-        #     cmds.addAttr('foldableNode1', longName=child_attr_name, dataType='string', parent='patchList')
-        #
-        #     # Connect the string attribute to the custom node's patchList attribute
-        #     cmds.connectAttr(obj + '.stringAttr', 'foldableNode1.' + child_attr_name)
-
-        # print("CHECK POINT 1210")
-
-        # defaultList = OpenMaya.MFnStringArrayData().create()
-        # foldableNode.inStringList = tAttr.create("patchList", "pL", OpenMaya.MFnStringArrayData.kStringArray)
-        # MAKE_INPUT(tAttr)
 
         defaultList = OpenMaya.MFnStringData().create("")
         foldableNode.inPatchList = tAttr.create("patchList", "pL", OpenMaya.MFnData.kString, defaultList)

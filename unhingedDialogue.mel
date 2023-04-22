@@ -11,26 +11,35 @@ global proc string stringArrayToString(string $array[], string $separator)
     return $result;
 }
 
+// global int $foldNodeId = 0
+
 global proc int genFoldNode()
 {    
+    // global int $foldNodeId;
+    
     print("Hello");
     string $selected[] = `ls -sl`;
     print($selected);
     
-    //if (size($selected)) {
+    string $patches = stringArrayToString($selected, ", ");
+    
+    if (size($selected)) {
         int $sizeSel = size($selected);
         print($sizeSel);
         
         instancer -n instancer1;
     
         string $nodeName = `createNode foldableNode -n foldableNode1`;
-
+        setAttr ($nodeName + ".patchList") -type "string" $patches;
+        setAttr -lock true ($nodeName + ".patchList");
+        
         connectAttr time1.outTime foldableNode1.inTime; 
         connectAttr foldableNode1.outPoint instancer1.inputPoints;
-
-    //} else {
-        //print("nothing selected");
-    //}
+        
+        
+    } else {
+        print("nothing selected");
+    }
     return true;
 }
 
