@@ -805,6 +805,8 @@ class MayaHBasicScaffoldWrapper():
         if (endTime > t >= startTime):
             angle = self.computeAngle(endAngles, endTime, numHinges, startTime, t)
         elif (t < startTime):
+            # Has to go at the end or something otherwise you'll get a space between top patch and the folds
+            self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece, rotAxis)
             return
         else:
             angle = endAngles[0]
