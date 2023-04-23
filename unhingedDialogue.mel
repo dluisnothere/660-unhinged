@@ -16,7 +16,6 @@ global int $foldNodeId = 0;
 global proc int genFoldNode()
 {        
     global int $foldNodeId;
-    print("Hello");
     string $selected[] = `ls -sl`;
     print($selected);
     
@@ -40,11 +39,11 @@ global proc int genFoldNode()
         print("Instancer Name: ");
         print($instanceName);
         
-        string $nodeInTime = $nodeName + ".inTime";
+        // string $nodeInTime = $nodeName + ".inTime";
         string $nodeOutPoints = $nodeName + ".outPoint";
         string $instanceInPoints = $instanceName + ".inputPoints";
         
-        connectAttr time1.outTime $nodeInTime; 
+        // connectAttr time1.outTime $nodeInTime; 
         connectAttr $nodeOutPoints $instanceInPoints;
         
         $foldNodeId++;

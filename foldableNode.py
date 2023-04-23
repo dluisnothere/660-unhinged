@@ -865,6 +865,11 @@ class MayaInputScaffoldWrapper():
         # Should be a list of MayaHBasicScaffoldWrapper or MayaTBasicScaffoldWrapper
         self.basicScaffoldWrappers: List = []
 
+        # To be generated based on the result for each basic scaffold
+        # Used to normalize the input time
+        self.minTime = 1000
+        self.maxTime = -1
+
     def getAllPatches(self) -> List[str]:
         return self.patches
 
@@ -1048,12 +1053,23 @@ class MayaInputScaffoldWrapper():
         # generate solutions. After this step, each basic scaffold should have its favorite solution
         self.inputScaffold.fold()
 
+        # TODO: iterate over each inputScaffold and generate the overall start and end time
+        for bScaff in self.basicScaffoldWrappers:
+            self.minTime = min(self.minTime, bScaff.basicScaffold.optimal_fold_option.fold_transform.start_time)
+            self.maxTime = max(self.maxTime, bScaff.basicScaffold.optimal_fold_option.fold_transform.end_time)
+
     def foldAnimate(self, time, recreatePatches):
         # TODO: need to later figure out how to do this with mid level scaffolds first
         # TODO: assume list of basic scaffolds is not sorted in any way
+
+        # Recompute time based on self.minTime and self.maxTime
+        # AT this point, time is a value between 0 and 1
+        normalizedTime = int(time * self.maxTime)
+        print("Normalized time: " + str(normalizedTime))
+
         for bScaff in self.basicScaffoldWrappers:
             print("Folding basic scaffold: " + str(bScaff.basicScaffold.id))
-            bScaff.foldAnimateBasic(time, recreatePatches)
+            bScaff.foldAnimateBasic(normalizedTime, recreatePatches)
 
 
 # Node definition
@@ -1075,6 +1091,9 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
     # Dummy output plug that can be connected to the input of an instancer node so our node can live somewhere
     outPoint = OpenMaya.MObject()
+
+    # dummy test
+    sliderAttr = OpenMaya.MObject()
 
     # TODO: later on we will iterate through basicScaffolds instead
     defaultInputScaffWrapper: MayaInputScaffoldWrapper = None
@@ -1109,7 +1128,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
         #         sheet for how to deal with creating the MFnArrayAttrsData.
 
         timeData = data.inputValue(self.inTime)
-        time = timeData.asInt()
+        time = timeData.asFloat()
 
         numHingeData = data.inputValue(self.inNumHinges)
         numHinges = numHingeData.asInt()
@@ -1195,8 +1214,8 @@ def nodeInitializer():
 
     try:
         print("Initialization!\n")
-        foldableNode.inTime = nAttr.create("inTime", "t", OpenMaya.MFnNumericData.kInt, 0)
-        MAKE_INPUT(nAttr)
+        # foldableNode.inTime = nAttr.create("inTime", "t", OpenMaya.MFnNumericData.kInt, 0)
+        # MAKE_INPUT(nAttr)
 
         foldableNode.inNumHinges = nAttr.create("numHinges", "nH", OpenMaya.MFnNumericData.kInt, 3)
         MAKE_INPUT(nAttr)
@@ -1207,6 +1226,13 @@ def nodeInitializer():
         defaultList = OpenMaya.MFnStringData().create("")
         foldableNode.inPatchList = tAttr.create("patchList", "pL", OpenMaya.MFnData.kString, defaultList)
         MAKE_INPUT(tAttr)
+
+        foldableNode.inTime = nAttr.create("inTime", "t", OpenMaya.MFnNumericData.kFloat, 0.0)
+        nAttr.setMin(0.0)  # Minimum value for the slider
+        # TODO: normalize all angles based on this vlaue
+        nAttr.setMax(1.0)  # Maximum value for the slider
+        nAttr.setDefault(0.0)  # Default value for the slider
+        MAKE_INPUT(nAttr)
 
         foldableNode.textList = tAttr.create("textList", "tL", OpenMaya.MFnStringArrayData.kStringArray)
         MAKE_INPUT(tAttr)
@@ -1226,6 +1252,7 @@ def nodeInitializer():
         foldableNode.addAttribute(foldableNode.inNumShrinks)
         foldableNode.addAttribute(foldableNode.inPatchList)
         foldableNode.addAttribute(foldableNode.outPoint)
+        # foldableNode.addAttribute(foldableNode.sliderAttr)
 
         foldableNode.attributeAffects(foldableNode.inTime, foldableNode.outPoint)
         foldableNode.attributeAffects(foldableNode.inNumHinges, foldableNode.outPoint)
