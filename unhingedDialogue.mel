@@ -11,12 +11,11 @@ global proc string stringArrayToString(string $array[], string $separator)
     return $result;
 }
 
-// global int $foldNodeId = 0
+global int $foldNodeId = 0;
 
 global proc int genFoldNode()
-{    
-    // global int $foldNodeId;
-    
+{        
+    global int $foldNodeId;
     print("Hello");
     string $selected[] = `ls -sl`;
     print($selected);
@@ -27,21 +26,61 @@ global proc int genFoldNode()
         int $sizeSel = size($selected);
         print($sizeSel);
         
-        instancer -n instancer1;
+        string $instanceName = "instancer" + $foldNodeId;
+        instancer -n $instanceName;
     
-        string $nodeName = `createNode foldableNode -n foldableNode1`;
+        string $nodeName = "foldableNode" + $foldNodeId;
+        createNode foldableNode -n $nodeName;
+        
         setAttr ($nodeName + ".patchList") -type "string" $patches;
         setAttr -lock true ($nodeName + ".patchList");
         
-        connectAttr time1.outTime foldableNode1.inTime; 
-        connectAttr foldableNode1.outPoint instancer1.inputPoints;
+        print("Node name: ");
+        print($nodeName);
+        print("Instancer Name: ");
+        print($instanceName);
         
+        string $nodeInTime = $nodeName + ".inTime";
+        string $nodeOutPoints = $nodeName + ".outPoint";
+        string $instanceInPoints = $instanceName + ".inputPoints";
         
+        connectAttr time1.outTime $nodeInTime; 
+        connectAttr $nodeOutPoints $instanceInPoints;
+        
+        $foldNodeId++;
     } else {
         print("nothing selected");
     }
     return true;
 }
+
+global proc updatePivotToMidpoint(string $polyPlane) {
+    // Get the world-space positions of the vertices of the first edge (edge 0)
+    vector $vtx0 = `xform -q -ws -t ($polyPlane + ".vtx[1]")`;
+    vector $vtx1 = `xform -q -ws -t ($polyPlane + ".vtx[3]")`;
+
+    // Calculate the midpoint of the edge
+    vector $midpoint = ($vtx0 + $vtx1) / 2;
+
+    // Set the rotate pivot to the calculated midpoint
+    xform -ws -rp ($midpoint.x) ($midpoint.y) ($midpoint.z) $polyPlane;
+}
+
+global proc createScaleMonitor(string $polyPlane) {
+    // Define the command string for the scriptJob, using placeholders for the polyPlane name
+    string $commandString = "updatePivotToMidpoint(\"#POLYPLANE#\");";
+    
+    // Substitute the placeholder with the actual polyPlane name
+    $commandString = `substituteAllString $commandString "#POLYPLANE#" $polyPlane`;
+
+    // Create a scriptJob to monitor the scale attribute of the polyplane
+    int $jobID = `scriptJob -attributeChange ($polyPlane + ".scale") $commandString`;
+
+    // Print the scriptJob ID
+    print ("Created scriptJob with ID: " + $jobID + "\n");
+}
+
+// Call the createScaleMonitor function with the name of your polyplane
 
 global int $planeID = 0;
 
@@ -57,24 +96,33 @@ global proc int genFoldPatch()
     // Rename the PolyPlane with the incremented ID
     string $newName = "plane_" + $planeID;
     $polyPlaneCurr = `rename $polyPlane[0] $newName`;
-
-    // Rotate the PolyPlane by (0, 0, -90)
-    rotate -r 0 0 -90 $polyPlaneCurr;
     
     // Make the displayScalePivot and displayRotatePivot visible
     string $displayRotatePivot = $newName + ".displayRotatePivot";
     setAttr ($displayRotatePivot) 1;
     
     // Move the rotate pivot to the local position (0.5, 0, 0) in world space
-    string $rotatePivotAttr = $newName + ".rotatePivot";
-    setAttr ($rotatePivotAttr + "X") 0.5;
-    setAttr ($rotatePivotAttr + "Y") 0;
-    setAttr ($rotatePivotAttr + "Z") 0;
+    //string $rotatePivotAttr = $newName + ".rotatePivot";
+    //setAttr ($rotatePivotAttr + "X") 0.5;
+    //setAttr ($rotatePivotAttr + "Y") 0;
+    //setAttr ($rotatePivotAttr + "Z") 0;
+    xform -os -rp 0.5 0.0 0.0 $newName;
 
     // Increment the global ID
     $planeID++;
+    
+    // Translate back to the origin
     setAttr ($newName + ".translateX") -0.5;
+    // rotate -r 0 0 -90 $polyPlaneCurr;
+    setAttr ($newName + ".translateY") -0.5;
+    
+    // Make this the new origin
     makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 -pn 1;
+    
+    setAttr ($newName + ".translateY") 0.5;
+    rotate -r 0 0 -90 $polyPlaneCurr;
+    
+    createScaleMonitor($polyPlaneCurr);
     
     return true;
 }

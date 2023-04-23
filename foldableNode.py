@@ -404,10 +404,6 @@ class MayaHBasicScaffoldWrapper():
                                                                               translate_vec.y,
                                                                               translate_vec.z))
 
-            # cmds.setAttr(shapeKey + ".translate", translate_vec[0], translate_vec[1], translate_vec[2])
-            # transform = getObjectTransformFromDag(shapeKey)
-            # transform.translateBy(translate_vec, OpenMaya.MSpace.kWorld)
-
             self.shapeResetTransforms[shapeKey][0] = [translate_vec.x, translate_vec.y, translate_vec.z]
 
         if (len(self.children) == 0):
