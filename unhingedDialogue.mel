@@ -148,9 +148,9 @@ global proc int genBasePatch()
     return true;
 }
 
-global proc int densifyGrid()
+global proc int densifyGrid(int $size)
 {
-    grid -d 10 -sp 1;
+    grid -d $size -sp 1;
     return true;
 }
 
@@ -171,7 +171,9 @@ global proc int genMenu()
     		button -label "Create Fold Patch" -command "genFoldPatch";
     		button -label "Create Base Patch" -command "genBasePatch";
     	    button -label "Create Foldable Node" -command "genFoldNode";
-    	    button -label "Densify Grid" -command "densifyGrid";
+    	    // button -label "Densify Grid" -command "densifyGrid";
+    	    intSliderGrp -label "Grid Density" -field true -fieldMinValue 1 -fieldMaxValue 20 -minValue 1 -maxValue 20 -value 1
+    	           -changeCommand "densifyGrid #1"; 
             checkBox -label "Snap to Grid" -changeCommand "onCheckboxChange #1" snapCheckbox;
     	setParent ..;
     showWindow;

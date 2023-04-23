@@ -1138,8 +1138,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
         stringListData = data.inputValue(self.inPatchList)
         stringList = stringListData.asString()
-
-        # Parse the string list separated by commas into a list of individual strings
         patches = stringList.split(',')
 
         print("PATCHES:")
@@ -1147,23 +1145,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
         if (len(patches) == 0):
             raise Exception("No patches inputted")
-
-        # TODO: Eventually remove, hard coded patches for now
-        # patches = ["cBase", "cFold", "cFold1", "cTop", "cFold2", "cTop1", "cFold3", "cFold4", "cTop2"]
-        # patches = ["pBaseBottomH", "pFoldH", "pBaseTopH"]
-        # patches = ["mBase", "mFold1", "mFold2", "mTop", "mFold3", "mTop1"]
-        # patches = ["dBase", "dFold1", "dFold2", "dTop"]
-        # patches = ["gBase", "gFold1", "gFold2", "gBase1", "gFold3", "gBase2"]
-        # patches = ["lBase", "lFold", "lBase1"]
-        # patches = ["jBase1", "jFold1", "jBase2", "jFold2", "jBase3", "jFold3", "jBase4", "jFold4", "jBase5", "jFold5"]
-        # patches = ["jBase1", "jBase5", "jFold1", "jBase4", "jBase2", "jFold2", "jBase3", "jFold4", "jFold5", "jFold3"]
-
-        # patches = ["rBase1", "rFold1", "rFold2", "rFold3", "rBase2"]
-        # patches = ["kBase1", "kFold1", "kBase2", "kFold2", "kBase3", "kFold3", "kBase4", "kFold4", "kBase5", "kFold5"]
-        # patches = ["gtBase1", "gtFold1", "gtFold2", "gtBase2", "gtFold3", "gtBase3"]
-
-        # b1Patches = ["mBase", "mFold1", "mTop"]
-        # b2Patches = ["mBase", "mFold2", "mTop"]
 
         # TODO: hard code push axis for now
         pushAxis = [0, -1, 0]
@@ -1214,8 +1195,6 @@ def nodeInitializer():
 
     try:
         print("Initialization!\n")
-        # foldableNode.inTime = nAttr.create("inTime", "t", OpenMaya.MFnNumericData.kInt, 0)
-        # MAKE_INPUT(nAttr)
 
         foldableNode.inNumHinges = nAttr.create("numHinges", "nH", OpenMaya.MFnNumericData.kInt, 3)
         MAKE_INPUT(nAttr)
@@ -1252,7 +1231,6 @@ def nodeInitializer():
         foldableNode.addAttribute(foldableNode.inNumShrinks)
         foldableNode.addAttribute(foldableNode.inPatchList)
         foldableNode.addAttribute(foldableNode.outPoint)
-        # foldableNode.addAttribute(foldableNode.sliderAttr)
 
         foldableNode.attributeAffects(foldableNode.inTime, foldableNode.outPoint)
         foldableNode.attributeAffects(foldableNode.inNumHinges, foldableNode.outPoint)
