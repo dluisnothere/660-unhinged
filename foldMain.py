@@ -553,14 +553,14 @@ class TBasicScaff(BasicScaff):
         self.f_patch = f_patch
         self.b_patch = b_patch
 
-        self.rot_axis = np.cross(f_patch.calc_normal(), b_patch.calc_normal())
+        self.rot_axis = np.cross(calc_normal(f_patch.coords), calc_normal(b_patch.coords))
 
     def gen_fold_options(self, ns, nh, alpha):
         # Generates all possible fold solutions for TBasicScaff
         # ns: max number of patch cuts
         # nh: max number of hinges, let's enforce this to be an odd number for now
         print("gen_fold_options...")
-        for i in range(0, nh + 1):
+        for i in range(1, nh + 1, 2):
             for j in range(1, ns + 1):
                 for h in range(1, j + 1):
                     for k in range(0, h):
@@ -1001,21 +1001,6 @@ class InputScaff:
         self.max_hinges = max_hinges
         self.num_shrinks = num_shrinks
 
-        # Decomposes self and generates scaffolds
-        # TODO: commented out for testing purposes, recomment back in
-        # self.gen_scaffs()
-
-    # def gen_scaffs(self):
-    #     # TODO: Di
-    #
-    #     # generates hinge graph
-    #     self.gen_hinge_graph()
-    #
-    #     # generates basic scaffolds
-    #     self.gen_basic_scaffs()
-    #
-    #     # generates mid-level scaffolds
-    #     self.gen_mid_scaffs()
 
     def gen_hinge_graph(self):
         print("gen_hinge_graph...")
@@ -1050,7 +1035,11 @@ class InputScaff:
                 print("patch ids: " + str(basic_scaff.b_patch.id) + ", " + str(basic_scaff.t_patch.id))
                 self.basic_mappings[scaffid] = [patchid, basic_scaff.b_patch.id, basic_scaff.t_patch.id]
             elif (type(basic_scaff) is TBasicScaff):
-                raise Exception("Found a T scaffold, not implemented yet!")
+                scaffid = basic_scaff.id
+                patchid = basic_scaff.f_patch.id
+                self.basic_mappings[scaffid] = [patchid, basic_scaff.b_patch.id]
+            else:
+                raise Exception("Unknown basic scaff type!")
 
     # Basically just removes non-unique lists
     def remove_duplicate_cycles(self, cycle_list):
