@@ -1055,8 +1055,8 @@ class MayaInputScaffoldWrapper():
 
         # TODO: iterate over each inputScaffold and generate the overall start and end time
         for bScaff in self.basicScaffoldWrappers:
-            self.minTime = min(self.minTime, bScaff.basicScaffold.optimal_fold_option.fold_transform.start_time)
-            self.maxTime = max(self.maxTime, bScaff.basicScaffold.optimal_fold_option.fold_transform.end_time)
+            self.minTime = min(self.minTime, bScaff.basicScaffold.start_time)
+            self.maxTime = max(self.maxTime, bScaff.basicScaffold.end_time)
 
     def foldAnimate(self, time, recreatePatches):
         # TODO: need to later figure out how to do this with mid level scaffolds first

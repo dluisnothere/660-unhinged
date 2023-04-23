@@ -654,7 +654,6 @@ class MidScaff:
         self.conflict_graph = None  # TODO: actually the complement of the conflict graph
 
         # TODO: this variable will influence the fold time of the basic scaffolds
-        # For now, hard code as 0 to 90 but will eventually become floats.
         self.start_time = 0
         self.end_time = 90
 
@@ -663,10 +662,132 @@ class TMidScaff(MidScaff):
     def __init__(self, bs, nm):
         super().__init__(bs, nm)
 
+    def gen_fold_times(self):
+        # There should only be one scaffold
+        self.basic_scaffs[0].start_time = self.start_time
+        self.basic_scaffs[0].end_time = self.end_time
+
     # Only one solution? Is there any case where this solution could impact another guy?
     # Probably not since they all fold at different times? Sequentially?
+    def gen_conflict_graph(self):
+        # Should be one huge clique
+        # Assuming at this point we havea  list of basic scaffolds
+        if (len(self.basic_scaffs) == 0):
+            raise Exception("No basic scaffolds to generate conflict graph from!")
+
+        # For each scaffold, get its fold options and add them as nodes to the conflict grpah
+        nodes = []
+        node_weights = {}
+
+        # Sum of all the folded areas
+        sum_fold_area = 0
+
+        # Cost of the most expensive solution
+        max_cost_v = -1
+
+        for scaff in self.basic_scaffs:
+            patch_area = rectangle_area(scaff.f_patch.coords)
+            sum_fold_area += patch_area
+            # Sum of the final area of every modification
+            for option in scaff.fold_options:
+                max_cost_v = max(max_cost_v, option.modification.cost)
+
+        for scaff in self.basic_scaffs:
+            for option in scaff.fold_options:
+                patch_area = rectangle_area(scaff.f_patch.coords)
+                lambda_i = patch_area / sum_fold_area
+                cost_vj = lambda_i * option.modification.cost
+
+                weight = max_cost_v - cost_vj + 1
+
+                # Need to convert the weight from a double to an int by multiplying by 100
+                weight = int(weight * 100)
+
+                nodes.append(option)
+                node_weights[option] = weight
+
+        self.conflict_graph = nx.complete_graph(nodes)
+        nx.set_node_attributes(self.conflict_graph, node_weights, "weight")
+
+        # Now add the edges between each node
+        # All nodes should be of the FoldOption type
+        for option in self.conflict_graph.nodes:
+            for other_option in self.conflict_graph.nodes:
+                # if the two options are not the same and their relationship hasn't been evaluated yet
+                if option != other_option and self.conflict_graph.has_edge(option, other_option) == True:
+                    # Always remove. There should be no cliques in this graph.
+                    self.conflict_graph.remove_edge(option, other_option)
+
+        print("done generating conflict graph")
+
+    def run_mwisp(self):
+        # TODO: should be able to simplify
+        max_clique, weight = nx.algorithms.clique.max_weight_clique(self.conflict_graph, weight="weight")
+
+        print("RESULTING MAX CLIQUE")
+        print(max_clique)
+
+        for fold_option in max_clique:
+            # TODO: clean this up messy.
+            fold_option.scaff.optimal_fold_option = fold_option
+            print("FOLD SOLUTION FOR: " + str(fold_option.scaff.id) + "===================")
+            sol: FoldOption = fold_option
+            print("start time:")
+            print(fold_option.scaff.start_time)
+            print("end time:")
+            print(fold_option.scaff.end_time)
+            print("num hinges: ")
+            print(sol.modification.num_hinges)
+            print("num shrinks: ")
+            print(sol.modification.num_pieces)
+            print("range start: ")
+            print(sol.modification.range_start)
+            print("range end: ")
+            print(sol.modification.range_end)
+            print("isleft:")
+            print(sol.isleft)
+            print("original vertices: ")
+            print(fold_option.scaff.f_patch.coords)
+            print("Projected region of solution: ")
+            print(sol.projected_region)
+
     def fold(self):
         print("TMidScaff: Implement me!")
+        self.gen_conflict_graph()
+        # print conflict graph's edges
+        # print("conflict graph edges:")
+        # for edge in self.conflict_graph.edges:
+        # n1, n2 = edge
+        # print("NO CONFLICT BETWEEN =======================")
+        # print("SCAFF 1---------")
+        # print("scaffold id: " + str(n1.scaff.id))
+        # # print("num hinges: " + str(n1.modification.num_hinges))
+        # # print("num shrinks: " + str(n1.modification.num_pieces))
+        # # print("start range: " + str(n1.modification.range_start))
+        # # print("end range: " + str(n1.modification.range_end))
+        # # print("isleft: " + str(n1.isleft))
+        # # # print("original vertices: ")
+        # # # print(n1.scaff.f_patch.coords)
+        # # print("projected region: ")
+        # # print(n1.projected_region)
+        # print("SCAFF 2----------")
+        # print("scaffold id: " + str(n2.scaff.id))
+        # # print("num hinges: " + str(n2.modification.num_hinges))
+        # # print("num shrinks: " + str(n2.modification.num_pieces))
+        # # print("start range: " + str(n2.modification.range_start))
+        # # print("end range: " + str(n2.modification.range_end))
+        # # print("isleft: " + str(n2.isleft))
+        # # print("projected region: ")
+        # # print(n2.projected_region)
+        #
+        # # print("SAME SCAFFOLD:")
+        # # print(n1.scaff.id == n2.scaff.id)
+        # # print("OVERLAPS:")
+        # # print(rectangleOverlap(n1.projected_region, n2.projected_region))
+
+        self.run_mwisp()
+
+        print("Completed running fold on TMidScaff...")
 
 
 class HMidScaff(MidScaff):
