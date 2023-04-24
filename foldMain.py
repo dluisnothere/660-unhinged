@@ -11,6 +11,8 @@ XAxis = np.array([-1, 0, 0])
 YAxis = np.array([0, -1, 0])
 ZAxis = np.array([0, 0, -1])
 
+bigChungusNumber = 10000
+
 
 class PatchType(Enum):
     Base = 0
@@ -245,11 +247,12 @@ FoldOption: An object that contains a modification and the associated fold trans
 
 
 class FoldOption:
-    def __init__(self, isleft, mod: Modification, scaff: BasicScaff):
+    def __init__(self, isleft, mod: Modification, scaff: BasicScaff, axis: np.ndarray(float)):
         self.modification: Modification = mod
         self.isleft: bool = isleft
         self.fold_transform: FoldTransform = None
-        # self.rot_axis = []
+        self.rot_axis = axis
+        self.height = -1
 
         # this patch list should be at least size 2
         # self.patch_list = patch_list
@@ -262,6 +265,13 @@ class FoldOption:
 
         # Projected region of the modification, a list of vertices in world space
         self.projected_region: np.ndarray(np.ndarray(float)) = None
+
+        # Box defined by minimum and maximum points
+        self.bvh: np.ndarray(np.ndarray(float)) = None
+
+        self.gen_fold_transform()
+        self.gen_projected_region(self.rot_axis)
+        self.construct_bvh(self.rot_axis)
 
     def gen_fold_transform(self):
         print("Entered gen_fold_transform...")
@@ -449,6 +459,8 @@ class FoldOption:
 
         patchWidth, patchHeight, bottomVerts = self.get_patch_width_length_bottom(rotAxis, b_patch, f_patch)
 
+        self.height = patchHeight
+
         # print("patchWidth: ", patchWidth)
         # print("patchHeight: ", patchHeight)
         # print("bottomVerts: ", bottomVerts)
@@ -519,6 +531,101 @@ class FoldOption:
 
         self.projected_region = np.array([newBottomVerts[0], newBottomVerts[1], additionalVerts[1], additionalVerts[0]])
 
+    def construct_bvh(self, rotAxis: np.ndarray(float)):
+        self.bvh = []
+        norm = normalize(calc_normal(self.projected_region))
+        proj = self.projected_region
+        maxX = max(proj.coords[0][0], proj.coords[1][0], proj.coords[2][0], proj.coords[3][0])
+        minX = min(proj.coords[0][0], proj.coords[1][0], proj.coords[2][0], proj.coords[3][0])
+        maxY = max(proj.coords[0][1], proj.coords[1][1], proj.coords[2][1], proj.coords[3][1])
+        minY = min(proj.coords[0][1], proj.coords[1][1], proj.coords[2][1], proj.coords[3][1])
+        maxZ = max(proj.coords[0][2], proj.coords[1][2], proj.coords[2][2], proj.coords[3][2])
+        minZ = min(proj.coords[0][2], proj.coords[1][2], proj.coords[2][2], proj.coords[3][2])
+        if (abs(np.dot(norm, XAxis)) == 1):
+            self.bvh.append(minX, minY, minZ)
+            self.bvh.append(minX + self.height, maxY, maxZ)
+        elif (abs(np.dot(norm, YAxis)) == 1):
+            self.bvh.append(minX, minY, minZ)
+            self.bvh.append(maxX, minY + self.height, maxZ)
+        elif (abs(np.dot(norm, ZAxis)) == 1):
+            self.bvh.append(minX, minY, minZ)
+            self.bvh.append(maxX, maxY, minZ + self.height)
+        else:
+            raise Exception("Couldn't find fold direction when constructing BVH")
+    
+    def checkPatchAgainstBVH(self, patch):
+        min = self.bvh[0]
+        max = self.bvh[1]
+        box = [np.array([min[0], min[1], min[2]]),
+               np.array([min[0], min[1], max[2]]),
+               np.array([min[0], max[1], min[2]]),
+               np.array([min[0], max[1], max[2]]),
+               np.array([max[0], min[1], min[2]]),
+               np.array([max[0], min[1], max[2]]),
+               np.array([max[0], max[1], min[2]]),
+               np.array([max[0], max[1], max[2]])]
+        
+        indices = [[0, 2, 4, 6], 
+                   [1, 3, 5, 7],
+                   [0, 1, 4, 5],
+                   [2, 3, 6, 7],
+                   [0, 1, 2, 3],
+                   [4, 5, 6, 7]]
+        
+        for points in indices:
+            face = np.array(box[points[0]], box[points[1]], box[points[2]], box[points[3]])
+            if rectangle_overlap(patch.coords, face):
+                return False
+
+
+    def checkSelfAgainstSequenced(self, basic_scaffs: List[BasicScaff]):
+        # TODO: Handle edge case
+        return True
+    
+    def checkSelfAgainstUnsequenced(self, basic_scaffs: List[BasicScaff]):
+        for bs in basic_scaffs:
+            if type(bs) == HBasicScaff:
+                base = bs.b_patch
+                fold = bs.f_patch
+                top = bs.t_patch
+
+                if top.id == self.scaff.b_patch.id:
+                    continue
+
+                if type(self.scaff) == HBasicScaff:
+                    if base.id == self.scaff.t_patch.id:
+                        continue
+
+                if not self.checkPatchAgainstBVH(base) or not self.checkPatchAgainstBVH(fold) or not self.checkPatchAgainstBVH(top):
+                    return False
+            else:
+                base = bs.b_patch
+                fold = bs.f_patch
+
+                if type(self.scaff) == HBasicScaff:
+                    if base.id == self.scaff.t_patch.id:
+                        continue
+
+                if not self.checkPatchAgainstBVH(base) or not self.checkPatchAgainstBVH(fold):
+                    return False
+                
+        return True
+
+    def checkValid(self, ownedIndex: int, mid_scaffs: List[MidScaff], folded_scaff: List[bool]):
+        sequenced_scaffs = []
+        unsequenced_scaffs = []
+        for idx in range(0, len(mid_scaffs)):
+            if idx == ownedIndex:
+                continue
+
+            for bs in mid_scaffs[idx].basic_scaffs():
+                if folded_scaff[idx]: 
+                    sequenced_scaffs.append(bs)
+                else:
+                    unsequenced_scaffs.append(bs)
+
+        return self.checkSelfAgainstSequenced(sequenced_scaffs) and self.checkSelfAgainstUnsequenced(unsequenced_scaffs), self.modification.cost
+
 
 """
 BasicScaff: Parent class for TBasicScaff and HBasicScaff
@@ -529,7 +636,11 @@ class BasicScaff():
     id_incr = 0
 
     def __init__(self):
-        self.fold_options = []
+        self.fold_options: List[FoldOption] = []
+
+        #Says which fold options have external conflicts
+        #run init conflicts to initialize
+        self.no_external_conflicts: List[bool] = []
         self.id = BasicScaff.id_incr
         BasicScaff.id_incr += 1
 
@@ -541,6 +652,46 @@ class BasicScaff():
         # TODO: this logic may not even be correct to have them here.
         self.start_time = -1
         self.end_time = -1
+
+    def getLowestCostEsimate(self):
+        low = bigChungusNumber
+        for option in self.fold_options:
+            if option.modification.cost < low:
+                low = option.modification.cost
+        return low
+    
+    def getBestOption(self):
+        cost = bigChungusNumber
+        base = None
+        for option in self.fold_options:
+            if option.modification.cost < cost:
+                base = option
+
+        return [base]
+
+    def initConflicts(self):
+        self.no_external_conflicts = [False for i in range(len(self.fold_options))]
+
+    def clearConflicts(self):
+        self.no_external_conflicts = []
+
+    def checkValid(self, ownedIndex: int, mid_scaffs: List[MidScaff], folded_scaff: List[bool]):
+        # Iterating all fold options to check if one can be foldabalized with current configuration
+        min_cost = bigChungusNumber
+        for option_idx in range(0, len(self.fold_options)):
+            if self.no_external_conflicts[option_idx]:
+                continue
+            else:
+                self.no_external_conflicts[option_idx], cost = self.fold_options[option_idx].checkValid(ownedIndex, mid_scaffs, folded_scaff)
+                if cost < min_cost:
+                    min_cost = cost
+
+        for status in self.no_external_conflicts:
+            if status:
+                return True
+        return False
+
+    
 
 
 """
@@ -571,15 +722,15 @@ class TBasicScaff(BasicScaff):
                         # mod = Modification(i, j, k, j - k, cost)
                         mod = Modification(i, k, h, j, cost)
 
-                        fo_left = FoldOption(True, mod, self)
-                        fo_right = FoldOption(False, mod, self)
+                        fo_left = FoldOption(True, mod, self, self.rot_axis)
+                        fo_right = FoldOption(False, mod, self, self.rot_axis)
 
                         # generate the fold transform from start to end?
-                        fo_left.gen_fold_transform()
-                        fo_right.gen_fold_transform()
+                        # fo_left.gen_fold_transform()
+                        # fo_right.gen_fold_transform()
 
-                        fo_left.gen_projected_region(self.rot_axis)
-                        fo_right.gen_projected_region(self.rot_axis)
+                        # fo_left.gen_projected_region(self.rot_axis)
+                        # fo_right.gen_projected_region(self.rot_axis)
 
                         self.fold_options.append(fo_left)
                         self.fold_options.append(fo_right)
@@ -629,15 +780,15 @@ class HBasicScaff(BasicScaff):
                         # mod = Modification(i, j, k, j - k, cost)
                         mod = Modification(i, k, h, j, cost)
 
-                        fo_left = FoldOption(True, mod, self)
-                        fo_right = FoldOption(False, mod, self)
+                        fo_left = FoldOption(True, mod, self, self.rot_axis)
+                        fo_right = FoldOption(False, mod, self, self.rot_axis)
 
                         # generate the fold transform from start to end?
-                        fo_left.gen_fold_transform()
-                        fo_right.gen_fold_transform()
+                        # fo_left.gen_fold_transform()
+                        # fo_right.gen_fold_transform()
 
-                        fo_left.gen_projected_region(self.rot_axis)
-                        fo_right.gen_projected_region(self.rot_axis)
+                        # fo_left.gen_projected_region(self.rot_axis)
+                        # fo_right.gen_projected_region(self.rot_axis)
 
                         self.fold_options.append(fo_left)
                         self.fold_options.append(fo_right)
@@ -651,23 +802,51 @@ MidScaff: a mid level folding unit that contains basic scaffolds
 class MidScaff:
     def __init__(self, bs, nm):
         self.basic_scaffs: List[BasicScaff] = bs
-        for scaff in self.basic_scaffs:
-            scaff.conflict_id = conflict_mapping
-            conflict_mapping += 1
         self.node_mappings = nm
         self.conflict_graph = None  # TODO: actually the complement of the conflict graph
-        self.conflict_mappings = []
 
         # TODO: this variable will influence the fold time of the basic scaffolds
         # For now, hard code as 0 to 90 but will eventually become floats.
         self.start_time = 0
         self.end_time = 90
 
+        self.non_conflicting_options = []
+
+        self.best_clique = []
+
+    def getLowCostEstimate(self):
+        cost = 0
+        for scaff in self.basic_scaffs:
+            cost += scaff.getLowestCostEsimate()
+        return cost
+    
+    def checkValid(self, ownedIndex: int, mid_scaffs: List[MidScaff], folded_scaff: List[bool]):
+        cost = 0
+        for bs in  self.basic_scaffs:
+           valid, lowest_cost = bs.checkValid(ownedIndex, mid_scaffs, folded_scaff)
+           cost += lowest_cost
+           if not valid:
+               return False, bigChungusNumber
+        return True, cost
+    
+    def initConflictChecks(self):
+        for bs in self.basic_scaffs:
+            bs.initConflicts()
+
+    def clearConflictChecks(self):
+        for bs in self.basic_scaffs:
+            bs.clearConflicts()
+
 
 class TMidScaff(MidScaff):
     def __init__(self, bs, nm):
         super().__init__(bs, nm)
 
+    def build_execute_conflict_graph(self):
+        clique, weight = self.basic_scaffs[0].getBestOption()
+        self.best_clique = clique
+        return clique, weight
+    
     # Only one solution? Is there any case where this solution could impact another guy?
     # Probably not since they all fold at different times? Sequentially?
     def fold(self):
@@ -736,7 +915,7 @@ class HMidScaff(MidScaff):
 
         for scaff in self.basic_scaffs:
             for option in scaff.fold_options:
-                if not self.added_tracker[conflict_mapping]:
+                if True: 
                     patch_area = rectangle_area(scaff.f_patch.coords)
                     lambda_i = patch_area / sum_fold_area
                     cost_vj = lambda_i * option.modification.cost
@@ -766,7 +945,6 @@ class HMidScaff(MidScaff):
 
                     nodes.append(option)
                     node_weights[option] = weight
-                conflict_mapping += 1
 
         self.conflict_graph = nx.complete_graph(nodes)
         nx.set_node_attributes(self.conflict_graph, node_weights, "weight")
@@ -827,29 +1005,9 @@ class HMidScaff(MidScaff):
 
     def build_execute_conflict_graph(self):
         self.gen_conflict_graph()
-        return self.run_mwisp()
-
-    def order_folds(self):
-        ordered_folds = []
-        size = len(self.basic_scaffs)
-        self.added_tracker = [False for i in range(size)]
-        for i in range(0, size):
-            max_clique, clique_weights = self.build_execute_conflict_graph()
-            c1 = -1
-            c2 = -1
-            bestScaff = None
-            for (scaff1, weight1, id1) in zip(max_clique, clique_weights, range(0, len(max_clique))):
-                for (scaff2, weight2, id2) in zip(max_clique, clique_weights, range(0, len(max_clique))):
-                    if id1 != id2 and c1 + c2 < weight1 + weight2:
-                        c1 = weight1
-                        c2 = weight2
-                        best_Scaff = scaff1
-            ordered_folds.append(best_Scaff)
-            self.added_tracker[best_Scaff.conflict_id] = True
-
-
-        self.added_tracker = [False for i in range(size)]
-        self.fold_Order = ordered_folds
+        clique, weight = self.run_mwisp()
+        self.best_clique = clique
+        return clique, weight
 
     def fold(self):
         self.gen_conflict_graph()
@@ -900,7 +1058,10 @@ class InputScaff:
 
     def __init__(self, node_list, edge_list, push_dir, max_hinges, num_shrinks):
         self.hinge_graph = None  # Gets created gen_hinge_graph
-        self.mid_scaffs = []
+        self.mid_scaffs: List[MidScaff] = []
+
+        self.mid_scaffs_ordered: List[MidScaff] = []
+        self.folded_scaff: List[bool] = []
 
         # patch list
         self.node_list = node_list
@@ -923,17 +1084,22 @@ class InputScaff:
         # TODO: commented out for testing purposes, recomment back in
         # self.gen_scaffs()
 
-    # def gen_scaffs(self):
-    #     # TODO: Di
-    #
-    #     # generates hinge graph
-    #     self.gen_hinge_graph()
-    #
-    #     # generates basic scaffolds
-    #     self.gen_basic_scaffs()
-    #
-    #     # generates mid-level scaffolds
-    #     self.gen_mid_scaffs()
+    def gen_scaffs(self):
+        # TODO: Di
+    
+        # generates hinge graph
+        self.gen_hinge_graph()
+    
+        # generates basic scaffolds
+        # self.gen_basic_scaffs()
+    
+        # generates mid-level scaffolds
+        self.gen_mid_scaffs()
+
+        # generates fold order. Fold order will be stored in self.mid_scaff_ordered
+        # Midscaffs will also store the best clique  in Midscaff.best_clique
+        self.order_folds()
+    
 
     def gen_hinge_graph(self):
         print("gen_hinge_graph...")
@@ -951,6 +1117,31 @@ class InputScaff:
 
         for edge in self.edge_list:
             self.hinge_graph.add_edge(edge[0], edge[1])
+
+    # Here for debugging purposes
+    def gen_basic_scaffs(self):
+        print("gen basic scaffs")
+        for patch in self.node_list:
+            if patch.patch_type == PatchType.Fold:
+                id = patch.id
+                neighbors = list(self.hinge_graph.neighbors(id))
+                if len(neighbors) == 2:
+                    base0 = self.node_list[neighbors[0]]
+                    base1 = self.node_list[neighbors[1]]
+                    fold0 = self.node_list[id]
+                    self.basic_scaffs.append(HBasicScaff(fold0, base0, base1))
+                    self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id,
+                                                                     self.node_list[neighbors[1]].id]
+                    #print(self.basic_scaffs[-1].id)
+                elif len(neighbors) == 1:
+                    base0 = self.node_list[neighbors[0]]
+                    fold0 = self.node_list[id]
+                    self.basic_scaffs.append(TBasicScaff(fold0, base0))
+                    self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id]
+                    #print(self.basic_scaffs[-1].id)
+                else:
+                    print("wtf")
+        #print("end gen basic scaffs")
 
     # Basic scaffold objects already created by the foldNode
     def set_basic_mappings(self):
@@ -1103,7 +1294,52 @@ class InputScaff:
 
         self.mid_scaffs[0].fold()
 
+    def initConflictChecks(self):
+        for ms in self.mid_scaffs:
+            ms.initConflictChecks()
 
+    def clearConflictChecks(self):
+        for ms in self.mid_scaffs:
+            ms.clearConflictChecks()
+
+    def checkValid(self, index):
+        # TODO: IMPLEMENT   
+        return self.mid_scaffs[index].checkValid(index, self.mid_scaffs, self.folded_scaff)
+
+    def pickNextScaff(self):
+        c1 = bigChungusNumber
+        c2 = bigChungusNumber
+        best_Scaff = None
+        bestId = -1
+        for (scaff1, id1) in zip(self.mid_scaffs, range(0, len(self.mid_scaffs))):
+            # check valid sees if the mid scaff can be folded        
+            if not self.folded_scaff[id1]:
+                valid, first_cost = self.checkValid(id1)
+                if not valid:
+                    continue
+
+                weight1 = first_cost
+                for (scaff2,  id2) in zip(self.mid_scaffs, range(0, len(self.mid_scaffs))):  
+                    weight2 = self.mid_scaffs[id2].getLowCostEstimate()
+                    if id1 != id2 and c1 + c2 < weight1 + weight2:
+                        c1 = weight1
+                        c2 = weight2
+                        best_Scaff = scaff1
+                        bestId = id1
+        self.mid_scaffs_ordered.append(best_Scaff)
+        self.folded_scaff[bestId] = True
+
+    def order_folds(self):
+        size = len(self.mid_scaffs)
+        self.folded_scaff = [False for i in range(size)]
+        self.initConflictChecks()
+
+        while len(self.mid_scaffs_ordered) < len(self.mid_scaffs):
+            self.pickNextScaff()
+            self.mid_scaffs_ordered[-1].build_execute_conflict_graph()
+
+        self.clearConflictChecks()
+        self.folded_scaff = [False for i in range(size)]
 '''
 FoldManager: debug class for now, probalby won't actually use it.
 Purpose is to serve as a mini inputScaffold for now.
@@ -1136,7 +1372,7 @@ class FoldManager:
         cost1 = alpha * 0 / 1 + (1 - alpha) / 1
         mod1 = Modification(nH, 0, 3, nS, cost1)
         # patch_list = [self.h_basic_scaff.f_patch, self.h_basic_scaff.b_patch, self.h_basic_scaff.t_patch]
-        fo = FoldOption(False, mod1, self.h_basic_scaff)
+        fo = FoldOption(False, mod1, self.h_basic_scaff, XAxis)
         fo.gen_fold_transform()
 
         # TODO: hard coded for now
