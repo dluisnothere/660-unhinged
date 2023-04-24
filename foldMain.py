@@ -913,9 +913,10 @@ class HMidScaff(MidScaff):
             for option in scaff.fold_options:
                 max_cost_v = max(max_cost_v, option.modification.cost)
 
-        for scaff in self.basic_scaffs:
+        for (scaff, idx) in zip(self.basic_scaffs, range(0, len(self.basic_scaffs))):
             for option in scaff.fold_options:
-                if True: 
+                # Ensuring that the option has no external conflicts
+                if scaff.no_external_conflicts[idx]: 
                     patch_area = rectangle_area(scaff.f_patch.coords)
                     lambda_i = patch_area / sum_fold_area
                     cost_vj = lambda_i * option.modification.cost
@@ -976,6 +977,9 @@ class HMidScaff(MidScaff):
 
         print("RESULTING MAX CLIQU")
         print(max_clique)
+
+        if len(max_clique) != len(self.basic_scaffs):
+             raise Exception("Max clique is missing some options")
 
         for fold_option in max_clique:
         # TODO: clean this up messy.
