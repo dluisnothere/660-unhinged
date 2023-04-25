@@ -65,6 +65,11 @@ global proc updatePivotToMidpoint(string $polyPlane) {
     xform -ws -rp ($midpoint.x) ($midpoint.y) ($midpoint.z) $polyPlane;
 }
 
+global proc onNameChanged(string $oldName, string $newName) {
+    // Update the scriptJob to use the new name of the object
+    scriptJob -e AttributeChange ($newName + ".scale") ("updatePivotToMidpoint(\"" + $newName + "\");") -replacePrevious true;
+}
+
 global proc createScaleMonitor(string $polyPlane) {
     // Define the command string for the scriptJob, using placeholders for the polyPlane name
     string $commandString = "updatePivotToMidpoint(\"#POLYPLANE#\");";
@@ -74,9 +79,11 @@ global proc createScaleMonitor(string $polyPlane) {
 
     // Create a scriptJob to monitor the scale attribute of the polyplane
     int $jobID = `scriptJob -attributeChange ($polyPlane + ".scale") $commandString`;
+    
+    // scriptJob -e nameChanged ($polyPlane) "onNameChanged";
 
     // Print the scriptJob ID
-    print ("Created scriptJob with ID: " + $jobID + "\n");
+    // print ("Created scriptJob with ID: " + $jobID + "\n");
 }
 
 // Call the createScaleMonitor function with the name of your polyplane

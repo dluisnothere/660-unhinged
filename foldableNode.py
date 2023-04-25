@@ -47,6 +47,7 @@ negXAxis = OpenMaya.MVector(-1, 0, 0)
 negYAxis = OpenMaya.MVector(0, -1, 0)
 negZAxis = OpenMaya.MVector(0, 0, -1)
 
+
 def resetFoldClass():
     fold.InputScaff.id_incr = 0
     fold.BasicScaff.id_incr = 0
@@ -286,13 +287,27 @@ def isPolyPlane(obj):
 
 
 def areVectorsEqual(vec1: OpenMaya.MVector, vec2: OpenMaya.MVector, tolerance=EPS):
+    print("Checking vectors are equal...")
+    print("vec1: {}".format(vec1))
+    print("vec2: {}".format(vec2))
+
     # Calculate the differences between the components of the vectors
-    diff_x = abs(vec1.x - vec2.x)
-    diff_y = abs(vec1.y - vec2.y)
-    diff_z = abs(vec1.z - vec2.z)
+    diff_x = abs(vec1[0] - vec2[0])
+    diff_y = abs(vec1[1] - vec2[1])
+    diff_z = abs(vec1[2] - vec2[2])
 
     # Compare the differences to the given tolerance
     return diff_x <= tolerance and diff_y <= tolerance and diff_z <= tolerance
+
+
+def areVectorsOpposite(vec1: OpenMaya.MVector, vec2: OpenMaya.MVector, tolerance=EPS):
+    print("Checking vectors are opposite...")
+    print("vec1: {}".format(vec1))
+    print("vec2: {}".format(vec2))
+
+    # Calculate the differences between the components of the vectors
+    dotProd = vec1 * vec2
+    return abs(dotProd + 1) <= tolerance
 
 
 # An instance of this object should never be directly created. It should always only be T basic or H basic
@@ -453,23 +468,75 @@ class MayaBasicScaffoldWrapper():
         # Reset back to original shapes so you can break them again
         self.cleanUpSplitPatches()
 
-    def shrinkPatch(self, shapeTraverseOrder, endPiece, numPieces, startPiece, rotAxis):
+    # TODO: Refactor there must be a better way to do this
+    # Width of the patch is the distance along the rotation axis
+    def getPatchWidth(self, patch: str, rotAxis: OpenMaya.MVector) -> float:
+        print("get patch middle for patch: " + patch)
+        print("And rotation axis: {:.6f}, {:.6f}, {:.6f}".format(rotAxis[0], rotAxis[1], rotAxis[2]))
+        vertices = list(getObjectVerticeNamesAndPositions(patch).values())
+
+        if (areVectorsEqual(rotAxis, posXAxis) or areVectorsOpposite(rotAxis, posXAxis)):
+            # Get the length of the patch along axis X
+            minX = vertices[0][0]
+            maxX = vertices[0][0]
+            for vertex in vertices:
+                if (vertex[0] < minX):
+                    minX = vertex[0]
+                if (vertex[0] > maxX):
+                    maxX = vertex[0]
+
+            return maxX - minX
+        elif (areVectorsEqual(rotAxis, posYAxis) or areVectorsOpposite(rotAxis, posYAxis)):
+            # Get the length of the patch along axis Y
+            minY = vertices[0][1]
+            maxY = vertices[0][1]
+            for vertex in vertices:
+                if (vertex[1] < minY):
+                    minY = vertex[1]
+                if (vertex[1] > maxY):
+                    maxY = vertex[1]
+
+            return maxY - minY
+        elif (areVectorsEqual(rotAxis, posZAxis) or areVectorsOpposite(rotAxis, posZAxis)):
+            # Get the length of the patch along axis Z
+            minZ = vertices[0][2]
+            maxZ = vertices[0][2]
+            for vertex in vertices:
+                if (vertex[2] < minZ):
+                    minZ = vertex[2]
+                if (vertex[2] > maxZ):
+                    maxZ = vertex[2]
+
+            return maxZ - minZ
+        else:
+            raise Exception("ERROR: Invalid rotation axis")
+
+    def shrinkPatch(self, shapeTraverseOrder, endPiece, numPieces, startPiece, rotAxis: OpenMaya.MVector):
         # print("shrinking patches...")
 
         # TODO: shrink only the middle patch
         # Shrink the patches except first and last
         for i in range(1, len(shapeTraverseOrder) - 1):
+            print("shrink patch: " + shapeTraverseOrder[i])
+
             foldable_patch = shapeTraverseOrder[i]
-            middle = 1 / 2  # hard coded for now
 
             # Translate patch to the new midpoint
-            pieceWidth = 1.0 / numPieces  # hard coded for now
+            originalPatchWidth = self.getPatchWidth(foldable_patch, rotAxis)
+            # middle = 1 / 2
+            middle = originalPatchWidth / 2
+
+            pieceWidth = originalPatchWidth / numPieces
+            # pieceWidth = 1.0 / numPieces
             newMiddle = (startPiece + endPiece) * pieceWidth / 2
 
+            print("newMiddle: {:.6f}".format(newMiddle))
+
             # print("newMiddle in Z direction: {}".format(newMiddle))
+
             transform = getObjectTransformFromDag(foldable_patch)
 
-            shrinkAxis = OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2])
+            shrinkAxis = rotAxis # OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2])
 
             translation = shrinkAxis * newMiddle - shrinkAxis * middle
             # print("translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
@@ -646,6 +713,7 @@ class MayaBasicScaffoldWrapper():
 
         # TODO: make more generic in the future
         rotAxis = self.basicScaffold.rot_axis
+        rotAxis = OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2])
 
         # Update the list of shape_traverse_order to include the new patches where the old patch was
         if (recreatePatches and numHinges > 0):
@@ -671,7 +739,7 @@ class MayaBasicScaffoldWrapper():
             angle = self.computeAngle(endAngles, endTime, numHinges, startTime, t)
         elif (t < startTime):
             # Has to go at the end or something otherwise you'll get a space between top patch and the folds
-            self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece, rotAxis)
+            self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece, rotAxis, True)
             return
         else:
             angle = endAngles[0]
@@ -900,6 +968,7 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
         return closestVertices, midPoints
 
+
 class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
     def __init__(self, patchObjects: List[fold.Patch], basePatch: str, patches: List[str], pushAxis: OpenMaya.MVector,
@@ -1030,6 +1099,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
         return closestVertices, midPoints
 
+
 class MayaInputScaffoldWrapper():
     def __init__(self, patches: List[str], pushAxis: OpenMaya.MVector, nH: int, nS: int):
         self.pushAxis: OpenMaya.MVector = pushAxis
@@ -1141,25 +1211,26 @@ class MayaInputScaffoldWrapper():
 
     # def setDependencyScaffold(self, topPatchObj: fold.Patch, basePatchObj: fold.Patch, basicScaffWrapper: MayaHBasicScaffoldWrapper) -> bool:
     def setDependencyScaffoldH(self, topPatchObj: fold.Patch, basePatchObj: fold.Patch,
-                              basicScaffWrapper: MayaHBasicScaffoldWrapper) -> bool:
+                               basicScaffWrapper: MayaHBasicScaffoldWrapper) -> bool:
         hasParentOrChild: bool = False
         for scaffWrapper in self.basicScaffoldWrappers:
-            if topPatchObj.name == scaffWrapper.basePatch:
-                # TODO: INVESTIGATE WHETHER THIS IS NECESSARY
-                if (scaffWrapper.parent is None):
-                    scaffWrapper.setParent(basicScaffWrapper)
-                basicScaffWrapper.addChild(scaffWrapper)
-                hasParentOrChild = True
-                print(
-                    "Parent child pairing found: parent: " + str(basicScaffWrapper.basicScaffold.id) + " child: " + str(
-                        scaffWrapper.basicScaffold.id))
-            elif basePatchObj.name == scaffWrapper.patches[1]:
-                if basicScaffWrapper.parent is None:
-                    basicScaffWrapper.setParent(scaffWrapper)
-                scaffWrapper.addChild(basicScaffWrapper)
-                hasParentOrChild = True
-                print("Parent child pairing ofund: parent: " + str(scaffWrapper.basicScaffold.id) + " child: " + str(
-                    basicScaffWrapper.basicScaffold.id))
+            if scaffWrapper is not basicScaffWrapper:
+                if topPatchObj.name == scaffWrapper.basePatch:
+                    # TODO: INVESTIGATE WHETHER THIS IS NECESSARY
+                    if (scaffWrapper.parent is None):
+                        scaffWrapper.setParent(basicScaffWrapper)
+                    basicScaffWrapper.addChild(scaffWrapper)
+                    hasParentOrChild = True
+                    print(
+                        "Parent child pairing found: parent: " + str(basicScaffWrapper.basicScaffold.id) + " child: " + str(
+                            scaffWrapper.basicScaffold.id))
+                elif basePatchObj.name == scaffWrapper.patches[1]:
+                    if basicScaffWrapper.parent is None:
+                        basicScaffWrapper.setParent(scaffWrapper)
+                    scaffWrapper.addChild(basicScaffWrapper)
+                    hasParentOrChild = True
+                    print("Parent child pairing ofund: parent: " + str(scaffWrapper.basicScaffold.id) + " child: " + str(
+                        basicScaffWrapper.basicScaffold.id))
         return hasParentOrChild
 
     def setDependencyScaffoldT(self, basePatchObj: fold.Patch, basicScaffWrapper: MayaTBasicScaffoldWrapper) -> bool:
@@ -1173,7 +1244,8 @@ class MayaInputScaffoldWrapper():
                     basicScaffWrapper.addChild(scaffWrapper)
                     hasParentOrChild = True
                     print(
-                        "Parent child pairing found: parent: " + str(basicScaffWrapper.basicScaffold.id) + " child: " + str(
+                        "Parent child pairing found: parent: " + str(
+                            basicScaffWrapper.basicScaffold.id) + " child: " + str(
                             scaffWrapper.basicScaffold.id))
                 else:
                     # Then scaffWrapper must be parent
@@ -1181,8 +1253,9 @@ class MayaInputScaffoldWrapper():
                         basicScaffWrapper.setParent(scaffWrapper)
                     scaffWrapper.addChild(basicScaffWrapper)
                     hasParentOrChild = True
-                    print("Parent child pairing ofund: parent: " + str(scaffWrapper.basicScaffold.id) + " child: " + str(
-                        basicScaffWrapper.basicScaffold.id))
+                    print(
+                        "Parent child pairing ofund: parent: " + str(scaffWrapper.basicScaffold.id) + " child: " + str(
+                            basicScaffWrapper.basicScaffold.id))
         return hasParentOrChild
 
     def genBasicScaffolds(self):
@@ -1247,7 +1320,7 @@ class MayaInputScaffoldWrapper():
                 self.addBasicScaffold(basicScaffWrapper)
 
                 # TODO: DO THE SAME FOR T SCAFF UGH
-            elif(len(foldPatchObjDiction[foldPatchObj]) == 1):
+            elif (len(foldPatchObjDiction[foldPatchObj]) == 1):
                 print("Found a T scaffold!")
                 basePatchObj = foldPatchObjDiction[foldPatchObj][0]
 
@@ -1258,7 +1331,6 @@ class MayaInputScaffoldWrapper():
                 # The notion of being upside down is if the base patch is "on top" of the fold patch
                 # Relative to the push direction
                 # upsideDown = self.tScaffUpsidedown(basePatchObj, foldPatchObj, self.pushAxis)
-
 
                 # Create a basic scaffold with the foldPatch and the base patches it is connected to
                 basicScaffWrapper = MayaTBasicScaffoldWrapper(patchObjList, basePatch, patchList, self.pushAxis,
