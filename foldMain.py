@@ -719,26 +719,12 @@ class TBasicScaff(BasicScaff):
         self.rot_axis = np.cross(f_patch.calc_normal(), b_patch.calc_normal())
 
     def gen_aabb(self) -> list[list[float]]:
-        maxX = self.b_patch.coords[0][0]
-        minX = self.b_patch.coords[0][0]
-        maxY = self.b_patch.coords[0][1]
-        minY = self.b_patch.coords[0][1]
-        maxZ = self.b_patch.coords[0][2]
-        minZ = self.b_patch.coords[0][2]
-
-        for coord in self.b_patch.coords:
-            if coord[0] > maxX:
-                maxX = coord[0]
-            elif coord[0] < minX:
-                minX = coord[0]
-            elif coord[1] > maxY:
-                maxY = coord[1]
-            elif coord[1] < minY:
-                minY = coord[1]
-            elif coord[2] > maxZ:
-                maxZ = coord[2]
-            elif coord[2] < minZ:
-                minZ = coord[2]
+        maxX = self.f_patch.coords[0][0]
+        minX = self.f_patch.coords[0][0]
+        maxY = self.f_patch.coords[0][1]
+        minY = self.f_patch.coords[0][1]
+        maxZ = self.f_patch.coords[0][2]
+        minZ = self.f_patch.coords[0][2]
 
         for coord in self.f_patch.coords:
             if coord[0] > maxX:
@@ -753,6 +739,20 @@ class TBasicScaff(BasicScaff):
                 maxZ = coord[2]
             elif coord[2] < minZ:
                 minZ = coord[2]
+
+        # for coord in self.f_patch.coords:
+        #     if coord[0] > maxX:
+        #         maxX = coord[0]
+        #     elif coord[0] < minX:
+        #         minX = coord[0]
+        #     elif coord[1] > maxY:
+        #         maxY = coord[1]
+        #     elif coord[1] < minY:
+        #         minY = coord[1]
+        #     elif coord[2] > maxZ:
+        #         maxZ = coord[2]
+        #     elif coord[2] < minZ:
+        #         minZ = coord[2]
 
         return [[minX, minY, minZ], [maxX, maxY, maxZ]]
 
@@ -801,26 +801,26 @@ class HBasicScaff(BasicScaff):
         self.rot_axis: np.ndarray = np.cross(calc_normal(f_patch.coords), calc_normal(b_patch.coords))
 
     def gen_aabb(self) -> list[list[float]]:
-        maxX = self.b_patch.coords[0][0]
-        minX = self.b_patch.coords[0][0]
-        maxY = self.b_patch.coords[0][1]
-        minY = self.b_patch.coords[0][1]
-        maxZ = self.b_patch.coords[0][2]
-        minZ = self.b_patch.coords[0][2]
+        maxX = self.f_patch.coords[0][0]
+        minX = self.f_patch.coords[0][0]
+        maxY = self.f_patch.coords[0][1]
+        minY = self.f_patch.coords[0][1]
+        maxZ = self.f_patch.coords[0][2]
+        minZ = self.f_patch.coords[0][2]
 
-        for coord in self.b_patch.coords:
-            if coord[0] > maxX:
-                maxX = coord[0]
-            elif coord[0] < minX:
-                minX = coord[0]
-            elif coord[1] > maxY:
-                maxY = coord[1]
-            elif coord[1] < minY:
-                minY = coord[1]
-            elif coord[2] > maxZ:
-                maxZ = coord[2]
-            elif coord[2] < minZ:
-                minZ = coord[2]
+        # for coord in self.b_patch.coords:
+        #     if coord[0] > maxX:
+        #         maxX = coord[0]
+        #     elif coord[0] < minX:
+        #         minX = coord[0]
+        #     elif coord[1] > maxY:
+        #         maxY = coord[1]
+        #     elif coord[1] < minY:
+        #         minY = coord[1]
+        #     elif coord[2] > maxZ:
+        #         maxZ = coord[2]
+        #     elif coord[2] < minZ:
+        #         minZ = coord[2]
 
         for coord in self.f_patch.coords:
             if coord[0] > maxX:
@@ -1988,43 +1988,49 @@ def test_cube_shape():
             print(sol.projected_region)
 
 
-test_cube_shape()
+# test_cube_shape()
 
 
 def test_input_scaff():
     coords1 = np.array([(0, 3, 0), (1, 3, 0), (1, 3, 1), (0, 3, 1)])  # base 0
     coords2 = np.array([(0, 2, 0), (1, 2, 0), (1, 2, 1), (0, 2, 1)])  # base 1
     coords3 = np.array([(0, 1, 0), (1, 1, 0), (1, 1, 1), (0, 1, 1)])  # base 2
-    coords4 = np.array([(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)])  # base 3
+    # coords4 = np.array([(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)])  # base 3
 
     coords5 = np.array([(0.5, 0, 1), (0.5, 0, 0), (0.5, 1, 0), (0.5, 1, 1)])  # fold 0
     coords6 = np.array([(0.5, 1, 1), (0.5, 1, 0), (0.5, 2, 0), (0.5, 2, 1)])  # fold 1
-    coords7 = np.array([(0.5, 2, 1), (0.5, 2, 0), (0.5, 3, 0), (0.5, 3, 1)])  # fold 2
+    # coords7 = np.array([(0.5, 2, 1), (0.5, 2, 0), (0.5, 3, 0), (0.5, 3, 1)])  # fold 2
 
     b1 = Patch(coords1)
     b2 = Patch(coords2)
     b3 = Patch(coords3)
-    b4 = Patch(coords4)
+    # b4 = Patch(coords4)
 
     f1 = Patch(coords5)
     f2 = Patch(coords6)
-    f3 = Patch(coords7)
+    # f3 = Patch(coords7)
 
     b1.id = 0
     b2.id = 1
     b3.id = 2
-    b4.id = 3
+    # b4.id = 3
 
-    f1.id = 4
-    f2.id = 5
-    f3.id = 6
+    # f1.id = 4
+    f1.id = 3
 
-    nodes = [b1, b2, b3, b4, f1, f2, f3]
-    edges = [[4, 0], [5, 1], [6, 2], [3, 6], [2, 5], [1, 4]]
+    # f2.id = 5
+    f2.id = 4
+    # f3.id = 6
+
+    # nodes = [b1, b2, b3, b4, f1, f2, f3]
+    nodes = [b1, b2, b3, f1, f2]
+
+    # edges = [[4, 0], [5, 1], [6, 2], [3, 6], [2, 5], [1, 4]]
+    edges = [[3, 0], [3, 1], [4, 1], [2, 4]]
 
     push_dir = YAxis
 
-    input = InputScaff(nodes, edges, push_dir, 7, 4)
+    input = InputScaff(nodes, edges, push_dir, 2, 4)
 
     input.gen_hinge_graph()
 
@@ -2077,7 +2083,94 @@ def test_input_scaff():
             print("Projected region of solution: ")
             print(sol.projected_region)
 
+test_input_scaff()
 
+def test_side_by_side_input():
+    coords1 = np.array([(0, 0, 0), (2, 0, 0), (2, 0, 1), (0, 0, 1)])  # base 0
+    coords2 = np.array([(0, 1, 0), (0.8, 1, 0), (0.8, 1, 1), (0, 1, 1)])  # base 1
+    coords3 = np.array([(1.2, 1, 0), (2, 1, 0), (2, 1, 1), (1.2, 1, 1)])  # base 2
+
+    coords4 = np.array([(0.5, 0, 1), (0.5, 0, 0), (0.5, 1, 0), (0.5, 1, 1)])  # fold 0
+    coords5 = np.array([(1.5, 1, 1), (1.5, 1, 0), (1.5, 2, 0), (1.5, 2, 1)])  # fold 1
+
+    b1 = Patch(coords1)
+    b2 = Patch(coords2)
+    b3 = Patch(coords3)
+
+    f1 = Patch(coords4)
+    f2 = Patch(coords5)
+
+    b1.id = 0
+    b2.id = 1
+    b3.id = 2
+
+    f1.id = 3
+    f2.id = 4
+
+    nodes = [b1, b2, b3, f1, f2]
+
+    edges = [[0, 3], [3, 1], [0, 4], [4, 2]]
+
+    push_dir = YAxis
+
+    input = InputScaff(nodes, edges, push_dir, 3, 2)
+
+    input.gen_hinge_graph()
+
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+
+    print(input.hinge_graph)
+
+    input.gen_basic_scaffs()
+
+    print(input.basic_scaffs)
+
+    print("MIDSCAFFS")
+    input.gen_mid_scaffs()
+    print(input.mid_scaffs)
+    for mid_scaff in input.mid_scaffs:
+        print(mid_scaff.node_mappings)
+        for basic_scaff in mid_scaff.basic_scaffs:
+            print("SCAFF =================== ")
+            print("base high: " + str(basic_scaff.t_patch.id))
+            print("foldable: " + str(basic_scaff.f_patch.id))
+            print("base low: " + str(basic_scaff.b_patch.id))
+
+    input.order_folds()
+
+    # Generate solutions
+    # input.fold()
+
+    # Print the generated solutions
+    for mid_scaff in input.mid_scaffs:
+        for basic_scaff in mid_scaff.basic_scaffs:
+            print("FOLD SOLUTION FOR: " + str(basic_scaff.id) + "===================")
+            sol: FoldOption = basic_scaff.optimal_fold_option
+            print("start time:")
+            print(basic_scaff.start_time)
+            print("end time:")
+            print(basic_scaff.end_time)
+            print("num hinges: ")
+            print(sol.modification.num_hinges)
+            print("num shrinks: ")
+            print(sol.modification.num_pieces)
+            print("range start: ")
+            print(sol.modification.range_start)
+            print("range end: ")
+            print(sol.modification.range_end)
+            print("isleft:")
+            print(sol.isleft)
+            print("original vertices: ")
+            print(basic_scaff.f_patch.coords)
+            print("Projected region of solution: ")
+            print(sol.projected_region)
+
+
+test_side_by_side_input()
 def t_construct_bvh():
     coords1 = np.array([[0, 0, 1], [1, 0, 1], [1, 0, 0], [0, 0, 0]])
     coords2 = np.array([[0, 2, 1], [1, 2, 1], [1, 2, 0], [0, 2, 0]])
