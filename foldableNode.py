@@ -533,23 +533,16 @@ class MayaBasicScaffoldWrapper():
 
             # Translate patch to the new midpoint
             originalPatchWidth = self.getPatchWidth(foldable_patch_coords, rotAxis)
-            # middle = 1 / 2
             middle = originalPatchWidth / 2
 
             pieceWidth = originalPatchWidth / numPieces
-            # pieceWidth = 1.0 / numPieces
             newMiddle = (startPiece + endPiece) * pieceWidth / 2
-
-            # print("newMiddle: {:.6f}".format(newMiddle))
-
-            # print("newMiddle in Z direction: {}".format(newMiddle))
 
             transform = getObjectTransformFromDag(fPatchName)
 
-            shrinkAxis = rotAxis # OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2])
+            shrinkAxis = rotAxis
 
             translation = shrinkAxis * newMiddle - shrinkAxis * middle
-            # print("translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
             transform.translateBy(translation, OpenMaya.MSpace.kTransform)
 
             # Shrink patch by numPieces in the hard coded z direction
@@ -708,11 +701,11 @@ class MayaBasicScaffoldWrapper():
         endAngles = foldSolution.fold_transform.endAngles
 
         # Get vertices of "kFold4_0" and print
-        print("VERTICES OF kFold4_0 - FOLD KEYFRAME ")
-        if cmds.objExists("kFold4_0"):
-            allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
-            for vertex in allVertices:
-                print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+        # print("VERTICES OF kFold4_0 - FOLD KEYFRAME ")
+        # if cmds.objExists("kFold4_0"):
+        #     allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
+        #     for vertex in allVertices:
+        #         print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
         isLeft = foldSolution.isleft
 
@@ -737,11 +730,11 @@ class MayaBasicScaffoldWrapper():
             self.breakPatches(shapeTraverseOrder, numHinges)
 
             # Get vertices of "kFold4_0" and print
-            print("VERTICES OF kFold4_0 - BREAK PATCHES")
-            if cmds.objExists("kFold4_0"):
-                allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
-                for vertex in allVertices:
-                    print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+            # print("VERTICES OF kFold4_0 - BREAK PATCHES")
+            # if cmds.objExists("kFold4_0"):
+            #     allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
+            #     for vertex in allVertices:
+            #         print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
         # Moved from the recreate_patches condition because we always want this to be visible if no hinges
         # TODO: ventually move this to a better place
@@ -768,11 +761,11 @@ class MayaBasicScaffoldWrapper():
             # Has to go at the end or something otherwise you'll get a space between top patch and the folds
             self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece, rotAxis)
 
-            print("VERTICES OF kFold4_0 - INITIAL SHRINK")
-            if cmds.objExists("kFold4_0"):
-                allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
-                for vertex in allVertices:
-                    print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+            # print("VERTICES OF kFold4_0 - INITIAL SHRINK")
+            # if cmds.objExists("kFold4_0"):
+            #     allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
+            #     for vertex in allVertices:
+            #         print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
             return
         else:
@@ -784,29 +777,29 @@ class MayaBasicScaffoldWrapper():
         # Perform rotations at once, but do not rotate the last patch
         self.rotatePatches(angle, rotAxis, shapeTraverseOrder, isLeft)
 
-        print("VERTICES OF kFold4_0 - ROTATE PATCHES")
-        if cmds.objExists("kFold4_0"):
-            allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
-            for vertex in allVertices:
-                print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+        # print("VERTICES OF kFold4_0 - ROTATE PATCHES")
+        # if cmds.objExists("kFold4_0"):
+        #     allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
+        #     for vertex in allVertices:
+        #         print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
         # Update location of closest vertices after rotation and update children translations
         self.updatePatchTranslations(closestVertices, midPoints, patchPivots, patchTransforms, shapeTraverseOrder)
 
-        print("VERTICES OF kFold4_0 - PATCH TRANSLATION")
-        if cmds.objExists("kFold4_0"):
-            allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
-            for vertex in allVertices:
-                print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+        # print("VERTICES OF kFold4_0 - PATCH TRANSLATION")
+        # if cmds.objExists("kFold4_0"):
+        #     allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
+        #     for vertex in allVertices:
+        #         print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
         # Has to go at the end or something otherwise you'll get a space between top patch and the folds
         self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece, rotAxis)
 
-        print("VERTICES OF kFold4_0 - FINAL SHRINK PATCH")
-        if cmds.objExists("kFold4_0"):
-            allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
-            for vertex in allVertices:
-                print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+        # print("VERTICES OF kFold4_0 - FINAL SHRINK PATCH")
+        # if cmds.objExists("kFold4_0"):
+        #     allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
+        #     for vertex in allVertices:
+        #         print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
     # Fold test for non hard coded transforms: Part 1 of the logic from foldTest, calls foldKeyframe()
     # AT this point should already have the best fold option
@@ -823,11 +816,11 @@ class MayaBasicScaffoldWrapper():
         else:
             # Reset the scene
             # TODO; Might not work anymore in a bit
-            print("VERTICES OF kFold4_0 - FOLD ANIMATE BASIC ")
-            if cmds.objExists("kFold4_0"):
-                allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
-                for vertex in allVertices:
-                    print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+            # print("VERTICES OF kFold4_0 - FOLD ANIMATE BASIC ")
+            # if cmds.objExists("kFold4_0"):
+            #     allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
+            #     for vertex in allVertices:
+            #         print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
             self.setUpGenericScene(self.shapeTraverseOrder)
 
