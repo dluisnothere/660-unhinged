@@ -532,27 +532,33 @@ class FoldOption:
         self.projected_region = np.array([newBottomVerts[0], newBottomVerts[1], additionalVerts[1], additionalVerts[0]])
 
     def construct_bvh(self, rotAxis: np.ndarray(float)):
-        self.bvh = []
+        bvh: list[list[float]] = []
         norm = normalize(calc_normal(self.projected_region))
         proj = self.projected_region
-        maxX = max(proj.coords[0][0], proj.coords[1][0], proj.coords[2][0], proj.coords[3][0])
-        minX = min(proj.coords[0][0], proj.coords[1][0], proj.coords[2][0], proj.coords[3][0])
-        maxY = max(proj.coords[0][1], proj.coords[1][1], proj.coords[2][1], proj.coords[3][1])
-        minY = min(proj.coords[0][1], proj.coords[1][1], proj.coords[2][1], proj.coords[3][1])
-        maxZ = max(proj.coords[0][2], proj.coords[1][2], proj.coords[2][2], proj.coords[3][2])
-        minZ = min(proj.coords[0][2], proj.coords[1][2], proj.coords[2][2], proj.coords[3][2])
+
+        basesAABB = self.scaff.aabb
+
+        maxX = max(proj[0][0], proj[1][0], proj[2][0], proj[3][0], basesAABB[1][0])
+        minX = min(proj[0][0], proj[1][0], proj[2][0], proj[3][0], basesAABB[0][0])
+        maxY = max(proj[0][1], proj[1][1], proj[2][1], proj[3][1], basesAABB[1][1])
+        minY = min(proj[0][1], proj[1][1], proj[2][1], proj[3][1], basesAABB[0][1])
+        maxZ = max(proj[0][2], proj[1][2], proj[2][2], proj[3][2], basesAABB[1][2])
+        minZ = min(proj[0][2], proj[1][2], proj[2][2], proj[3][2], basesAABB[0][2])
+
         if (abs(np.dot(norm, XAxis)) == 1):
-            self.bvh.append(minX, minY, minZ)
-            self.bvh.append(minX + self.height, maxY, maxZ)
+            bvh.append([minX, minY, minZ])
+            bvh.append([minX + self.height, maxY, maxZ])
         elif (abs(np.dot(norm, YAxis)) == 1):
-            self.bvh.append(minX, minY, minZ)
-            self.bvh.append(maxX, minY + self.height, maxZ)
+            bvh.append([minX, minY, minZ])
+            bvh.append([maxX, minY + self.height, maxZ])
         elif (abs(np.dot(norm, ZAxis)) == 1):
-            self.bvh.append(minX, minY, minZ)
-            self.bvh.append(maxX, maxY, minZ + self.height)
+            bvh.append([minX, minY, minZ])
+            bvh.append([maxX, maxY, minZ + self.height])
         else:
             raise Exception("Couldn't find fold direction when constructing BVH")
-    
+
+        self.bvh = np.array(bvh)
+
     def checkPatchAgainstBVH(self, patch):
         min = self.bvh[0]
         max = self.bvh[1]
@@ -564,24 +570,23 @@ class FoldOption:
                np.array([max[0], min[1], max[2]]),
                np.array([max[0], max[1], min[2]]),
                np.array([max[0], max[1], max[2]])]
-        
-        indices = [[0, 2, 4, 6], 
+
+        indices = [[0, 2, 4, 6],
                    [1, 3, 5, 7],
                    [0, 1, 4, 5],
                    [2, 3, 6, 7],
                    [0, 1, 2, 3],
                    [4, 5, 6, 7]]
-        
+
         for points in indices:
             face = np.array(box[points[0]], box[points[1]], box[points[2]], box[points[3]])
             if rectangle_overlap(patch.coords, face):
                 return False
 
-
     def checkSelfAgainstSequenced(self, basic_scaffs: List[BasicScaff]):
         # TODO: Handle edge case
         return True
-    
+
     def checkSelfAgainstUnsequenced(self, basic_scaffs: List[BasicScaff]):
         for bs in basic_scaffs:
             if type(bs) == HBasicScaff:
@@ -596,7 +601,8 @@ class FoldOption:
                     if base.id == self.scaff.t_patch.id:
                         continue
 
-                if not self.checkPatchAgainstBVH(base) or not self.checkPatchAgainstBVH(fold) or not self.checkPatchAgainstBVH(top):
+                if not self.checkPatchAgainstBVH(base) or not self.checkPatchAgainstBVH(
+                        fold) or not self.checkPatchAgainstBVH(top):
                     return False
             else:
                 base = bs.b_patch
@@ -608,10 +614,10 @@ class FoldOption:
 
                 if not self.checkPatchAgainstBVH(base) or not self.checkPatchAgainstBVH(fold):
                     return False
-                
+
         return True
 
-    def checkValid(self, ownedIndex: int, mid_scaffs: List[MidScaff], folded_scaff: List[bool]):
+    def checkValid(self, ownedIndex: int, mid_scaffs: List[MidScaff], folded_scaff: List[bool]) -> (bool, float):
         sequenced_scaffs = []
         unsequenced_scaffs = []
         for idx in range(0, len(mid_scaffs)):
@@ -619,12 +625,14 @@ class FoldOption:
                 continue
 
             for bs in mid_scaffs[idx].basic_scaffs():
-                if folded_scaff[idx]: 
+                if folded_scaff[idx]:
                     sequenced_scaffs.append(bs)
                 else:
                     unsequenced_scaffs.append(bs)
 
-        return self.checkSelfAgainstSequenced(sequenced_scaffs) and self.checkSelfAgainstUnsequenced(unsequenced_scaffs), self.modification.cost
+        return (
+        self.checkSelfAgainstSequenced(sequenced_scaffs) and self.checkSelfAgainstUnsequenced(unsequenced_scaffs),
+        self.modification.cost)
 
 
 """
@@ -638,8 +646,8 @@ class BasicScaff():
     def __init__(self):
         self.fold_options: List[FoldOption] = []
 
-        #Says which fold options have external conflicts
-        #run init conflicts to initialize
+        # Says which fold options have external conflicts
+        # run init conflicts to initialize
         self.no_external_conflicts: List[bool] = []
         self.id = BasicScaff.id_incr
         BasicScaff.id_incr += 1
@@ -647,6 +655,8 @@ class BasicScaff():
         # To be filled by the MWISP
         self.optimal_fold_option = None
         self.conflict_id = -1
+
+        self.aabb = self.gen_aabb()
 
         # To be filled by gen_fold_times
         # TODO: this logic may not even be correct to have them here.
@@ -659,7 +669,7 @@ class BasicScaff():
             if option.modification.cost < low:
                 low = option.modification.cost
         return low
-    
+
     def getBestOption(self):
         cost = bigChungusNumber
         base = None
@@ -675,23 +685,23 @@ class BasicScaff():
     def clearConflicts(self):
         self.no_external_conflicts = []
 
-    def checkValid(self, ownedIndex: int, mid_scaffs: List[MidScaff], folded_scaff: List[bool]):
+    def checkValid(self, ownedIndex: int, mid_scaffs: List[MidScaff], folded_scaff: List[bool]) -> (bool, float):
         # Iterating all fold options to check if one can be foldabalized with current configuration
         min_cost = bigChungusNumber
         for option_idx in range(0, len(self.fold_options)):
             if self.no_external_conflicts[option_idx]:
                 continue
             else:
-                self.no_external_conflicts[option_idx], cost = self.fold_options[option_idx].checkValid(ownedIndex, mid_scaffs, folded_scaff)
+                self.no_external_conflicts[option_idx], cost = self.fold_options[option_idx].checkValid(ownedIndex,
+                                                                                                        mid_scaffs,
+                                                                                                        folded_scaff)
                 if cost < min_cost:
                     min_cost = cost
 
         for status in self.no_external_conflicts:
             if status:
-                return True
-        return False
-
-    
+                return (True, min_cost)
+        return (False, min_cost)
 
 
 """
@@ -701,11 +711,50 @@ TBasicScaff: A basic scaffold of type T
 
 class TBasicScaff(BasicScaff):
     def __init__(self, b_patch, f_patch):
-        super().__init__()
         self.f_patch = f_patch
         self.b_patch = b_patch
 
+        super().__init__()
+
         self.rot_axis = np.cross(f_patch.calc_normal(), b_patch.calc_normal())
+
+    def gen_aabb(self) -> list[list[float]]:
+        maxX = self.b_patch.coords[0][0]
+        minX = self.b_patch.coords[0][0]
+        maxY = self.b_patch.coords[0][1]
+        minY = self.b_patch.coords[0][1]
+        maxZ = self.b_patch.coords[0][2]
+        minZ = self.b_patch.coords[0][2]
+
+        for coord in self.b_patch.coords:
+            if coord[0] > maxX:
+                maxX = coord[0]
+            elif coord[0] < minX:
+                minX = coord[0]
+            elif coord[1] > maxY:
+                maxY = coord[1]
+            elif coord[1] < minY:
+                minY = coord[1]
+            elif coord[2] > maxZ:
+                maxZ = coord[2]
+            elif coord[2] < minZ:
+                minZ = coord[2]
+
+        for coord in self.f_patch.coords:
+            if coord[0] > maxX:
+                maxX = coord[0]
+            elif coord[0] < minX:
+                minX = coord[0]
+            elif coord[1] > maxY:
+                maxY = coord[1]
+            elif coord[1] < minY:
+                minY = coord[1]
+            elif coord[2] > maxZ:
+                maxZ = coord[2]
+            elif coord[2] < minZ:
+                minZ = coord[2]
+
+        return [[minX, minY, minZ], [maxX, maxY, maxZ]]
 
     def gen_fold_options(self, ns, nh, alpha):
         # Generates all possible fold solutions for TBasicScaff
@@ -743,12 +792,65 @@ HBasicScaff: A basic scaffold of type H
 
 class HBasicScaff(BasicScaff):
     def __init__(self, b_patch, f_patch, t_patch):
-        super().__init__()
         self.f_patch = f_patch
         self.b_patch = b_patch
         self.t_patch = t_patch
 
+        super().__init__()
+
         self.rot_axis: np.ndarray = np.cross(calc_normal(f_patch.coords), calc_normal(b_patch.coords))
+
+    def gen_aabb(self) -> list[list[float]]:
+        maxX = self.b_patch.coords[0][0]
+        minX = self.b_patch.coords[0][0]
+        maxY = self.b_patch.coords[0][1]
+        minY = self.b_patch.coords[0][1]
+        maxZ = self.b_patch.coords[0][2]
+        minZ = self.b_patch.coords[0][2]
+
+        for coord in self.b_patch.coords:
+            if coord[0] > maxX:
+                maxX = coord[0]
+            elif coord[0] < minX:
+                minX = coord[0]
+            elif coord[1] > maxY:
+                maxY = coord[1]
+            elif coord[1] < minY:
+                minY = coord[1]
+            elif coord[2] > maxZ:
+                maxZ = coord[2]
+            elif coord[2] < minZ:
+                minZ = coord[2]
+
+        for coord in self.f_patch.coords:
+            if coord[0] > maxX:
+                maxX = coord[0]
+            elif coord[0] < minX:
+                minX = coord[0]
+            elif coord[1] > maxY:
+                maxY = coord[1]
+            elif coord[1] < minY:
+                minY = coord[1]
+            elif coord[2] > maxZ:
+                maxZ = coord[2]
+            elif coord[2] < minZ:
+                minZ = coord[2]
+
+        for coord in self.t_patch.coords:
+            if coord[0] > maxX:
+                maxX = coord[0]
+            elif coord[0] < minX:
+                minX = coord[0]
+            elif coord[1] > maxY:
+                maxY = coord[1]
+            elif coord[1] < minY:
+                minY = coord[1]
+            elif coord[2] > maxZ:
+                maxZ = coord[2]
+            elif coord[2] < minZ:
+                minZ = coord[2]
+
+        return [[minX, minY, minZ], [maxX, maxY, maxZ]]
 
     def gen_fold_options(self, nh, ns, alpha):
         # Generates all possible fold solutions for TBasicScaff
@@ -819,16 +921,16 @@ class MidScaff:
         for scaff in self.basic_scaffs:
             cost += scaff.getLowestCostEsimate()
         return cost
-    
+
     def checkValid(self, ownedIndex: int, mid_scaffs: List[MidScaff], folded_scaff: List[bool]):
         cost = 0
-        for bs in  self.basic_scaffs:
-           valid, lowest_cost = bs.checkValid(ownedIndex, mid_scaffs, folded_scaff)
-           cost += lowest_cost
-           if not valid:
-               return False, bigChungusNumber
+        for bs in self.basic_scaffs:
+            valid, lowest_cost = bs.checkValid(ownedIndex, mid_scaffs, folded_scaff)
+            cost += lowest_cost
+            if not valid:
+                return False, bigChungusNumber
         return True, cost
-    
+
     def initConflictChecks(self):
         for bs in self.basic_scaffs:
             bs.initConflicts()
@@ -846,7 +948,7 @@ class TMidScaff(MidScaff):
         clique, weight = self.basic_scaffs[0].getBestOption()
         self.best_clique = clique
         return clique, weight
-    
+
     # Only one solution? Is there any case where this solution could impact another guy?
     # Probably not since they all fold at different times? Sequentially?
     def fold(self):
@@ -885,7 +987,6 @@ class HMidScaff(MidScaff):
 
         print("Finished generating fold times for HMidScaff")
 
-
         self.added_tracker = []
         self.fold_Order = []
 
@@ -916,7 +1017,7 @@ class HMidScaff(MidScaff):
         for (scaff, idx) in zip(self.basic_scaffs, range(0, len(self.basic_scaffs))):
             for option in scaff.fold_options:
                 # Ensuring that the option has no external conflicts
-                if scaff.no_external_conflicts[idx]: 
+                if scaff.no_external_conflicts[idx]:
                     patch_area = rectangle_area(scaff.f_patch.coords)
                     lambda_i = patch_area / sum_fold_area
                     cost_vj = lambda_i * option.modification.cost
@@ -979,10 +1080,10 @@ class HMidScaff(MidScaff):
         print(max_clique)
 
         if len(max_clique) != len(self.basic_scaffs):
-             raise Exception("Max clique is missing some options")
+            raise Exception("Max clique is missing some options")
 
         for fold_option in max_clique:
-        # TODO: clean this up messy.
+            # TODO: clean this up messy.
             fold_option.scaff.optimal_fold_option = fold_option
             print("FOLD SOLUTION FOR: " + str(fold_option.scaff.id) + "===================")
             sol: FoldOption = fold_option
@@ -1090,20 +1191,19 @@ class InputScaff:
 
     def gen_scaffs(self):
         # TODO: Di
-    
+
         # generates hinge graph
         self.gen_hinge_graph()
-    
+
         # generates basic scaffolds
         # self.gen_basic_scaffs()
-    
+
         # generates mid-level scaffolds
         self.gen_mid_scaffs()
 
         # generates fold order. Fold order will be stored in self.mid_scaff_ordered
         # Midscaffs will also store the best clique  in Midscaff.best_clique
-        self.order_folds()
-    
+        # self.order_folds()
 
     def gen_hinge_graph(self):
         print("gen_hinge_graph...")
@@ -1133,19 +1233,19 @@ class InputScaff:
                     base0 = self.node_list[neighbors[0]]
                     base1 = self.node_list[neighbors[1]]
                     fold0 = self.node_list[id]
-                    self.basic_scaffs.append(HBasicScaff(fold0, base0, base1))
+                    self.basic_scaffs.append(HBasicScaff(base0, fold0, base1))
                     self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id,
                                                                      self.node_list[neighbors[1]].id]
-                    #print(self.basic_scaffs[-1].id)
+                    # print(self.basic_scaffs[-1].id)
                 elif len(neighbors) == 1:
                     base0 = self.node_list[neighbors[0]]
                     fold0 = self.node_list[id]
-                    self.basic_scaffs.append(TBasicScaff(fold0, base0))
+                    self.basic_scaffs.append(TBasicScaff(base0, fold0))
                     self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id]
-                    #print(self.basic_scaffs[-1].id)
+                    # print(self.basic_scaffs[-1].id)
                 else:
                     print("wtf")
-        #print("end gen basic scaffs")
+        # print("end gen basic scaffs")
 
     # Basic scaffold objects already created by the foldNode
     def set_basic_mappings(self):
@@ -1315,28 +1415,42 @@ class InputScaff:
         c2 = bigChungusNumber
         best_Scaff = None
         bestId = -1
+
         for (scaff1, id1) in zip(self.mid_scaffs, range(0, len(self.mid_scaffs))):
-            # check valid sees if the mid scaff can be folded        
+            # check valid sees if the mid scaff can be folded
+            print("In for loop checking: " + str(id1))
+
+            # If folded_scaff doesn't contain id1
             if not self.folded_scaff[id1]:
                 valid, first_cost = self.checkValid(id1)
                 if not valid:
+                    print("Solution was not valid!")
                     continue
 
                 weight1 = first_cost
-                for (scaff2,  id2) in zip(self.mid_scaffs, range(0, len(self.mid_scaffs))):  
+                for (scaff2, id2) in zip(self.mid_scaffs, range(0, len(self.mid_scaffs))):
                     weight2 = self.mid_scaffs[id2].getLowCostEstimate()
                     if id1 != id2 and c1 + c2 < weight1 + weight2:
                         c1 = weight1
                         c2 = weight2
                         best_Scaff = scaff1
                         bestId = id1
+
+        print("Adding mid level scaff: " + str(bestId))
+
         self.mid_scaffs_ordered.append(best_Scaff)
         self.folded_scaff[bestId] = True
 
     def order_folds(self):
         size = len(self.mid_scaffs)
+        print("number of mid level scaffs:")
+        print(size)
+
         self.folded_scaff = [False for i in range(size)]
         self.initConflictChecks()
+
+        print("number of ordered mid level scaffolds")
+        print(len(self.mid_scaffs_ordered))
 
         while len(self.mid_scaffs_ordered) < len(self.mid_scaffs):
             self.pickNextScaff()
@@ -1344,46 +1458,48 @@ class InputScaff:
 
         self.clearConflictChecks()
         self.folded_scaff = [False for i in range(size)]
-'''
-FoldManager: debug class for now, probalby won't actually use it.
-Purpose is to serve as a mini inputScaffold for now.
-'''
 
 
-class FoldManager:
-    def __init__(self):
-        self.h_basic_scaff = None  # TODO: For now a hard coded H scaffold
-        self.input_scaff = None
-
-    def generate_h_basic_scaff(self, bottom_patch: np.ndarray, fold_patch: np.ndarray, top_patch: np.ndarray):
-        # print("generate_h_basic_scaff...")
-        # print("bottom patch")
-        bPatch = Patch(bottom_patch)
-        # print("top patch")
-        tPatch = Patch(top_patch)
-        # print("fold patch")
-        fPatch = Patch(fold_patch)
-
-        scaff = HBasicScaff(fPatch, bPatch, tPatch)
-        self.h_basic_scaff = scaff
-
-    def mainFold(self, nH, nS) -> FoldOption:
-        # print("entered mainFold...")
-        # Outputs a hard coded fold option for now
-
-        # Experiment with alpha values
-        alpha = 0.5
-        cost1 = alpha * 0 / 1 + (1 - alpha) / 1
-        mod1 = Modification(nH, 0, 3, nS, cost1)
-        # patch_list = [self.h_basic_scaff.f_patch, self.h_basic_scaff.b_patch, self.h_basic_scaff.t_patch]
-        fo = FoldOption(False, mod1, self.h_basic_scaff, XAxis)
-        fo.gen_fold_transform()
-
-        # TODO: hard coded for now
-        fo.fold_transform.startTime = 0
-        fo.fold_transform.endTime = 90
-
-        return fo
+# '''
+# FoldManager: debug class for now, probalby won't actually use it.
+# Purpose is to serve as a mini inputScaffold for now.
+# '''
+#
+#
+# class FoldManager:
+#     def __init__(self):
+#         self.h_basic_scaff = None  # TODO: For now a hard coded H scaffold
+#         self.input_scaff = None
+#
+#     def generate_h_basic_scaff(self, bottom_patch: np.ndarray, fold_patch: np.ndarray, top_patch: np.ndarray):
+#         # print("generate_h_basic_scaff...")
+#         # print("bottom patch")
+#         bPatch = Patch(bottom_patch)
+#         # print("top patch")
+#         tPatch = Patch(top_patch)
+#         # print("fold patch")
+#         fPatch = Patch(fold_patch)
+#
+#         scaff = HBasicScaff(fPatch, bPatch, tPatch)
+#         self.h_basic_scaff = scaff
+#
+#     def mainFold(self, nH, nS) -> FoldOption:
+#         # print("entered mainFold...")
+#         # Outputs a hard coded fold option for now
+#
+#         # Experiment with alpha values
+#         alpha = 0.5
+#         cost1 = alpha * 0 / 1 + (1 - alpha) / 1
+#         mod1 = Modification(nH, 0, 3, nS, cost1)
+#         # patch_list = [self.h_basic_scaff.f_patch, self.h_basic_scaff.b_patch, self.h_basic_scaff.t_patch]
+#         fo = FoldOption(False, mod1, self.h_basic_scaff, XAxis)
+#         fo.gen_fold_transform()
+#
+#         # TODO: hard coded for now
+#         fo.fold_transform.startTime = 0
+#         fo.fold_transform.endTime = 90
+#
+#         return fo
 
 
 def basic_t_scaffold():
@@ -1414,7 +1530,7 @@ def basic_h_scaffold():
     base = Patch(coords2)
     top = Patch(coords1)
 
-    tscaff = HBasicScaff(foldable, base, top)
+    tscaff = HBasicScaff(base, foldable, top)
     tscaff.gen_fold_options(4, 1, .5)
     print("Begin test")
 
@@ -1842,8 +1958,10 @@ def test_cube_shape():
             print("foldable: " + str(basic_scaff.f_patch.id))
             print("base low: " + str(basic_scaff.b_patch.id))
 
+    input.order_folds()
+
     # Generate solutions
-    input.fold()
+    # input.fold()
 
     # Print the generated solutions
     for mid_scaff in input.mid_scaffs:
@@ -1869,4 +1987,159 @@ def test_cube_shape():
             print("Projected region of solution: ")
             print(sol.projected_region)
 
-# test_cube_shape()
+
+test_cube_shape()
+
+
+def test_input_scaff():
+    coords1 = np.array([(0, 3, 0), (1, 3, 0), (1, 3, 1), (0, 3, 1)])  # base 0
+    coords2 = np.array([(0, 2, 0), (1, 2, 0), (1, 2, 1), (0, 2, 1)])  # base 1
+    coords3 = np.array([(0, 1, 0), (1, 1, 0), (1, 1, 1), (0, 1, 1)])  # base 2
+    coords4 = np.array([(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)])  # base 3
+
+    coords5 = np.array([(0.5, 0, 1), (0.5, 0, 0), (0.5, 1, 0), (0.5, 1, 1)])  # fold 0
+    coords6 = np.array([(0.5, 1, 1), (0.5, 1, 0), (0.5, 2, 0), (0.5, 2, 1)])  # fold 1
+    coords7 = np.array([(0.5, 2, 1), (0.5, 2, 0), (0.5, 3, 0), (0.5, 3, 1)])  # fold 2
+
+    b1 = Patch(coords1)
+    b2 = Patch(coords2)
+    b3 = Patch(coords3)
+    b4 = Patch(coords4)
+
+    f1 = Patch(coords5)
+    f2 = Patch(coords6)
+    f3 = Patch(coords7)
+
+    b1.id = 0
+    b2.id = 1
+    b3.id = 2
+    b4.id = 3
+
+    f1.id = 4
+    f2.id = 5
+    f3.id = 6
+
+    nodes = [b1, b2, b3, b4, f1, f2, f3]
+    edges = [[4, 0], [5, 1], [6, 2], [3, 6], [2, 5], [1, 4]]
+
+    push_dir = YAxis
+
+    input = InputScaff(nodes, edges, push_dir, 7, 4)
+
+    input.gen_hinge_graph()
+
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+    print(input.hinge_graph)
+    input.gen_basic_scaffs()
+    print(input.basic_scaffs)
+
+    print("MIDSCAFFS")
+    input.gen_mid_scaffs()
+    print(input.mid_scaffs)
+    for mid_scaff in input.mid_scaffs:
+        print(mid_scaff.node_mappings)
+        for basic_scaff in mid_scaff.basic_scaffs:
+            print("SCAFF =================== ")
+            print("base high: " + str(basic_scaff.t_patch.id))
+            print("foldable: " + str(basic_scaff.f_patch.id))
+            print("base low: " + str(basic_scaff.b_patch.id))
+
+    input.order_folds()
+
+    # Generate solutions
+    # input.fold()
+
+    # Print the generated solutions
+    for mid_scaff in input.mid_scaffs:
+        for basic_scaff in mid_scaff.basic_scaffs:
+            print("FOLD SOLUTION FOR: " + str(basic_scaff.id) + "===================")
+            sol: FoldOption = basic_scaff.optimal_fold_option
+            print("start time:")
+            print(basic_scaff.start_time)
+            print("end time:")
+            print(basic_scaff.end_time)
+            print("num hinges: ")
+            print(sol.modification.num_hinges)
+            print("num shrinks: ")
+            print(sol.modification.num_pieces)
+            print("range start: ")
+            print(sol.modification.range_start)
+            print("range end: ")
+            print(sol.modification.range_end)
+            print("isleft:")
+            print(sol.isleft)
+            print("original vertices: ")
+            print(basic_scaff.f_patch.coords)
+            print("Projected region of solution: ")
+            print(sol.projected_region)
+
+
+def t_construct_bvh():
+    coords1 = np.array([[0, 0, 1], [1, 0, 1], [1, 0, 0], [0, 0, 0]])
+    coords2 = np.array([[0, 2, 1], [1, 2, 1], [1, 2, 0], [0, 2, 0]])
+    coords3 = np.array([[0.5, 0, 1], [0.5, 0, 0], [0.5, 2, 0], [0.5, 2, 1]])
+
+    b1 = Patch(coords1)
+    b2 = Patch(coords2)
+    f1 = Patch(coords3)
+
+    b1.id = 0
+    b2.id = 1
+    f1.id = 2
+
+    nodes = [b1, b2, f1]
+
+    edges = [[0, 2], [1, 2]]
+
+    push_dir = YAxis
+
+    input = InputScaff(nodes, edges, push_dir, 3, 2)
+
+    input.gen_hinge_graph()
+
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+
+    print(input.hinge_graph)
+    input.gen_basic_scaffs()
+    print(input.basic_scaffs)
+
+    input.basic_scaffs[0].start_time = 0
+    input.basic_scaffs[0].end_time = 90
+
+    # Should be the only one
+    input.basic_scaffs[0].gen_fold_options(3, 2, 0.5)
+
+    # print every fold option's bvh
+    for basic_scaff in input.basic_scaffs:
+        for fold_option in basic_scaff.fold_options:
+            print("BVH")
+            print(fold_option.bvh)
+
+            print("start time:")
+            print(basic_scaff.start_time)
+            print("end time:")
+            print(fold_option.scaff.end_time)
+            print("num hinges: ")
+            print(fold_option.modification.num_hinges)
+            print("num shrinks: ")
+            print(fold_option.modification.num_pieces)
+            print("range start: ")
+            print(fold_option.modification.range_start)
+            print("range end: ")
+            print(fold_option.modification.range_end)
+            print("isleft:")
+            print(fold_option.isleft)
+            print("original vertices: ")
+            print(basic_scaff.f_patch.coords)
+            print("Projected region of solution: ")
+            print(fold_option.projected_region)
+
+# t_construct_bvh()
