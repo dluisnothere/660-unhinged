@@ -315,7 +315,7 @@ def areVectorsOpposite(vec1: OpenMaya.MVector, vec2: OpenMaya.MVector, tolerance
 # An instance of this object should never be directly created. It should always only be T basic or H basic
 class MayaBasicScaffoldWrapper():
     def __init__(self, patchObjects: List[fold.Patch], basePatch: str, patches: List[str], pushAxis: OpenMaya.MVector,
-                 maxHinges: int, shrinks: int):
+                 maxHinges: int, minHinges: int, shrinks: int):
         self.basePatch = basePatch
         self.patchesObjs = patchObjects
         self.patches = patches
@@ -325,6 +325,8 @@ class MayaBasicScaffoldWrapper():
         self.pushAxis = pushAxis
 
         self.maxHinges = maxHinges
+        self.minHinges = minHinges
+
         self.shrinks = shrinks
 
         self.newShapes = []
@@ -832,8 +834,8 @@ class MayaBasicScaffoldWrapper():
 class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
     def __init__(self, patchObjects: List[fold.Patch], basePatch: str, patches: List[str], pushAxis: OpenMaya.MVector,
-                 maxHinges: int, shrinks: int):
-        super().__init__(patchObjects, basePatch, patches, pushAxis, maxHinges, shrinks)
+                 maxHinges: int, minHinges: int, shrinks: int):
+        super().__init__(patchObjects, basePatch, patches, pushAxis, maxHinges, minHinges, shrinks)
 
         # To be set by the input
         self.upsideDown = self.isUpsideDown(patchObjects[0], patchObjects[1], pushAxis)
@@ -890,6 +892,7 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
                 # Keep track of the new patches just created so we can delete it on the next iteration
                 self.newShapes.append(newPatches[i])
 
+    # TODO: probalby not going to be used if we only fol din the -y direction.
     def isUpsideDown(self, basePatch: fold.Patch, foldPatch: fold.Patch, pushAxis: OpenMaya.MVector) -> bool:
 
         # If push Axis is negative Y axis, and the base patch's Y vertices are all greater than the fold patch's Y vertices, then it is upside down
@@ -1023,7 +1026,7 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
     def __init__(self, patchObjects: List[fold.Patch], basePatch: str, patches: List[str], pushAxis: OpenMaya.MVector,
-                 maxHinges: int, shrinks: int):
+                 maxHinges: int, minHinges: int, shrinks: int):
         '''
         Basic scaffold peek:
         - basePatches: the base patch
@@ -1040,7 +1043,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
         '''
         # TODO: currently basicScaffolds are being created by the inputScaffold manually for testing purposes.
-        super().__init__(patchObjects, basePatch, patches, pushAxis, maxHinges, shrinks)
+        super().__init__(patchObjects, basePatch, patches, pushAxis, maxHinges, minHinges, shrinks)
         self.basicScaffold: fold.HBasicScaff = fold.HBasicScaff(patchObjects[0], patchObjects[1], patchObjects[2])
 
     def rotatePatches(self, angle: float, rotAxis: List[float], shapeTraverseOrder: List[str], isLeft: bool):
@@ -1152,7 +1155,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
 
 class MayaInputScaffoldWrapper():
-    def __init__(self, patches: List[str], pushAxis: OpenMaya.MVector, nH: int, nS: int):
+    def __init__(self, patches: List[str], pushAxis: OpenMaya.MVector, maxH: int, minH: int, nS: int, alpha: float):
         self.pushAxis: OpenMaya.MVector = pushAxis
         self.patches: List[str] = patches
 
@@ -1167,8 +1170,11 @@ class MayaInputScaffoldWrapper():
         # List of edges, using patch Objecs
         self.edgesObjs: List[List[fold.Patch]] = []
 
-        self.maxHinges = nH
+        self.maxHinges = maxH
+        self.minHinges = minH
         self.shrinks = nS
+
+        self.alpha = alpha
 
         self.inputScaffold = None
 
@@ -1255,12 +1261,11 @@ class MayaInputScaffoldWrapper():
         edgesIds = [[e[0].id, e[1].id] for e in self.edgesObjs]
 
         # Create input scaffold object
-        self.inputScaffold = fold.InputScaff(self.patchesObjs, edgesIds, npAxis, self.maxHinges, self.shrinks)
+        self.inputScaffold = fold.InputScaff(self.patchesObjs, edgesIds, npAxis, self.maxHinges, self.minHinges, self.shrinks, self.alpha)
 
         # Generate hinge graph
         self.inputScaffold.gen_hinge_graph()
 
-    # def setDependencyScaffold(self, topPatchObj: fold.Patch, basePatchObj: fold.Patch, basicScaffWrapper: MayaHBasicScaffoldWrapper) -> bool:
     def setDependencyScaffoldH(self, topPatchObj: fold.Patch, basePatchObj: fold.Patch,
                                basicScaffWrapper: MayaHBasicScaffoldWrapper) -> bool:
         hasParentOrChild: bool = False
@@ -1364,7 +1369,7 @@ class MayaInputScaffoldWrapper():
 
                 # Create a basic scaffold with the foldPatch and the base patches it is connected to
                 basicScaffWrapper = MayaHBasicScaffoldWrapper(patchObjList, basePatch, patchList, self.pushAxis,
-                                                              self.maxHinges, self.shrinks)
+                                                              self.maxHinges, self.minHinges, self.shrinks)
 
                 self.setDependencyScaffoldH(topPatchObj, basePatchObj, basicScaffWrapper)
 
@@ -1385,7 +1390,7 @@ class MayaInputScaffoldWrapper():
 
                 # Create a basic scaffold with the foldPatch and the base patches it is connected to
                 basicScaffWrapper = MayaTBasicScaffoldWrapper(patchObjList, basePatch, patchList, self.pushAxis,
-                                                              self.maxHinges, self.shrinks)
+                                                              self.maxHinges, self.minHinges, self.shrinks)
 
                 self.setDependencyScaffoldT(basePatchObj, basicScaffWrapper)
 
@@ -1442,7 +1447,8 @@ class foldableNode(OpenMayaMPx.MPxNode):
     inTime = OpenMaya.MObject()
 
     # number of hinges
-    inNumHinges = OpenMaya.MObject()
+    inMaxHinges = OpenMaya.MObject()
+    inMinHinges = OpenMaya.MObject()
 
     # maximum number of shrinks
     inNumShrinks = OpenMaya.MObject()
@@ -1452,17 +1458,19 @@ class foldableNode(OpenMayaMPx.MPxNode):
     # Dummy output plug that can be connected to the input of an instancer node so our node can live somewhere
     outPoint = OpenMaya.MObject()
 
-    # dummy test
-    sliderAttr = OpenMaya.MObject()
+    # Float for alpha preference
+    inAlpha = OpenMaya.MObject()
 
     # TODO: later on we will iterate through basicScaffolds instead
     defaultInputScaffWrapper: MayaInputScaffoldWrapper = None
 
     new_shapes = []
 
-    prevNumHinges = -1
+    prevMaxHinges = -1
+    prevMinHinges = -1
     prevShrinks = -1
-    prevPushAxis = [-1, -1, -1]  # TODO: make more generic
+    prevPushAxis = [-1, -1, -1]
+    prevAlpha = -1
 
     # TODO: would like to remove this in the future and not need it
     prevPatchList = []
@@ -1490,8 +1498,11 @@ class foldableNode(OpenMayaMPx.MPxNode):
         timeData = data.inputValue(self.inTime)
         time = timeData.asFloat()
 
-        numHingeData = data.inputValue(self.inNumHinges)
-        numHinges = numHingeData.asInt()
+        maxHingeData = data.inputValue(self.inMaxHinges)
+        maxHinges = maxHingeData.asInt()
+
+        minHingeData = data.inputValue(self.inMinHinges)
+        minHinges = minHingeData.asInt()
 
         numShrinksData = data.inputValue(self.inNumShrinks)  # TODO: Represents maximum allowed shrinks
         numShrinks = numShrinksData.asInt()
@@ -1500,8 +1511,8 @@ class foldableNode(OpenMayaMPx.MPxNode):
         stringList = stringListData.asString()
         patches = stringList.split(',')
 
-        # print("PATCHES:")
-        # print(patches)
+        alphaData = data.inputValue(self.inAlpha)
+        alpha = alphaData.asFloat()
 
         if (len(patches) == 0):
             raise Exception("No patches inputted")
@@ -1512,14 +1523,16 @@ class foldableNode(OpenMayaMPx.MPxNode):
         recreatePatches = False
 
         # If any of the input variables have changed, then create new scaffold
-        if (self.prevNumHinges != numHinges or self.prevShrinks != numShrinks or self.prevPushAxis != pushAxis or
-                self.prevPatchList != patches):
+        if (self.prevMaxHinges != maxHinges or self.prevMinHinges != minHinges or self.prevShrinks != numShrinks or
+                self.prevPushAxis != pushAxis or self.prevPatchList != patches or self.prevAlpha != alpha):
 
             # Reset variables
-            self.prevNumHinges = numHinges
+            self.prevMaxHinges = maxHinges
+            self.prevMinHinges = minHinges
             self.prevShrinks = numShrinks
             self.prevPushAxis = pushAxis
             self.prevPatchList = patches
+            self.prevAlpha = alpha
 
             # Current Scaffolds should clear their patches from the scene, if there is one
             if (self.defaultInputScaffWrapper != None):
@@ -1530,8 +1543,8 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
             # Create new MayaInputScaffoldWrapper
             self.defaultInputScaffWrapper = MayaInputScaffoldWrapper(patches, OpenMaya.MVector(pushAxis[0], pushAxis[1],
-                                                                                               pushAxis[2]), numHinges,
-                                                                     numShrinks)
+                                                                                               pushAxis[2]), maxHinges, minHinges,
+                                                                     numShrinks, alpha)
 
             # Run the fold algorithm
             self.defaultInputScaffWrapper.genFoldSolutions()
@@ -1556,10 +1569,19 @@ def nodeInitializer():
     try:
         print("Initialization!\n")
 
-        foldableNode.inNumHinges = nAttr.create("numHinges", "nH", OpenMaya.MFnNumericData.kInt, 3)
+        foldableNode.inMaxHinges = nAttr.create("numHinges", "nH", OpenMaya.MFnNumericData.kInt, 3)
+        MAKE_INPUT(nAttr)
+
+        foldableNode.inMinHinges = nAttr.create("minHinges", "mH", OpenMaya.MFnNumericData.kInt, 1)
         MAKE_INPUT(nAttr)
 
         foldableNode.inNumShrinks = nAttr.create("numShrinks", "nS", OpenMaya.MFnNumericData.kInt, 2)
+        MAKE_INPUT(nAttr)
+
+        foldableNode.inAlpha = nAttr.create("alpha", "a", OpenMaya.MFnNumericData.kFloat, 0.5)
+        nAttr.setMin(0.0)  # Minimum value for the slider
+        nAttr.setMax(1.0) # Maximum value for the slider
+        nAttr.setDefault(0.5)  # Default value for the slider
         MAKE_INPUT(nAttr)
 
         defaultList = OpenMaya.MFnStringData().create("")
@@ -1568,7 +1590,6 @@ def nodeInitializer():
 
         foldableNode.inTime = nAttr.create("inTime", "t", OpenMaya.MFnNumericData.kFloat, 0.0)
         nAttr.setMin(0.0)  # Minimum value for the slider
-        # TODO: normalize all angles based on this vlaue
         nAttr.setMax(1.0)  # Maximum value for the slider
         nAttr.setDefault(0.0)  # Default value for the slider
         MAKE_INPUT(nAttr)
@@ -1587,15 +1608,19 @@ def nodeInitializer():
         # TODO:: add the attributes to the node and set up the
         #         attributeAffects (addAttribute, and attributeAffects)
         foldableNode.addAttribute(foldableNode.inTime)
-        foldableNode.addAttribute(foldableNode.inNumHinges)
+        foldableNode.addAttribute(foldableNode.inMaxHinges)
+        foldableNode.addAttribute(foldableNode.inMinHinges)
         foldableNode.addAttribute(foldableNode.inNumShrinks)
         foldableNode.addAttribute(foldableNode.inPatchList)
+        foldableNode.addAttribute(foldableNode.inAlpha)
         foldableNode.addAttribute(foldableNode.outPoint)
 
         foldableNode.attributeAffects(foldableNode.inTime, foldableNode.outPoint)
-        foldableNode.attributeAffects(foldableNode.inNumHinges, foldableNode.outPoint)
+        foldableNode.attributeAffects(foldableNode.inMaxHinges, foldableNode.outPoint)
+        foldableNode.attributeAffects(foldableNode.inMinHinges, foldableNode.outPoint)
         foldableNode.attributeAffects(foldableNode.inNumShrinks, foldableNode.outPoint)
         foldableNode.attributeAffects(foldableNode.inPatchList, foldableNode.outPoint)
+        foldableNode.attributeAffects(foldableNode.inAlpha, foldableNode.outPoint)
 
     except Exception as e:
         print(e)

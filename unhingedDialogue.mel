@@ -161,12 +161,35 @@ global proc int densifyGrid(int $size)
     return true;
 }
 
-global proc int onCheckboxChange(int $checked) 
+global proc int onTranslateSnap(int $checked) 
 {
     if ($checked) {
         snapMode -grid on -dsi 0.1;
     } else {
         snapMode -grid off;
+    }
+    return true;
+}
+
+global proc int onRotateSnap(int $checked)
+{
+    if ($checked) {
+        // snapMode -rotationSnap -rotationSnapValue 45;
+        // rotate -relative -snap 45;
+        manipRotateContext -e -snap true -snapValue 45 Rotate;
+    } else {
+        manipRotateContext -e -snap false Rotate;
+    }
+    return true;
+}
+
+global proc int onScaleSnap(int $checked)
+{
+    if ($checked) {
+        // manipScaleContext -e -snap true -snapRelative false -snapToGrid true Scale;
+        snapMode -pointSnap true;
+    } else {
+        //manipScaleContext -e -snap false Scale;
     }
     return true;
 }
@@ -178,10 +201,11 @@ global proc int genMenu()
     		button -label "Create Fold Patch" -command "genFoldPatch";
     		button -label "Create Base Patch" -command "genBasePatch";
     	    button -label "Create Foldable Node" -command "genFoldNode";
-    	    // button -label "Densify Grid" -command "densifyGrid";
     	    intSliderGrp -label "Grid Density" -field true -fieldMinValue 1 -fieldMaxValue 20 -minValue 1 -maxValue 20 -value 1
     	           -changeCommand "densifyGrid #1"; 
-            checkBox -label "Snap to Grid" -changeCommand "onCheckboxChange #1" snapCheckbox;
+            checkBox -label "Snap to Grid" -changeCommand "onTranslateSnap #1" snapTranslateBox;
+            checkBox -label "Snap Rotations" -changeCommand "onRotateSnap #1" snapRotateBox;
+            
     	setParent ..;
     showWindow;
     return true;

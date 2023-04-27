@@ -555,12 +555,12 @@ class TBasicScaff(BasicScaff):
 
         self.rot_axis = np.cross(calc_normal(f_patch.coords), calc_normal(b_patch.coords))
 
-    def gen_fold_options(self, ns, nh, alpha):
+    def gen_fold_options(self, nh, mh, ns, alpha):
         # Generates all possible fold solutions for TBasicScaff
         # ns: max number of patch cuts
         # nh: max number of hinges, let's enforce this to be an odd number for now
         print("gen_fold_options...")
-        for i in range(1, nh + 1, 2):
+        for i in range(mh, nh + 1, 2):
             for j in range(1, ns + 1):
                 for h in range(1, j + 1):
                     for k in range(0, h):
@@ -598,14 +598,14 @@ class HBasicScaff(BasicScaff):
 
         self.rot_axis: np.ndarray = np.cross(calc_normal(f_patch.coords), calc_normal(b_patch.coords))
 
-    def gen_fold_options(self, nh, ns, alpha):
+    def gen_fold_options(self, nh, mh, ns, alpha):
         # Generates all possible fold solutions for TBasicScaff
         # ns: max number of patch cuts
         # nh: max number of hinges, let's enforce this to be an odd number for now
         # print("GEN FOLD OPTIONS FOR SCAFF: " + str(self.id) + "==================")
 
         # TODO: hard coded only doing odd number of hinges. Even numbers are too unpredictable for this purpose.
-        for i in range(1, nh + 1, 2):
+        for i in range(mh, nh + 1, 2):
             for j in range(1, ns + 1):
                 for h in range(1, j + 1):
                     for k in range(0, h):
@@ -716,6 +716,7 @@ class TMidScaff(MidScaff):
                 # if the two options are not the same and their relationship hasn't been evaluated yet
                 if option != other_option and self.conflict_graph.has_edge(option, other_option) == True:
                     # Always remove. There should be no cliques in this graph.
+
                     self.conflict_graph.remove_edge(option, other_option)
 
         print("done generating conflict graph")
@@ -980,7 +981,7 @@ InputScaff: The full input scaff
 class InputScaff:
     id_incr = 0
 
-    def __init__(self, node_list, edge_list, push_dir, max_hinges, num_shrinks):
+    def __init__(self, node_list, edge_list, push_dir, max_hinges, min_hinges, num_shrinks, alpha):
         self.hinge_graph = None  # Gets created gen_hinge_graph
         self.mid_scaffs = []
 
@@ -999,7 +1000,10 @@ class InputScaff:
         self.basic_mappings = {}
 
         self.max_hinges = max_hinges
+        self.min_hinges = min_hinges
         self.num_shrinks = num_shrinks
+
+        self.alpha = alpha
 
 
     def gen_hinge_graph(self):
@@ -1170,7 +1174,7 @@ class InputScaff:
         # First, generate basic scaffold solutions
         for scaff in self.basic_scaffs:
             # TODO: hard code alpha to be 0.5
-            scaff.gen_fold_options(self.max_hinges, self.num_shrinks, 0.5)
+            scaff.gen_fold_options(self.max_hinges, self.min_hinges, self.num_shrinks, self.alpha)
 
         self.mid_scaffs[0].fold()
 
