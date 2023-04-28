@@ -167,45 +167,62 @@ def checkScaffoldConnection(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVect
 
 
 # Need to keep this function because it is a special condition that Idk how to fix yet
-def checkScaffoldConnectionTopBase(parent, childPatch: str):
+def checkScaffoldConnectionTopBase(parent, childPatch: str, pushAxis: OpenMaya.MVector):
     childVertices = getObjectVerticeNamesAndPositions(childPatch)
 
+    # [baseLevel, minAxis1, minAxis2]
+    idxSet = []
+    if (areVectorsEqual(pushAxis, negYAxis) or areVectorsEqual(pushAxis, posYAxis)):
+        # [y, x, z]
+        idxSet = [1, 0, 2]
+    elif (areVectorsEqual(pushAxis, negXAxis) or areVectorsEqual(pushAxis, posXAxis)):
+        # [x, y, z]
+        idxSet = [0, 1, 2]
+    elif (areVectorsEqual(pushAxis, negZAxis) or areVectorsEqual(pushAxis, posZAxis)):
+        # [z, x, y]
+        idxSet = [2, 0, 1]
+
+    baseLevel = idxSet[0]  # y by default
+    span1 = idxSet[1]  # x
+    span2 = idxSet[2]  # z
+
+    print("idxSet: {}".format(idxSet))
     # Get child's global Y position
     # TODO: make this more generic in the future
-    childY = float(childVertices["{}.vtx[0]".format(childPatch)][1])
+    childY = float(childVertices["{}.vtx[0]".format(childPatch)][baseLevel])
 
     # Get child's max x and min x
-    childMaxX = max(childVertices.values(), key=lambda x: x[0])[0]
-    childMinX = min(childVertices.values(), key=lambda x: x[0])[0]
+    childMaxA = max(childVertices.values(), key=lambda x: x[span1])[span1]
+    childMinA = min(childVertices.values(), key=lambda x: x[span1])[span1]
 
     # Get child's max z and min z
-    childMaxZ = max(childVertices.values(), key=lambda x: x[2])[2]
-    childMinZ = min(childVertices.values(), key=lambda x: x[2])[2]
+    childMaxB = max(childVertices.values(), key=lambda x: x[span2])[span2]
+    childMinB = min(childVertices.values(), key=lambda x: x[span2])[span2]
 
     # check if both of the parent's vertices are within the child's bounding box
     connected = True
     for element in parent:
         vertex = element[2]
         # print("vertex: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
-        if abs(vertex[1] - childY) > 0.0001:
+        if abs(vertex[baseLevel] - childY) > 0.0001:
             print("Y values are not the same!")
             print("Parent Y: {}".format(vertex[1]))
             print("Child Y: {}".format(childY))
             connected = False
             break
-        if vertex[0] < childMinX - EPS:
+        if vertex[span1] < childMinA - EPS:
             print("X value is less than minX")
             connected = False
             break
-        if vertex[0] > childMaxX + EPS:
+        if vertex[span1] > childMaxA + EPS:
             print("X value is larger than maxX")
             connected = False
             break
-        if vertex[2] < childMinZ - EPS:
+        if vertex[span2] < childMinB - EPS:
             print("Z value is smaller childMinZ")
             connected = False
             break
-        if vertex[2] > childMaxZ + EPS:
+        if vertex[span2] > childMaxB + EPS:
             print("Z value is larger than childMaxZ")
             connected = False
             break
@@ -726,6 +743,7 @@ class MayaBasicScaffoldWrapper():
 
             newPatches.reverse()
             newTransforms.reverse()
+            return newPatches, newTransforms
 
         elif (areVectorsEqual(self.pushAxis, posXAxis) or areVectorsOpposite(self.pushAxis, posXAxis)):
             # Compute the new patch scale values based on original_patch's scale and num_patches
@@ -780,6 +798,7 @@ class MayaBasicScaffoldWrapper():
 
             newPatches.reverse()
             newTransforms.reverse()
+            return newPatches, newTransforms
         else:
             print("Push Axis: {:.6f}, {:.6f}, {:.6f}".format(self.pushAxis[0], self.pushAxis[1], self.pushAxis[2]))
             raise Exception("ERROR: Invalid push axis")
@@ -928,8 +947,12 @@ class MayaBasicScaffoldWrapper():
         #     for vertex in allVertices:
         #         print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
+        # print("start time: " + str(startTime))
+        # print("end time: " + str(endTime))
+
         # Compute angle
         if (endTime > t >= startTime):
+            print("Time is between start and end!")
             angle = self.computeAngle(endAngles, endTime, numHinges, startTime, t)
         elif (t < startTime):
             # Has to go at the end or something otherwise you'll get a space between top patch and the folds
@@ -943,6 +966,7 @@ class MayaBasicScaffoldWrapper():
 
             return
         else:
+            print("time is end!")
             angle = endAngles[0]
 
         # Get the transforms of the patches
@@ -1220,6 +1244,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
     def rotatePatches(self, angle: float, shapeTraverseOrder: List[str], isLeft: bool):
         print("rotating patches... ===========")
+        print("angle is: {}".format(angle))
         if not isLeft:
             angle = -angle
 
@@ -1319,7 +1344,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
                 checkScaffoldConnectionBaseNoErr(shape, currentClosest, self.pushAxis)
             elif (i == len(shapeTraverseOrder) - 2):
                 # THE ONLY DIFFERENCE AND THE T BASIC SCAFF IS THAT WE DO A BASIC PATCH CHECK
-                checkScaffoldConnectionTopBase(currentClosest, child)
+                checkScaffoldConnectionTopBase(currentClosest, child, self.pushAxis)
             else:
                 checkScaffoldConnection(childPivot, middlePoint)
 

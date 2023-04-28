@@ -795,7 +795,7 @@ class HMidScaff(MidScaff):
     def __init__(self, bs, nm):
         super().__init__(bs, nm)
 
-    def gen_fold_times(self):
+    def gen_fold_times(self, push_dir: list[float]):
         print("GENERATING FOLD TIMES....")
         # If no basic scaffolds, return with error.
         if len(self.basic_scaffs) == 0:
@@ -805,21 +805,43 @@ class HMidScaff(MidScaff):
         # TODO: hard coded in the Y direction, but need to generalize this
         # Sort by the Y coordinate of the top patch, which in our case should be constant for now.
         # In-place sorting should be okay for now...
-        self.basic_scaffs.sort(reverse=True, key=lambda x: x.t_patch.coords[0][1])
+        if (abs(np.dot(push_dir, XAxis)) == 1):
+            self.basic_scaffs.sort(reverse=True, key=lambda x: x.t_patch.coords[0][0])
+            heightIndex = 0
+        elif (abs(np.dot(push_dir, YAxis)) == 1):
+            self.basic_scaffs.sort(reverse=True, key=lambda x: x.t_patch.coords[0][1])
+            heightIndex = 1
+        elif (abs(np.dot(push_dir, ZAxis)) == 1):
+            self.basic_scaffs.sort(reverse=True, key=lambda x: x.t_patch.coords[0][2])
+            heightIndex = 2
+        else:
+            raise Exception("Push direction is not a cardinal direction!")
+
+        # self.basic_scaffs.sort(reverse=True, key=lambda x: x.t_patch.coords[0][1])
 
         highest_patch = self.basic_scaffs[0].t_patch
-        h0 = highest_patch.coords[0][1]
+        h0 = highest_patch.coords[0][heightIndex]
+
+        print("h0: " + str(h0))
 
         for basic_scaff in self.basic_scaffs:
-            h = basic_scaff.t_patch.coords[0][1]
-            b = basic_scaff.b_patch.coords[0][1]
+            # TODO: hard coded for the Y direction, but need to generalize
+            h = basic_scaff.t_patch.coords[0][heightIndex]
+            b = basic_scaff.b_patch.coords[0][heightIndex]
+
+            print("h: " + str(h))
+            print("b: " + str(b))
 
             # print("basic scaff:")
             # print(basic_scaff)
-            basic_scaff.start_time = (h0 - h) * self.end_time / h0
-            # print("start time: " + str(basic_scaff.start_time))
-            basic_scaff.end_time = (h0 - b) * self.end_time / h0
-            # print("end time: " + str(basic_scaff.end_time))
+
+            print("h0 - h: " + str(h0 - h))
+            print("h0 - b: " + str(h0 - b))
+
+            basic_scaff.start_time = (h0 - h) * self.end_time / abs(h0)
+            print("start time: " + str(basic_scaff.start_time))
+            basic_scaff.end_time = (h0 - b) * self.end_time / abs(h0)
+            print("end time: " + str(basic_scaff.end_time))
 
         print("Finished generating fold times for HMidScaff")
 
@@ -1169,7 +1191,7 @@ class InputScaff:
             raise Exception("No basic scaffolds to fold")
 
         # First, generate time zones for basic scaffolds
-        self.mid_scaffs[0].gen_fold_times()
+        self.mid_scaffs[0].gen_fold_times(self.push_dir)
 
         # First, generate basic scaffold solutions
         for scaff in self.basic_scaffs:
