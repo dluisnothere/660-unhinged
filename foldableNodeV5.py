@@ -35,7 +35,7 @@ kPluginNodeTypeName = "foldableNode"
 
 # Give the node a unique ID. Make sure this ID is different from all of your
 # other nodes!
-foldableNodeId = OpenMaya.MTypeId(0x8706)
+foldableNodeId = OpenMaya.MTypeId(0x8712)
 
 EPS = 0.005
 
@@ -215,118 +215,52 @@ def checkScaffoldConnectionTopBase(parent, childPatch: str):
         exit(1)
 
 
-def checkScaffoldConnectionBaseNoErr(base: str, foldable: OpenMaya.MPoint, pushAxis: OpenMaya.MVector) -> bool:
+def checkScaffoldConnectionBaseNoErr(base: str, foldable: OpenMaya.MPoint) -> bool:
     # Check scaffold connection between a base patch and closest points on the foldable patch
     baseVertices = getObjectVerticeNamesAndPositions(base)
 
-    # [baseLevel, minAxis1, minAxis2]
-    idxSet = []
-    if (areVectorsEqual(pushAxis, negYAxis) or areVectorsEqual(pushAxis, posYAxis)):
-        # [y, x, z]
-        idxSet = [1, 0, 2]
-    elif (areVectorsEqual(pushAxis, negXAxis) or areVectorsEqual(pushAxis, posXAxis)):
-        # [x, y, z]
-        idxSet = [0, 1, 2]
-    elif (areVectorsEqual(pushAxis, negZAxis) or areVectorsEqual(pushAxis, posZAxis)):
-        # [z, x, y]
-        idxSet = [2, 0, 1]
-
-    baseLevel = idxSet[0]  # y by default
-    span1 = idxSet[1]  # x
-    span2 = idxSet[2]  # z
-
-    print("idxSet: {}".format(idxSet))
-
     # Get child's global Y position
     # TODO: make this more generic in the future
-    childLevel = float(baseVertices["{}.vtx[0]".format(base)][baseLevel])
-    print("child's vertices: {}".format(baseVertices["{}.vtx[0]".format(base)]))
-    print("childLevel: {}".format(childLevel))
+    baseY = float(baseVertices["{}.vtx[0]".format(base)][1])
 
     # Get child's max x and min x
-    baseMaxA = max(baseVertices.values(), key=lambda x: x[span1])[span1]
-    baseMinA = min(baseVertices.values(), key=lambda x: x[span1])[span1]
+    baseMaxX = max(baseVertices.values(), key=lambda x: x[0])[0]
+    baseMinX = min(baseVertices.values(), key=lambda x: x[0])[0]
 
     # Get child's max z and min z
-    baseMaxB = max(baseVertices.values(), key=lambda x: x[span2])[span2]
-    baseMinB = min(baseVertices.values(), key=lambda x: x[span2])[span2]
+    baseMaxZ = max(baseVertices.values(), key=lambda x: x[2])[2]
+    baseMinZ = min(baseVertices.values(), key=lambda x: x[2])[2]
 
     # check if both of the foldable's closest vertices are within the base's bounding box
     connected = True
     for element in foldable:
         vertex = element[2]
-        print("verices in foldable closest to base: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
-        if abs(vertex[baseLevel] - childLevel) > 0.0001:
-            print("baseLevel values are not the same!")
-            print("Parent Y: {}".format(vertex[baseLevel]))
-            print("Child Y: {}".format(childLevel))
+        # print("verices in foldable closest to base: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+        if abs(vertex[1] - baseY) > 0.0001:
+            print("Y values are not the same!")
+            print("Parent Y: {}".format(vertex[1]))
+            print("Child Y: {}".format(baseY))
             connected = False
             break
-        if (vertex[span1] < baseMinA - EPS):
+        if (vertex[0] < baseMinX - EPS):
             print("X value is less than minX")
-            print("X value: {}".format(vertex[span1]))
-            print("minX: {}".format(baseMinA))
+            print("X value: {}".format(vertex[0]))
+            print("minX: {}".format(baseMinX))
             connected = False
             break
-        if vertex[span1] > baseMaxA + EPS:
+        if vertex[0] > baseMaxX + EPS:
             print("X value is larger than maxX")
             connected = False
             break
-        if vertex[span2] < baseMinB - EPS:
+        if vertex[2] < baseMinZ - EPS:
             print("Z value is smaller childMinZ")
             connected = False
             break
-        if vertex[span2] > baseMaxB + EPS:
+        if vertex[2] > baseMaxZ + EPS:
             print("Z value is larger than childMaxZ")
             connected = False
             break
     return connected
-
-    # # Check scaffold connection between a base patch and closest points on the foldable patch
-    # baseVertices = getObjectVerticeNamesAndPositions(base)
-    #
-    # # Get child's global Y position
-    # # TODO: make this more generic in the future
-    # baseY = float(baseVertices["{}.vtx[0]".format(base)][1])
-    #
-    # # Get child's max x and min x
-    # baseMaxX = max(baseVertices.values(), key=lambda x: x[0])[0]
-    # baseMinX = min(baseVertices.values(), key=lambda x: x[0])[0]
-    #
-    # # Get child's max z and min z
-    # baseMaxZ = max(baseVertices.values(), key=lambda x: x[2])[2]
-    # baseMinZ = min(baseVertices.values(), key=lambda x: x[2])[2]
-    #
-    # # check if both of the foldable's closest vertices are within the base's bounding box
-    # connected = True
-    # for element in foldable:
-    #     vertex = element[2]
-    #     # print("verices in foldable closest to base: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
-    #     if abs(vertex[1] - baseY) > 0.0001:
-    #         print("Y values are not the same!")
-    #         print("Parent Y: {}".format(vertex[1]))
-    #         print("Child Y: {}".format(baseY))
-    #         connected = False
-    #         break
-    #     if (vertex[0] < baseMinX - EPS):
-    #         print("X value is less than minX")
-    #         print("X value: {}".format(vertex[0]))
-    #         print("minX: {}".format(baseMinX))
-    #         connected = False
-    #         break
-    #     if vertex[0] > baseMaxX + EPS:
-    #         print("X value is larger than maxX")
-    #         connected = False
-    #         break
-    #     if vertex[2] < baseMinZ - EPS:
-    #         print("Z value is smaller childMinZ")
-    #         connected = False
-    #         break
-    #     if vertex[2] > baseMaxZ + EPS:
-    #         print("Z value is larger than childMaxZ")
-    #         connected = False
-    #         break
-    # return connected
 
 
 def isPolyPlane(obj):
@@ -388,7 +322,6 @@ class MayaBasicScaffoldWrapper():
         self.origFoldPatchHeight = cmds.getAttr("{}.scaleX".format(patches[0]))
 
         self.pushAxis = pushAxis
-        self.rotAxis = None
 
         self.maxHinges = maxHinges
         self.minHinges = minHinges
@@ -540,7 +473,7 @@ class MayaBasicScaffoldWrapper():
 
     # TODO: Refactor there must be a better way to do this
     # Width of the patch is the distance along the rotation axis
-    def getPatchWidth(self, vertices: np.ndarray) -> float:
+    def getPatchWidth(self, vertices: np.ndarray, rotAxis: OpenMaya.MVector) -> float:
         # print("get patch middle for patch: " + patch)
         # print("And rotation axis: {:.6f}, {:.6f}, {:.6f}".format(rotAxis[0], rotAxis[1], rotAxis[2]))
         # vertices = list(getObjectVerticeNamesAndPositions(patch).values())
@@ -550,7 +483,7 @@ class MayaBasicScaffoldWrapper():
         # for coords in patchCoords:
         #     vertices.append(OpenMaya.MVector(coords[0], coords[1], coords[2]))
 
-        if (areVectorsEqual(self.rotAxis, posXAxis) or areVectorsOpposite(self.rotAxis, posXAxis)):
+        if (areVectorsEqual(rotAxis, posXAxis) or areVectorsOpposite(rotAxis, posXAxis)):
             # Get the length of the patch along axis X
             minX = vertices[0][0]
             maxX = vertices[0][0]
@@ -561,7 +494,7 @@ class MayaBasicScaffoldWrapper():
                     maxX = vertex[0]
 
             return maxX - minX
-        elif (areVectorsEqual(self.rotAxis, posYAxis) or areVectorsOpposite(self.rotAxis, posYAxis)):
+        elif (areVectorsEqual(rotAxis, posYAxis) or areVectorsOpposite(rotAxis, posYAxis)):
             # Get the length of the patch along axis Y
             minY = vertices[0][1]
             maxY = vertices[0][1]
@@ -572,7 +505,7 @@ class MayaBasicScaffoldWrapper():
                     maxY = vertex[1]
 
             return maxY - minY
-        elif (areVectorsEqual(self.rotAxis, posZAxis) or areVectorsOpposite(self.rotAxis, posZAxis)):
+        elif (areVectorsEqual(rotAxis, posZAxis) or areVectorsOpposite(rotAxis, posZAxis)):
             # Get the length of the patch along axis Z
             minZ = vertices[0][2]
             maxZ = vertices[0][2]
@@ -586,7 +519,7 @@ class MayaBasicScaffoldWrapper():
         else:
             raise Exception("ERROR: Invalid rotation axis")
 
-    def shrinkPatch(self, shapeTraverseOrder, endPiece, numPieces, startPiece):
+    def shrinkPatch(self, shapeTraverseOrder, endPiece, numPieces, startPiece, rotAxis: OpenMaya.MVector):
         # print("shrinking patches...")
 
         # TODO: shrink only the middle patch
@@ -600,7 +533,7 @@ class MayaBasicScaffoldWrapper():
             foldable_patch_coords = self.patchesObjs[1].coords
 
             # Translate patch to the new midpoint
-            originalPatchWidth = self.getPatchWidth(foldable_patch_coords)
+            originalPatchWidth = self.getPatchWidth(foldable_patch_coords, rotAxis)
             middle = originalPatchWidth / 2
 
             pieceWidth = originalPatchWidth / numPieces
@@ -608,7 +541,7 @@ class MayaBasicScaffoldWrapper():
 
             transform = getObjectTransformFromDag(fPatchName)
 
-            shrinkAxis = self.rotAxis
+            shrinkAxis = rotAxis
 
             translation = shrinkAxis * newMiddle - shrinkAxis * middle
             transform.translateBy(translation, OpenMaya.MSpace.kTransform)
@@ -621,168 +554,62 @@ class MayaBasicScaffoldWrapper():
 
     def generateNewPatches(self, originalPatch: str, numHinges: int) -> (List[str], List[List[List[float]]]):
 
-        # TODO: I'm about to do something diabolical
-        if (areVectorsEqual(self.pushAxis, posYAxis) or areVectorsOpposite(self.pushAxis, posYAxis)):
-            # Compute the new patch scale values based on original_patch's scale and num_patches
-            # TODO: Hard coded for split in the x Direction, but need to be more general later on.
-            numPatches = numHinges + 1
-            originalScaleX = cmds.getAttr(originalPatch + ".scaleX")
-            originalScaleZ = cmds.getAttr(originalPatch + ".scaleZ")
+        # Compute the new patch scale values based on original_patch's scale and num_patches
+        # TODO: Hard coded for split in the x Direction, but need to be more general later on.
+        numPatches = numHinges + 1
+        originalScaleX = cmds.getAttr(originalPatch + ".scaleX")
+        originalScaleZ = cmds.getAttr(originalPatch + ".scaleZ")
 
-            newPatchScale = originalScaleX / numPatches
+        newPatchScale = originalScaleX / numPatches
 
-            # Generate new patches.
-            newPatches = []
-            for i in range(0, numPatches):
-                # This command generates a new polyplane in the scene
-                newPatch = cmds.polyPlane(name=originalPatch + "_" + str(i), width=newPatchScale, height=originalScaleZ,
-                                          subdivisionsX=1,
-                                          subdivisionsY=1)
-                newPatches.append(newPatch[0])
+        # Generate new patches.
+        newPatches = []
+        for i in range(0, numPatches):
+            # TODO: Based on the axis we shrink, either width or height will be the original patch's scale
+            # This command generates a new polyplane in the scene
+            newPatch = cmds.polyPlane(name=originalPatch + "_" + str(i), width=newPatchScale, height=originalScaleZ,
+                                      subdivisionsX=1,
+                                      subdivisionsY=1)
+            newPatches.append(newPatch[0])
 
-            # Rotate the new patches with the same rotation as the original_patch
-            originalRotation = cmds.getAttr(originalPatch + ".rotate")
-            for i in range(0, len(newPatches)):
-                cmds.setAttr(newPatches[i] + ".rotate", originalRotation[0][0], originalRotation[0][1],
-                             originalRotation[0][2])
+        # Rotate the new patches with the same rotation as the original_patch
+        originalRotation = cmds.getAttr(originalPatch + ".rotate")
+        for i in range(0, len(newPatches)):
+            cmds.setAttr(newPatches[i] + ".rotate", originalRotation[0][0], originalRotation[0][1],
+                         originalRotation[0][2])
 
-            # Translate the patches along the direction it has been scaled in (but that is local)
-            originalTranslation = cmds.getAttr(originalPatch + ".translate")
+        # Translate the patches along the direction it has been scaled in (but that is local)
+        # TODO: Axis of scaling is hard coded
+        originalTranslation = cmds.getAttr(originalPatch + ".translate")
 
-            # Get the world location of the bottom of the original patch
-            originalPatchBottom = originalTranslation[0][1] - originalScaleX * 0.5
-            newPatchPositions = []
-            newTransforms = []
-            for i in range(0, len(newPatches)):
-                newTranslate = [originalTranslation[0][0], originalPatchBottom + newPatchScale * (i + 0.5),
-                                originalTranslation[0][2]]
-                newPatchPositions.append(newTranslate)
-                cmds.setAttr(newPatches[i] + ".translate", newTranslate[0], newTranslate[1], newTranslate[2])
+        # Get the world location of the bottom of the original patch
+        # TODO: hard coded for the Y direction
+        originalPatchBottom = originalTranslation[0][1] - originalScaleX * 0.5
+        newPatchPositions = []
+        newTransforms = []
+        for i in range(0, len(newPatches)):
+            newTranslate = [originalTranslation[0][0], originalPatchBottom + newPatchScale * (i + 0.5),
+                            originalTranslation[0][2]]
+            newPatchPositions.append(newTranslate)
+            cmds.setAttr(newPatches[i] + ".translate", newTranslate[0], newTranslate[1], newTranslate[2])
 
-                # Append new patch transform to list of new transforms
-                # Which will be used for its scene reset at the beginning
-                newTransforms.append([newTranslate, originalRotation])
+            # Append new patch transform to list of new transforms
+            # Which will be used for its scene reset at the beginning
+            # TODO: why is this a tuple with the name in the first spot?
+            newTransforms.append([newTranslate, originalRotation])
 
-            # Pivot the patches.
-            for i in range(0, len(newPatches)):
-                # Set the pivot location to the bottom of the patch
-                newPivot = [newPatchScale * 0.5, 0, 0]
-                transform = getObjectTransformFromDag(newPatches[i])
-                transform.setRotatePivot(OpenMaya.MPoint(newPivot[0], newPivot[1], newPivot[2]), OpenMaya.MSpace.kTransform,
-                                         True)
+        # Pivot the patches.
+        for i in range(0, len(newPatches)):
+            # Set the pivot location to the bottom of the patch
+            newPivot = [newPatchScale * 0.5, 0, 0]
+            transform = getObjectTransformFromDag(newPatches[i])
+            transform.setRotatePivot(OpenMaya.MPoint(newPivot[0], newPivot[1], newPivot[2]), OpenMaya.MSpace.kTransform,
+                                     True)
 
-            newPatches.reverse()
-            newTransforms.reverse()
+        newPatches.reverse()
+        newTransforms.reverse()
 
-            return newPatches, newTransforms
-        elif (areVectorsEqual(self.pushAxis, posZAxis) or areVectorsOpposite(self.pushAxis, posZAxis)):
-            # Compute the new patch scale values based on original_patch's scale and num_patches
-            numPatches = numHinges + 1
-            originalScaleX = cmds.getAttr(originalPatch + ".scaleX")
-            originalScaleZ = cmds.getAttr(originalPatch + ".scaleZ")
-
-            newPatchScale = originalScaleX / numPatches
-
-            # Generate new patches.
-            newPatches = []
-            for i in range(0, numPatches):
-                # This command generates a new polyplane in the scene
-                newPatch = cmds.polyPlane(name=originalPatch + "_" + str(i), width=originalScaleZ, height=newPatchScale,
-                                          subdivisionsX=1,
-                                          subdivisionsY=1)
-                newPatches.append(newPatch[0])
-
-            # Rotate the new patches with the same rotation as the original_patch
-            originalRotation = cmds.getAttr(originalPatch + ".rotate")
-            for i in range(0, len(newPatches)):
-                cmds.setAttr(newPatches[i] + ".rotate", originalRotation[0][0], originalRotation[0][1],
-                             originalRotation[0][2])
-
-            # Translate the patches along the direction it has been scaled in (but that is local)
-            originalTranslation = cmds.getAttr(originalPatch + ".translate")
-
-            # Get the world location of the bottom of the original patch
-            originalPatchBottom = originalTranslation[0][2] - originalScaleX * 0.5
-            newPatchPositions = []
-            newTransforms = []
-            for i in range(0, len(newPatches)):
-                newTranslate = [originalTranslation[0][0], originalTranslation[0][1],
-                                originalPatchBottom + newPatchScale * (i + 0.5)]
-                newPatchPositions.append(newTranslate)
-                cmds.setAttr(newPatches[i] + ".translate", newTranslate[0], newTranslate[1], newTranslate[2])
-
-                # Append new patch transform to list of new transforms
-                # Which will be used for its scene reset at the beginning
-                newTransforms.append([newTranslate, originalRotation])
-
-            # Pivot the patches.
-            for i in range(0, len(newPatches)):
-                # Set the pivot location to the bottom of the patch
-                newPivot = [0, 0, newPatchScale * 0.5]
-                transform = getObjectTransformFromDag(newPatches[i])
-                transform.setRotatePivot(OpenMaya.MPoint(newPivot[0], newPivot[1], newPivot[2]),
-                                         OpenMaya.MSpace.kTransform,
-                                         True)
-
-            newPatches.reverse()
-            newTransforms.reverse()
-
-        elif (areVectorsEqual(self.pushAxis, posXAxis) or areVectorsOpposite(self.pushAxis, posXAxis)):
-            # Compute the new patch scale values based on original_patch's scale and num_patches
-            numPatches = numHinges + 1
-            originalScaleX = cmds.getAttr(originalPatch + ".scaleX")
-            originalScaleZ = cmds.getAttr(originalPatch + ".scaleZ")
-
-            newPatchScale = originalScaleX / numPatches
-
-            # Generate new patches.
-            newPatches = []
-            for i in range(0, numPatches):
-                # TODO: Based on the axis we shrink, either width or height will be the original patch's scale
-                # This command generates a new polyplane in the scene
-                newPatch = cmds.polyPlane(name=originalPatch + "_" + str(i), width=newPatchScale, height=originalScaleZ,
-                                          subdivisionsX=1,
-                                          subdivisionsY=1)
-                newPatches.append(newPatch[0])
-
-            # Rotate the new patches with the same rotation as the original_patch
-            originalRotation = cmds.getAttr(originalPatch + ".rotate")
-            for i in range(0, len(newPatches)):
-                cmds.setAttr(newPatches[i] + ".rotate", originalRotation[0][0], originalRotation[0][1],
-                             originalRotation[0][2])
-
-            # Translate the patches along the direction it has been scaled in (but that is local)
-            originalTranslation = cmds.getAttr(originalPatch + ".translate")
-
-            # Get the world location of the bottom of the original patch
-            originalPatchBottom = originalTranslation[0][0] - originalScaleX * 0.5
-            newPatchPositions = []
-            newTransforms = []
-            for i in range(0, len(newPatches)):
-                newTranslate = [originalPatchBottom + newPatchScale * (i + 0.5), originalTranslation[0][1],
-                               originalTranslation[0][2]]
-                newPatchPositions.append(newTranslate)
-                cmds.setAttr(newPatches[i] + ".translate", newTranslate[0], newTranslate[1], newTranslate[2])
-
-                # Append new patch transform to list of new transforms
-                # Which will be used for its scene reset at the beginning
-                # TODO: why is this a tuple with the name in the first spot?
-                newTransforms.append([newTranslate, originalRotation])
-
-            # Pivot the patches.
-            for i in range(0, len(newPatches)):
-                # Set the pivot location to the bottom of the patch
-                newPivot = [-newPatchScale * 0.5, 0, 0]
-                transform = getObjectTransformFromDag(newPatches[i])
-                transform.setRotatePivot(OpenMaya.MPoint(newPivot[0], newPivot[1], newPivot[2]),
-                                         OpenMaya.MSpace.kTransform,
-                                         True)
-
-            newPatches.reverse()
-            newTransforms.reverse()
-        else:
-            print("Push Axis: {:.6f}, {:.6f}, {:.6f}".format(self.pushAxis[0], self.pushAxis[1], self.pushAxis[2]))
-            raise Exception("ERROR: Invalid push axis")
+        return newPatches, newTransforms
 
     # def breakPatches is implemented by the sub classes
 
@@ -897,7 +724,7 @@ class MayaBasicScaffoldWrapper():
 
         # TODO: make more generic in the future
         rotAxis = self.basicScaffold.rot_axis
-        self.rotAxis = OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2])
+        rotAxis = OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2])
 
         # Update the list of shape_traverse_order to include the new patches where the old patch was
         if (recreatePatches and numHinges > 0):
@@ -933,7 +760,7 @@ class MayaBasicScaffoldWrapper():
             angle = self.computeAngle(endAngles, endTime, numHinges, startTime, t)
         elif (t < startTime):
             # Has to go at the end or something otherwise you'll get a space between top patch and the folds
-            self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece)
+            self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece, rotAxis)
 
             # print("VERTICES OF kFold4_0 - INITIAL SHRINK")
             # if cmds.objExists("kFold4_0"):
@@ -949,7 +776,7 @@ class MayaBasicScaffoldWrapper():
         patchTransforms = self.getPatchTransforms(shapeTraverseOrder)
 
         # Perform rotations at once, but do not rotate the last patch
-        self.rotatePatches(angle, shapeTraverseOrder, isLeft)
+        self.rotatePatches(angle, rotAxis, shapeTraverseOrder, isLeft)
 
         # print("VERTICES OF kFold4_0 - ROTATE PATCHES")
         # if cmds.objExists("kFold4_0"):
@@ -967,7 +794,7 @@ class MayaBasicScaffoldWrapper():
         #         print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
         # Has to go at the end or something otherwise you'll get a space between top patch and the folds
-        self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece)
+        self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece, rotAxis)
 
         # print("VERTICES OF kFold4_0 - FINAL SHRINK PATCH")
         # if cmds.objExists("kFold4_0"):
@@ -1014,7 +841,7 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
         self.basicScaffold: fold.TBasicScaff = fold.TBasicScaff(patchObjects[0], patchObjects[1])
 
-    def rotatePatches(self, angle: float, shapeTraverseOrder: List[str], isLeft: bool):
+    def rotatePatches(self, angle: float, rotAxis: List[float], shapeTraverseOrder: List[str], isLeft: bool):
         print("rotating patches... ===========")
         if not isLeft:
             angle = -angle
@@ -1023,7 +850,7 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
             shape = shapeTraverseOrder[i]
             pTransform = getObjectTransformFromDag(shape)
 
-            q = OpenMaya.MQuaternion(math.radians(angle), OpenMaya.MVector(self.rotAxis[0], self.rotAxis[1], self.rotAxis[2]))
+            q = OpenMaya.MQuaternion(math.radians(angle), OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2]))
             pTransform.rotateBy(q, OpenMaya.MSpace.kTransform)
 
             angle = -angle
@@ -1187,7 +1014,7 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
             # Ensure the parent and child are actually connected
             # TODO: generalize to T scaffolds as well
             if (i == 0):
-                checkScaffoldConnectionBaseNoErr(shape, currentClosest, self.pushAxis)
+                checkScaffoldConnectionBaseNoErr(shape, currentClosest)
             # THE ONLY DIFFERENCE AND THE H BASIC SCAFF IS THAT WE DON'T DO A SPECIAL CHECK WITH TOP BASE PATCH
             else:
                 checkScaffoldConnection(childPivot, middlePoint)
@@ -1204,7 +1031,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
         - basePatches: the base patch
         - foldablePatch: foldable patch
         - foldOption: list of fold solutions
-            - foldTransform: 
+            - foldTransform:
                 - startAngles
                 - endAngles
                 - startTime
@@ -1218,7 +1045,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
         super().__init__(patchObjects, basePatch, patches, pushAxis, maxHinges, minHinges, shrinks)
         self.basicScaffold: fold.HBasicScaff = fold.HBasicScaff(patchObjects[0], patchObjects[1], patchObjects[2])
 
-    def rotatePatches(self, angle: float, shapeTraverseOrder: List[str], isLeft: bool):
+    def rotatePatches(self, angle: float, rotAxis: List[float], shapeTraverseOrder: List[str], isLeft: bool):
         print("rotating patches... ===========")
         if not isLeft:
             angle = -angle
@@ -1227,7 +1054,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
             shape = shapeTraverseOrder[i]
             pTransform = getObjectTransformFromDag(shape)
 
-            q = OpenMaya.MQuaternion(math.radians(angle), OpenMaya.MVector(self.rotAxis[0], self.rotAxis[1], self.rotAxis[2]))
+            q = OpenMaya.MQuaternion(math.radians(angle), OpenMaya.MVector(rotAxis[0], rotAxis[1], rotAxis[2]))
             pTransform.rotateBy(q, OpenMaya.MSpace.kTransform)
 
             angle = -angle
@@ -1316,7 +1143,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
             # Ensure the parent and child are actually connected
             # TODO: generalize to T scaffolds as well
             if (i == 0):
-                checkScaffoldConnectionBaseNoErr(shape, currentClosest, self.pushAxis)
+                checkScaffoldConnectionBaseNoErr(shape, currentClosest)
             elif (i == len(shapeTraverseOrder) - 2):
                 # THE ONLY DIFFERENCE AND THE T BASIC SCAFF IS THAT WE DO A BASIC PATCH CHECK
                 checkScaffoldConnectionTopBase(currentClosest, child)
@@ -1413,7 +1240,7 @@ class MayaInputScaffoldWrapper():
                 closestVertices = getClosestVertices(vertices, pivot, 2)
 
                 # TODO: might get scaffolds where they're not connected like this..
-                status = checkScaffoldConnectionBaseNoErr(baseObj.name, closestVertices, self.pushAxis)
+                status = checkScaffoldConnectionBaseNoErr(baseObj.name, closestVertices)
                 if status:
                     # generate edges using patch ids
                     edgesObjs.append([baseObj, foldpatchObj])
@@ -1690,7 +1517,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
             raise Exception("No patches inputted")
 
         # TODO: hard code push axis for now
-        pushAxis = [-1, 0, 0]
+        pushAxis = [0, -1, 0]
 
         recreatePatches = False
 

@@ -157,7 +157,8 @@ global proc int genBasePatch()
 
 global proc int densifyGrid(int $size)
 {
-    grid -d $size -sp 1;
+    int $roundedValue = (int)($size + 1) / 2 * 2;
+    grid -d $roundedValue -sp 1;
     return true;
 }
 
