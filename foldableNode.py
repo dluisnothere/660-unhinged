@@ -126,11 +126,27 @@ def getClosestVertices(vertices: dict, p: OpenMaya.MVector, n: int) -> list:
         distList.append((vertex_name, dist, vertexPoint))
 
     distList.sort(key=lambda x: x[1])
+
+    # print each entry in list
+    # for entry in distList:
+    distListAdj = distList[:n]
+    print("Current Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(distListAdj[0][0],
+                                                                                      distListAdj[0][1],
+                                                                                      distListAdj[0][2][0],
+                                                                                      distListAdj[0][2][1],
+                                                                                      distListAdj[0][2][2]))
+    print("Current Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(distListAdj[1][0],
+                                                                                      distListAdj[1][1],
+                                                                                      distListAdj[1][2][0],
+                                                                                      distListAdj[1][2][1],
+                                                                                      distListAdj[1][2][2]))
+
     return distList[:n]
 
 
 def getClosestVerticesTopBase(vertices: dict, base: str, n: int) -> list:
     print("finding closest vertices top base")
+    print("base: {}".format(base))
 
     transformDagPath = getObjectObjectFromDag(base)
 
@@ -141,7 +157,7 @@ def getClosestVerticesTopBase(vertices: dict, base: str, n: int) -> list:
     # print("Checking if shape node is of type mesh")
     # Check if the shape node is of type "mesh"
     if transformDagPath.node().hasFn(OpenMaya.MFn.kMesh):
-        # print("creating mesh")
+        print("creating mesh")
         # Create an MFnMesh function set
         fnMesh = OpenMaya.MFnMesh(transformDagPath)
         distList = []
@@ -156,6 +172,9 @@ def getClosestVerticesTopBase(vertices: dict, base: str, n: int) -> list:
 
         distList.sort(key=lambda x: x[1])
         return distList[:n]
+    else:
+        print("Error: Shape node is not of type mesh")
+        exit(1)
 
 
 def checkScaffoldConnection(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVector):
@@ -205,7 +224,7 @@ def checkScaffoldConnectionTopBase(parent, childPatch: str, pushAxis: OpenMaya.M
         vertex = element[2]
         # print("vertex: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
         if abs(vertex[baseLevel] - childY) > 0.0001:
-            print("Y values are not the same!")
+            print("baseLevel values are not the same!")
             print("Parent Y: {}".format(vertex[1]))
             print("Child Y: {}".format(childY))
             connected = False
@@ -1435,7 +1454,12 @@ class MayaInputScaffoldWrapper():
 
                 # find the closest vertices from fold to pivot
                 vertices = getObjectVerticeNamesAndPositions(foldpatchObj.name)
-                closestVertices = getClosestVertices(vertices, pivot, 2)
+                # i don't think this logic will work?
+                # vertices = list
+                # pivot = mpoint
+                # vertices: dict, base: str, n: int
+                closestVertices = getClosestVerticesTopBase(vertices, baseObj.name, 2)
+                # closestVertices = getClosestVertices(vertices, pivot, 2)
 
                 # TODO: might get scaffolds where they're not connected like this..
                 status = checkScaffoldConnectionBaseNoErr(baseObj.name, closestVertices, self.pushAxis)
@@ -1715,7 +1739,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
             raise Exception("No patches inputted")
 
         # TODO: hard code push axis for now
-        pushAxis = [-1, 0, 0]
+        pushAxis = [0, -1, 0]
 
         recreatePatches = False
 

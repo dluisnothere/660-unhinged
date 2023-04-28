@@ -63,90 +63,20 @@ def calc_normal(rect: np.ndarray(np.ndarray(float))) -> np.ndarray(float):
     return normalize(surf)
 
 
-def rectangle_overlap(rect1: np.ndarray(np.ndarray(float)), rect2: np.ndarray(np.ndarray(float))) -> bool:
-    # If rectangles not in the same plane or don't have the same/opposite normals, then don't overlap
-    norm1 = calc_normal(rect1)
-    norm2 = calc_normal(rect2)
+def check_rectangle_overlap(rect1, rect2):
+    # Find the minimum and maximum x and z values for both rectangles
+    min_rect1_x, max_rect1_x = min(rect1[:, 0]), max(rect1[:, 0])
+    min_rect1_z, max_rect1_z = min(rect1[:, 2]), max(rect1[:, 2])
 
-    if (abs(np.dot(norm1, norm2)) != 1):
-        return False
+    min_rect2_x, max_rect2_x = min(rect2[:, 0]), max(rect2[:, 0])
+    min_rect2_z, max_rect2_z = min(rect2[:, 2]), max(rect2[:, 2])
 
-    isXAxis: bool = abs(np.dot(norm1, XAxis)) == 1
-    isYAxis: bool = abs(np.dot(norm1, YAxis)) == 1
-    isZAxis: bool = abs(np.dot(norm1, ZAxis)) == 1
+    # Check if the rectangles overlap in the x and z dimensions
+    x_overlap = min_rect1_x < max_rect2_x and min_rect2_x < max_rect1_x
+    z_overlap = min_rect1_z < max_rect2_z and min_rect2_z < max_rect1_z
 
-    if not isXAxis and not isZAxis and not isYAxis:
-        raise Exception("Rectangles are not axis aligned...?")
-    else:
-        # If rectangles not coplanar
-        if (isXAxis):
-            rect1_minY = min(rect1[0][1], rect1[1][1], rect1[2][1], rect1[3][1])
-            rect1_maxY = max(rect1[0][1], rect1[1][1], rect1[2][1], rect1[3][1])
-            rect1_minZ = min(rect1[0][2], rect1[1][2], rect1[2][2], rect1[3][2])
-            rect1_maxZ = max(rect1[0][2], rect1[1][2], rect1[2][2], rect1[3][2])
-
-            # if any vertex lies within the rectangle above, then there is some degree of overlap
-            for vertex in rect2:
-                if rect1_minY <= vertex[1] <= rect1_maxY and rect1_minZ <= vertex[2] <= rect1_maxZ:
-                    return True
-
-            rect2_minY = min(rect2[0][1], rect2[1][1], rect2[2][1], rect2[3][1])
-            rect2_maxY = max(rect2[0][1], rect2[1][1], rect2[2][1], rect2[3][1])
-            rect2_minZ = min(rect2[0][2], rect2[1][2], rect2[2][2], rect2[3][2])
-            rect2_maxZ = max(rect2[0][2], rect2[1][2], rect2[2][2], rect2[3][2])
-
-            for vertex in rect1:
-                if rect2_minY <= vertex[1] <= rect2_maxY and rect2_minZ <= vertex[2] <= rect2_maxZ:
-                    return True
-
-            return False
-
-        elif (isYAxis):
-            rect1_minX = min(rect1[0][0], rect1[1][0], rect1[2][0], rect1[3][0])
-            rect1_maxX = max(rect1[0][0], rect1[1][0], rect1[2][0], rect1[3][0])
-            rect1_minZ = min(rect1[0][2], rect1[1][2], rect1[2][2], rect1[3][2])
-            rect1_maxZ = max(rect1[0][2], rect1[1][2], rect1[2][2], rect1[3][2])
-
-            # if any vertex lies within the rectangle above, then there is some degree of overlap
-            for vertex in rect2:
-                if rect1_minX <= vertex[0] <= rect1_maxX and rect1_minZ <= vertex[2] <= rect1_maxZ:
-                    return True
-
-            rect2_minX = min(rect2[0][0], rect2[1][0], rect2[2][0], rect2[3][0])
-            rect2_maxX = max(rect2[0][0], rect2[1][0], rect2[2][0], rect2[3][0])
-            rect2_minZ = min(rect2[0][2], rect2[1][2], rect2[2][2], rect2[3][2])
-            rect2_maxZ = max(rect2[0][2], rect2[1][2], rect2[2][2], rect2[3][2])
-
-            for vertex in rect1:
-                if rect2_minX <= vertex[0] <= rect2_maxX and rect2_minZ <= vertex[2] <= rect2_maxZ:
-                    return True
-
-            return False
-
-        elif (isZAxis):
-            rect1_minX = min(rect1[0][0], rect1[1][0], rect1[2][0], rect1[3][0])
-            rect1_maxX = max(rect1[0][0], rect1[1][0], rect1[2][0], rect1[3][0])
-            rect1_minY = min(rect1[0][1], rect1[1][1], rect1[2][1], rect1[3][1])
-            rect1_maxY = max(rect1[0][1], rect1[1][1], rect1[2][1], rect1[3][1])
-
-            # if any vertex lies within the rectangle above, then there is some degree of overlap
-            for vertex in rect2:
-                if rect1_minX <= vertex[0] <= rect1_maxX and rect1_minY <= vertex[1] <= rect1_maxY:
-                    return True
-
-            rect2_minX = min(rect2[0][0], rect2[1][0], rect2[2][0], rect2[3][0])
-            rect2_maxX = max(rect2[0][0], rect2[1][0], rect2[2][0], rect2[3][0])
-            rect2_minY = min(rect2[0][1], rect2[1][1], rect2[2][1], rect2[3][1])
-            rect2_maxY = max(rect2[0][1], rect2[1][1], rect2[2][1], rect2[3][1])
-
-            for vertex in rect1:
-                if rect2_minX <= vertex[0] <= rect2_maxX and rect2_minY <= vertex[1] <= rect2_maxY:
-                    return True
-
-            return False
-        else:
-            raise Exception("WTF? should never hit here")
-
+    # If both x and z dimensions overlap, the rectangles overlap
+    return x_overlap and z_overlap
 
 def rectangle_area(rect: np.ndarray(np.ndarray(float))):
     # calculate the area of the rectangle
@@ -351,7 +281,7 @@ class FoldOption:
                 # Check their projected foldable areas for the foldable patches don't overlap
                 self_region_vertices = self.projected_region
                 other_region_vertices = other.projected_region
-                if (rectangle_overlap(self_region_vertices, other_region_vertices)):
+                if (check_rectangle_overlap(self_region_vertices, other_region_vertices)):
                     # print("Conflict between: " + str(self.scaff.id) + " and " + str(other.scaff.id))
                     # print("Times overlap and rectangle overlap detected!")
                     return True
@@ -1027,6 +957,55 @@ class InputScaff:
 
         self.alpha = alpha
 
+    # TODO: FOR UNIT TESTING PURPOSES ONLY DO NOT USE IN PRODUCTION
+    def gen_basic_scaffs(self):
+        print("gen basic scaffs")
+        for patch in self.node_list:
+            if patch.patch_type == PatchType.Fold:
+                id: int = patch.id
+                neighbors = list(self.hinge_graph.neighbors(id))
+                if len(neighbors) == 2:
+                    # TODO: Always assume push axis is negative for now
+                    # If push axis is negative, base_hi is the one with higher value along the pos of push axis
+                    base1: Patch = self.node_list[neighbors[0]]
+                    base2: Patch = self.node_list[neighbors[1]]
+                    if (self.push_dir == XAxis).all():
+                        if (base1.coords[0][0] > base2.coords[0][0]):
+                            base_hi = base1
+                            base_lo = base2
+                        else:
+                            base_hi = base2
+                            base_lo = base1
+                    elif (self.push_dir == YAxis).all():
+                        if (base1.coords[0][1] > base2.coords[0][1]):
+                            base_hi = base1
+                            base_lo = base2
+                        else:
+                            base_hi = base2
+                            base_lo = base1
+                    elif (self.push_dir == ZAxis).all():
+                        if (base1.coords[0][2] > base2.coords[0][2]):
+                            base_hi = base1
+                            base_lo = base2
+                        else:
+                            base_hi = base2
+                            base_lo = base1
+                    else:
+                        raise Exception("Invalid push direction")
+                    fold0 = self.node_list[id]
+                    self.basic_scaffs.append(HBasicScaff(base_lo, fold0, base_hi))
+                    self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id,
+                                                                     self.node_list[neighbors[1]].id]
+                    print(self.basic_scaffs[-1].id)
+                elif len(neighbors) == 1:
+                    base0 = self.node_list[neighbors[0]]
+                    fold0 = self.node_list[id]
+                    self.basic_scaffs.append(TBasicScaff(base0, fold0))
+                    self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id]
+                    print(self.basic_scaffs[-1].id)
+                else:
+                    print("wtf, no neighbors in the hinge graph??: " + str(id))
+        print("end gen basic scaffs")
 
     def gen_hinge_graph(self):
         print("gen_hinge_graph...")
@@ -1675,7 +1654,7 @@ def test_cube_shape():
 
     push_dir = YAxis
 
-    input = InputScaff(nodes, edges, push_dir, 5, 3)
+    input = InputScaff(nodes, edges, push_dir, 5, 1, 3, 0.5)
 
     input.gen_hinge_graph()
 
@@ -1727,3 +1706,21 @@ def test_cube_shape():
             print(sol.projected_region)
 
 # test_cube_shape()
+
+def test_rectangle_overlap():
+    rect1 = np.array([[0, 0, 0], [1, 0, 0], [1, 0, 0.5], [0, 0, 0.5]])
+    rect2 = np.array([[0, 0, 0.5], [1, 0, 0], [1, 0, 1], [0.5, 0, 1]])
+
+    # print(rectangle_overlap(rect1, rect2))
+    print(check_rectangle_overlap(rect1, rect2))
+
+    rect3 = np.array([[0, 0, 0], [0.5, 0, 0], [0.5, 0, 1], [0, 0, 1]])
+    print(check_rectangle_overlap(rect1, rect3))
+
+    rect4 = np.array([[0.5, 0, 0.2], [0.8, 0, 0.2], [0.8, 0, 0.8], [0.5, 0, 0.8]])
+    print(check_rectangle_overlap(rect1, rect4))
+
+    rect5 = np.array([[1, 0, 0], [1.5, 0, 0], [1, 0, 2], [1.5, 0, 2]])
+    print(check_rectangle_overlap(rect1, rect5))
+
+# test_rectangle_overlap()
