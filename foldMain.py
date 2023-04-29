@@ -2701,7 +2701,7 @@ def test_side_by_side_optimal_sequence_input():
     push_dir = YAxis
 
     # nh, ns
-    input = InputScaff(nodes, edges, push_dir, 1, 1, 1, .5)
+    input = InputScaff(nodes, edges, push_dir, 1, 1, 1, 0.5)
 
     input.gen_hinge_graph()
 
@@ -2730,6 +2730,7 @@ def test_side_by_side_optimal_sequence_input():
             print("base low: " + str(basic_scaff.b_patch.id))
 
     input.gen_fold_options()
+
     input.order_folds()
 
     # Generate solutions
