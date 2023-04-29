@@ -74,21 +74,21 @@ def getObjectObjectFromDag(name: str) -> OpenMaya.MDagPath:
     return transform_dag_path
 
 
-def setUpVertBasicScene():
-    print("setUpVertScene: BASIC")
-    pFold = getObjectTransformFromDag("pFoldH")
-    pBaseTop = getObjectTransformFromDag("pBaseTopH")
-    pBaseBottom = getObjectTransformFromDag("pBaseBottomH")
-
-    # Set the translation for pBottom to 0, 0, 0 and pTop to 0, 1, 0.
-    pFold.setTranslation(OpenMaya.MVector(0, 0.5, 5), OpenMaya.MSpace.kWorld)
-    pBaseTop.setTranslation(OpenMaya.MVector(0, 1, 5), OpenMaya.MSpace.kWorld)
-    pBaseBottom.setTranslation(OpenMaya.MVector(0, 0, 5), OpenMaya.MSpace.kWorld)
-
-    # # Set the rotation for both to 0, 0, -90. Keep in mind that EulerRotation is in radians.
-    pFold.setRotation(OpenMaya.MEulerRotation(0, 0, math.radians(-90)))
-    pBaseTop.setRotation(OpenMaya.MEulerRotation(0, 0, 0))
-    pBaseBottom.setRotation(OpenMaya.MEulerRotation(0, 0, 0))
+# def setUpVertBasicScene():
+#     print("setUpVertScene: BASIC")
+#     pFold = getObjectTransformFromDag("pFoldH")
+#     pBaseTop = getObjectTransformFromDag("pBaseTopH")
+#     pBaseBottom = getObjectTransformFromDag("pBaseBottomH")
+#
+#     # Set the translation for pBottom to 0, 0, 0 and pTop to 0, 1, 0.
+#     pFold.setTranslation(OpenMaya.MVector(0, 0.5, 5), OpenMaya.MSpace.kWorld)
+#     pBaseTop.setTranslation(OpenMaya.MVector(0, 1, 5), OpenMaya.MSpace.kWorld)
+#     pBaseBottom.setTranslation(OpenMaya.MVector(0, 0, 5), OpenMaya.MSpace.kWorld)
+#
+#     # # Set the rotation for both to 0, 0, -90. Keep in mind that EulerRotation is in radians.
+#     pFold.setRotation(OpenMaya.MEulerRotation(0, 0, math.radians(-90)))
+#     pBaseTop.setRotation(OpenMaya.MEulerRotation(0, 0, 0))
+#     pBaseBottom.setRotation(OpenMaya.MEulerRotation(0, 0, 0))
 
 
 # Returns a dictionary of names and positions in world space.

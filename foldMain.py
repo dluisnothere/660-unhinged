@@ -2915,5 +2915,4 @@ def test_two_bottom_one_top():
             print(sol.projected_region)
 
         indexTime += 1
-
-test_two_bottom_one_top()
+# test_two_bottom_one_top()
