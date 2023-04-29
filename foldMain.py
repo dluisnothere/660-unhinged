@@ -257,8 +257,10 @@ class FoldOption:
 
         if (self.scaff.start_time == -1 or self.scaff.end_time == -1):
             raise Exception("Error: start or end time not set for scaffold")
+        print("Warning... start or end time not set yet")
 
         self.fold_transform = FoldTransform(start_config, end_config, self.scaff.start_time, self.scaff.end_time)
+        # TODO: the time variables should be set by greedy one step lookahead, which hasn't happened yet
 
     def conflicts_with(self, other: FoldOption) -> bool:
         if (other.scaff.id == self.scaff.id):
@@ -1626,7 +1628,8 @@ class InputScaff:
             raise Exception("No basic scaffolds to fold")
 
         # First, generate time zones for basic scaffolds
-        self.mid_scaffs[0].gen_fold_times(self.push_dir)
+        # for mid_scaff in self.mid_scaffs:
+        #     mid_scaff.gen_fold_times(self.push_dir)
 
         # First, generate basic scaffold solutions
         for scaff in self.basic_scaffs:
