@@ -11,6 +11,7 @@ XAxis = np.array([-1, 0, 0])
 YAxis = np.array([0, -1, 0])
 ZAxis = np.array([0, 0, -1])
 
+smoothbrainiqNumber = .00001
 bigChungusNumber = 10000
 
 
@@ -536,52 +537,147 @@ class FoldOption:
         norm = normalize(calc_normal(self.projected_region))
         proj = self.projected_region
 
-        basesAABB = self.scaff.aabb
+        maxX = max(proj[0][0], proj[1][0], proj[2][0], proj[3][0])
+        minX = min(proj[0][0], proj[1][0], proj[2][0], proj[3][0])
+        maxY = max(proj[0][1], proj[1][1], proj[2][1], proj[3][1])
+        minY = min(proj[0][1], proj[1][1], proj[2][1], proj[3][1])
+        maxZ = max(proj[0][2], proj[1][2], proj[2][2], proj[3][2])
+        minZ = min(proj[0][2], proj[1][2], proj[2][2], proj[3][2])
 
-        maxX = max(proj[0][0], proj[1][0], proj[2][0], proj[3][0], basesAABB[1][0])
-        minX = min(proj[0][0], proj[1][0], proj[2][0], proj[3][0], basesAABB[0][0])
-        maxY = max(proj[0][1], proj[1][1], proj[2][1], proj[3][1], basesAABB[1][1])
-        minY = min(proj[0][1], proj[1][1], proj[2][1], proj[3][1], basesAABB[0][1])
-        maxZ = max(proj[0][2], proj[1][2], proj[2][2], proj[3][2], basesAABB[1][2])
-        minZ = min(proj[0][2], proj[1][2], proj[2][2], proj[3][2], basesAABB[0][2])
+        if type(self.scaff) == HBasicScaff:
+            topP = self.scaff.t_patch.coords
+            maxXT = max(topP[0][0], topP[1][0], topP[2][0], topP[3][0])
+            minXT = min(topP[0][0], topP[1][0], topP[2][0], topP[3][0])
+            maxYT = max(topP[0][1], topP[1][1], topP[2][1], topP[3][1])
+            minYT = min(topP[0][1], topP[1][1], topP[2][1], topP[3][1])
+            maxZT = max(topP[0][2], topP[1][2], topP[2][2], topP[3][2])
+            minZT = min(topP[0][2], topP[1][2], topP[2][2], topP[3][2])
+            # print("Checking HSCAFF")
+            # print(maxXT)
+
+            maxX = max(maxX, maxXT)
+            minX = min(minX, minXT)
+            maxY = max(maxY, maxYT)
+            minY = min(minY, minYT)
+            maxZ = max(maxZ, maxZT)
+            minZ = min(minZ, minZT)
+            #print(maxX)
 
         if (abs(np.dot(norm, XAxis)) == 1):
-            bvh.append([minX, minY, minZ])
-            bvh.append([minX + self.height, maxY, maxZ])
+            bvh.append([minX + smoothbrainiqNumber, minY, minZ])
+            bvh.append([minX + self.height - smoothbrainiqNumber, maxY, maxZ])
         elif (abs(np.dot(norm, YAxis)) == 1):
-            bvh.append([minX, minY, minZ])
-            bvh.append([maxX, minY + self.height, maxZ])
+            print("Y Option")
+            bvh.append([minX, minY + smoothbrainiqNumber, minZ])
+            bvh.append([maxX, minY + self.height - smoothbrainiqNumber, maxZ])
         elif (abs(np.dot(norm, ZAxis)) == 1):
-            bvh.append([minX, minY, minZ])
-            bvh.append([maxX, maxY, minZ + self.height])
+            bvh.append([minX, minY, minZ + smoothbrainiqNumber])
+            bvh.append([maxX, maxY, minZ + self.height - smoothbrainiqNumber])
         else:
             raise Exception("Couldn't find fold direction when constructing BVH")
 
         self.bvh = np.array(bvh)
 
+    def randomstuffIdontwannadelete(self):
+         # print("OPTION==================")
+        # print("Checking option against BVH")
+        # print(min)
+        # print(max)
+        # print(self.isleft)
+        # print("Height")
+        # print(self.height)
+        # print("num patches")
+        # print(self.modification.num_hinges)
+
+        # box = [np.array([min[0], min[1], min[2]]),
+        #        np.array([min[0], min[1], max[2]]),
+        #        np.array([min[0], max[1], min[2]]),
+        #        np.array([min[0], max[1], max[2]]),
+        #        np.array([max[0], min[1], min[2]]),
+        #        np.array([max[0], min[1], max[2]]),
+        #        np.array([max[0], max[1], min[2]]),
+        #        np.array([max[0], max[1], max[2]])]
+
+        # indices = [[0, 2, 4, 6],
+        #            [1, 3, 5, 7],
+        #            [0, 1, 4, 5],
+        #            [2, 3, 6, 7],
+        #            [0, 1, 2, 3],
+        #            [4, 5, 6, 7]]
+
+        # for points in indices:
+        #     face = np.array([box[points[0]], box[points[1]], box[points[2]], box[points[3]]])
+        #     print("COMPARING=================")
+        #     print(patch.coords)
+        #     print(face)
+        #     if not rectangle_intersect(patch.coords, face):
+        #         print("REJECTED")
+        #         return False
+
+        # We are going to cheat a little here and levrage the fact that the scaffolds only exist 
+        # aligned to a particular axis
+        pass 
+
     def checkPatchAgainstBVH(self, patch):
-        min = self.bvh[0]
-        max = self.bvh[1]
-        box = [np.array([min[0], min[1], min[2]]),
-               np.array([min[0], min[1], max[2]]),
-               np.array([min[0], max[1], min[2]]),
-               np.array([min[0], max[1], max[2]]),
-               np.array([max[0], min[1], min[2]]),
-               np.array([max[0], min[1], max[2]]),
-               np.array([max[0], max[1], min[2]]),
-               np.array([max[0], max[1], max[2]])]
+        boxmin = self.bvh[0]
+        boxmax = self.bvh[1]
+        proj = patch.coords
 
-        indices = [[0, 2, 4, 6],
-                   [1, 3, 5, 7],
-                   [0, 1, 4, 5],
-                   [2, 3, 6, 7],
-                   [0, 1, 2, 3],
-                   [4, 5, 6, 7]]
+        norm1 = calc_normal(proj)
 
-        for points in indices:
-            face = np.array(box[points[0]], box[points[1]], box[points[2]], box[points[3]])
-            if rectangle_overlap(patch.coords, face):
-                return False
+        isXAxis: bool = abs(np.dot(norm1, XAxis)) == 1
+        isYAxis: bool = abs(np.dot(norm1, YAxis)) == 1
+        isZAxis: bool = abs(np.dot(norm1, ZAxis)) == 1
+
+        
+        maxX = max(proj[0][0], proj[1][0], proj[2][0], proj[3][0])
+        minX = min(proj[0][0], proj[1][0], proj[2][0], proj[3][0])
+        maxY = max(proj[0][1], proj[1][1], proj[2][1], proj[3][1])
+        minY = min(proj[0][1], proj[1][1], proj[2][1], proj[3][1])
+        maxZ = max(proj[0][2], proj[1][2], proj[2][2], proj[3][2])
+        minZ = min(proj[0][2], proj[1][2], proj[2][2], proj[3][2])
+
+
+        print("OPTION==================")
+        print("Checking option against BVH")
+        print(boxmin)
+        print(boxmax)
+        print(self.isleft)
+        print("Height")
+        print(self.height)
+        print("num patches")
+        print(self.modification.num_hinges)
+        print("Coords")
+        print(patch.coords)
+        if isXAxis:
+            if boxmin[0] >= maxX or boxmax[0] <= minX:
+                return True
+            else:
+                if boxmax[1] <= minY or boxmin[1] >= maxY:
+                    return True
+                if boxmax[2] <= minZ or boxmin[2] >= maxZ:
+                    return True
+                
+        elif isYAxis:
+            if boxmin[1] >= maxY or boxmax[1] <= minY:
+                return True
+            else:
+                if boxmax[0] <= minX or boxmin[0] >= maxX:
+                    return True
+                if boxmax[2] <= minZ or boxmin[2] >= maxZ:
+                    return True
+        elif isZAxis:
+            if boxmin[2] >= maxZ or boxmax[2] <= minZ:
+                return True
+            else:
+                if boxmax[0] <= minX or boxmin[0] >= maxX:
+                    return True
+                if boxmax[1] <= minY or boxmin[1] >= maxY:
+                    return True
+        else:
+            raise Exception("Non axis aligned patch detected. Please do not do this!")
+        print("REJECTED")
+        return False
 
     def checkSelfAgainstSequenced(self, basic_scaffs: List[BasicScaff]):
         # TODO: Handle edge case
@@ -614,7 +710,7 @@ class FoldOption:
 
                 if not self.checkPatchAgainstBVH(base) or not self.checkPatchAgainstBVH(fold):
                     return False
-
+        print("ACCEPTED")
         return True
 
     def checkValid(self, ownedIndex: int, mid_scaffs: List[MidScaff], folded_scaff: List[bool]) -> (bool, float):
@@ -624,12 +720,15 @@ class FoldOption:
             if idx == ownedIndex:
                 continue
 
-            for bs in mid_scaffs[idx].basic_scaffs():
+            for bs in mid_scaffs[idx].basic_scaffs:
                 if folded_scaff[idx]:
                     sequenced_scaffs.append(bs)
                 else:
                     unsequenced_scaffs.append(bs)
-
+        print("UNSEQUENCED LENGTH==============")
+        print(len(unsequenced_scaffs))
+        print("SEQUENCED LENGTH==============")
+        print(len(sequenced_scaffs))
         return (
         self.checkSelfAgainstSequenced(sequenced_scaffs) and self.checkSelfAgainstUnsequenced(unsequenced_scaffs),
         self.modification.cost)
@@ -688,6 +787,8 @@ class BasicScaff():
     def checkValid(self, ownedIndex: int, mid_scaffs: List[MidScaff], folded_scaff: List[bool]) -> (bool, float):
         # Iterating all fold options to check if one can be foldabalized with current configuration
         min_cost = bigChungusNumber
+        print("Checking valid in Basic Scaff")
+        print(len(self.fold_options))
         for option_idx in range(0, len(self.fold_options)):
             if self.no_external_conflicts[option_idx]:
                 continue
@@ -695,11 +796,14 @@ class BasicScaff():
                 self.no_external_conflicts[option_idx], cost = self.fold_options[option_idx].checkValid(ownedIndex,
                                                                                                         mid_scaffs,
                                                                                                         folded_scaff)
+                    
                 if cost < min_cost:
                     min_cost = cost
 
         for status in self.no_external_conflicts:
+
             if status:
+                print("IS VALID")
                 return (True, min_cost)
         return (False, min_cost)
 
@@ -854,8 +958,9 @@ class HBasicScaff(BasicScaff):
 
     def gen_fold_options(self, nh, ns, alpha):
         # Generates all possible fold solutions for TBasicScaff
-        # ns: max number of patch cuts
         # nh: max number of hinges, let's enforce this to be an odd number for now
+        # ns: max number of patch cuts
+
         # print("GEN FOLD OPTIONS FOR SCAFF: " + str(self.id) + "==================")
 
         # TODO: hard coded only doing odd number of hinges. Even numbers are too unpredictable for this purpose.
@@ -923,6 +1028,7 @@ class MidScaff:
         return cost
 
     def checkValid(self, ownedIndex: int, mid_scaffs: List[MidScaff], folded_scaff: List[bool]):
+  
         cost = 0
         for bs in self.basic_scaffs:
             valid, lowest_cost = bs.checkValid(ownedIndex, mid_scaffs, folded_scaff)
@@ -1245,6 +1351,13 @@ class InputScaff:
                     # print(self.basic_scaffs[-1].id)
                 else:
                     print("wtf")
+
+        for scaff in self.basic_scaffs:
+            # TODO: Remove some of these from debugging
+            scaff.start_time = 0
+            scaff.end_time = 90
+            scaff.gen_fold_options(self.num_shrinks, self.max_hinges, .5)
+            
         # print("end gen basic scaffs")
 
     # Basic scaffold objects already created by the foldNode
@@ -1430,14 +1543,22 @@ class InputScaff:
                 weight1 = first_cost
                 for (scaff2, id2) in zip(self.mid_scaffs, range(0, len(self.mid_scaffs))):
                     weight2 = self.mid_scaffs[id2].getLowCostEstimate()
-                    if id1 != id2 and c1 + c2 < weight1 + weight2:
+                    if id1 != id2 and c1 + c2 > weight1 + weight2:
                         c1 = weight1
                         c2 = weight2
                         best_Scaff = scaff1
                         bestId = id1
+                    # Case where we have one left
+                    elif id1 == id2 and len(self.mid_scaffs_ordered) - 1 == len(self.mid_scaffs):
+                        self.mid_scaffs_ordered.append(scaff1)
+                        self.folded_scaff[id1] = True
+                        return
 
         print("Adding mid level scaff: " + str(bestId))
 
+        if best_Scaff == None:
+            remaining_list = []
+        
         self.mid_scaffs_ordered.append(best_Scaff)
         self.folded_scaff[bestId] = True
 
@@ -1454,6 +1575,8 @@ class InputScaff:
 
         while len(self.mid_scaffs_ordered) < len(self.mid_scaffs):
             self.pickNextScaff()
+            print("Num Ordered:")
+            print(len(self.mid_scaffs_ordered))
             self.mid_scaffs_ordered[-1].build_execute_conflict_graph()
 
         self.clearConflictChecks()
@@ -2083,15 +2206,15 @@ def test_input_scaff():
             print("Projected region of solution: ")
             print(sol.projected_region)
 
-test_input_scaff()
+# test_input_scaff()
 
 def test_side_by_side_input():
     coords1 = np.array([(0, 0, 0), (2, 0, 0), (2, 0, 1), (0, 0, 1)])  # base 0
     coords2 = np.array([(0, 1, 0), (0.8, 1, 0), (0.8, 1, 1), (0, 1, 1)])  # base 1
     coords3 = np.array([(1.2, 1, 0), (2, 1, 0), (2, 1, 1), (1.2, 1, 1)])  # base 2
 
-    coords4 = np.array([(0.5, 0, 1), (0.5, 0, 0), (0.5, 1, 0), (0.5, 1, 1)])  # fold 0
-    coords5 = np.array([(1.5, 1, 1), (1.5, 1, 0), (1.5, 2, 0), (1.5, 2, 1)])  # fold 1
+    coords4 = np.array([(0.5, 0, 1), (0.5, 0, 0), (0.5, .5, 0), (0.5, .5, 1)])  # fold 0
+    coords5 = np.array([(1.5, 0, 1), (1.5, 0, 0), (1.5, .5, 0), (1.5, .5, 1)])  # fold 1
 
     b1 = Patch(coords1)
     b2 = Patch(coords2)
@@ -2113,7 +2236,8 @@ def test_side_by_side_input():
 
     push_dir = YAxis
 
-    input = InputScaff(nodes, edges, push_dir, 3, 2)
+    # nh, ns
+    input = InputScaff(nodes, edges, push_dir, 1, 1)
 
     input.gen_hinge_graph()
 
@@ -2169,12 +2293,12 @@ def test_side_by_side_input():
             print("Projected region of solution: ")
             print(sol.projected_region)
 
-
 test_side_by_side_input()
+
 def t_construct_bvh():
     coords1 = np.array([[0, 0, 1], [1, 0, 1], [1, 0, 0], [0, 0, 0]])
-    coords2 = np.array([[0, 2, 1], [1, 2, 1], [1, 2, 0], [0, 2, 0]])
-    coords3 = np.array([[0.5, 0, 1], [0.5, 0, 0], [0.5, 2, 0], [0.5, 2, 1]])
+    coords2 = np.array([[0, 2, 1], [4, 2, 1], [4, 2, 0], [0, 2, 0]])
+    coords3 = np.array([[0.5, 0, 1], [0.5, 0, 0], [0.5, 10, 0], [0.5, 10, 1]])
 
     b1 = Patch(coords1)
     b2 = Patch(coords2)
@@ -2185,15 +2309,10 @@ def t_construct_bvh():
     f1.id = 2
 
     nodes = [b1, b2, f1]
-
     edges = [[0, 2], [1, 2]]
-
     push_dir = YAxis
-
     input = InputScaff(nodes, edges, push_dir, 3, 2)
-
     input.gen_hinge_graph()
-
     for l in range(0, len(input.node_list)):
         print(input.node_list[l].id)
         print(input.node_list[l].patch_type)
@@ -2208,14 +2327,13 @@ def t_construct_bvh():
     input.basic_scaffs[0].end_time = 90
 
     # Should be the only one
-    input.basic_scaffs[0].gen_fold_options(3, 2, 0.5)
+    # nh, ns
+    input.basic_scaffs[0].gen_fold_options(3, 1, 0.5)
 
     # print every fold option's bvh
     for basic_scaff in input.basic_scaffs:
         for fold_option in basic_scaff.fold_options:
-            print("BVH")
-            print(fold_option.bvh)
-
+            
             print("start time:")
             print(basic_scaff.start_time)
             print("end time:")
@@ -2235,4 +2353,132 @@ def t_construct_bvh():
             print("Projected region of solution: ")
             print(fold_option.projected_region)
 
-# t_construct_bvh()
+            print("BVH")
+            print(fold_option.bvh)
+            print("num options")
+            print(len(basic_scaff.fold_options))
+
+#t_construct_bvh()
+
+def patch_intersect_check():
+    coords1 = np.array([[0, 0, 1], [1, 0, 1], [1, 0, 0], [0, 0, 0]])
+    coords2 = np.array([[0, 2, 1], [1, 2, 1], [1, 2, 0], [0, 2, 0]])
+    coords3 = np.array([[0.5, 0, 1], [0.5, 0, 0], [0.5, 1, 0], [0.5, 1, 1]])
+
+    b1 = Patch(coords1)
+    b2 = Patch(coords2)
+    f1 = Patch(coords3)
+
+    b1.id = 0
+    b2.id = 1
+    f1.id = 2
+
+    nodes = [b1, b2, f1]
+    edges = [[0, 2], [1, 2]]
+    push_dir = YAxis
+    input = InputScaff(nodes, edges, push_dir, 3, 2)
+    input.gen_hinge_graph()
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+
+    print(input.hinge_graph)
+    input.gen_basic_scaffs()
+    print(input.basic_scaffs)
+
+    input.basic_scaffs[0].start_time = 0
+    input.basic_scaffs[0].end_time = 90
+
+    # Should be the only one
+    # nh, ns
+    input.basic_scaffs[0].gen_fold_options(3, 1, 0.5)
+
+    # print every fold option's bvh
+    for basic_scaff in input.basic_scaffs:
+        for fold_option in basic_scaff.fold_options:
+            
+            print("start time:")
+            print(basic_scaff.start_time)
+            print("end time:")
+            print(fold_option.scaff.end_time)
+            print("num hinges: ")
+            print(fold_option.modification.num_hinges)
+            print("num shrinks: ")
+            print(fold_option.modification.num_pieces)
+            print("range start: ")
+            print(fold_option.modification.range_start)
+            print("range end: ")
+            print(fold_option.modification.range_end)
+            print("isleft:")
+            print(fold_option.isleft)
+            print("original vertices: ")
+            print(basic_scaff.f_patch.coords)
+            print("Projected region of solution: ")
+            print(fold_option.projected_region)
+
+            print("BVH")
+            print(fold_option.bvh)
+            print("num options")
+            print(len(basic_scaff.fold_options))
+
+def test_rectanlge_overlap():
+    print("TEST RECTANGLE OVERLAP")
+    coords1 = np.array([[0, 0, 1], [1, 0, 1], [1, 0, 0], [0, 0, 0]])
+    coords2 = np.array([[0, 2, 1], [1, 2, 1], [1, 2, 0], [0, 2, 0]])
+    coords3 = np.array([[0.5, 0, 1], [0.5, 0, 0], [0.5, 2, 0], [0.5, 2, 1]])
+
+    b1 = Patch(coords1)
+    b2 = Patch(coords2)
+    f1 = Patch(coords3)
+
+    b1.id = 0
+    b2.id = 1
+    f1.id = 2
+
+    nodes = [b1, b2, f1]
+    edges = [[0, 2], [1, 2]]
+    push_dir = YAxis
+    input = InputScaff(nodes, edges, push_dir, 3, 2)
+    input.gen_hinge_graph()
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+
+    print(input.hinge_graph)
+    input.gen_basic_scaffs()
+    print(input.basic_scaffs)
+
+    input.basic_scaffs[0].start_time = 0
+    input.basic_scaffs[0].end_time = 90
+
+    # Should be the only one
+    # nh, ns
+    input.basic_scaffs[0].gen_fold_options(1, 1, 0.5)
+
+    input.basic_scaffs[0].fold_options[0].bvh = np.array([[0,0,0],[1,1,1]])
+    option = input.basic_scaffs[0].fold_options[0]
+    print("COMMENCE BOX TESTS")
+    print(option.bvh)
+
+    patch1 = Patch(np.array([[0, 0, 1], [1, 0, 1], [1, 0, 0], [0, 0, 0]]))
+    patch2 = Patch(np.array([[0, .5, 1], [1, .5, 1], [1, .5, 0], [0, .5, 0]]))
+    patch3 = Patch(np.array([[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]]))
+    patch4 = Patch(np.array([[1, .5, 1], [2, .5, 1], [2, .5, 0], [1, .5, 0]]))
+
+    print("Should not intersect")
+    print(option.checkPatchAgainstBVH(patch1))
+
+    print("Should intersect")
+    print(option.checkPatchAgainstBVH(patch2))
+
+    print("Should not intersect")
+    print(option.checkPatchAgainstBVH(patch3))
+
+    print("Should not intersect")
+    print(option.checkPatchAgainstBVH(patch4))
+
+#test_rectanlge_overlap()
