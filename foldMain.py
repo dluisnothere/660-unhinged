@@ -701,6 +701,12 @@ class BasicScaff():
         self.start_time = -1
         self.end_time = -1
 
+        # offset dictated by input scaffold fold order, set by the mid level scaffold
+        self.offset = -1
+
+    def setOffset(self, offset: int):
+        self.offset = offset
+
     def getLowestCostEsimate(self):
         low = bigChungusNumber
         for option in self.fold_options:
@@ -944,9 +950,17 @@ class MidScaff:
         self.start_time = 0
         self.end_time = 90
 
+        # An offset value that is to be read by foldNode
+        self.offset = -1
+
         self.non_conflicting_options = []
 
         self.best_clique = []
+
+    def setOffset(self, offset: int):
+        self.offset = offset
+        for basic_scaff in self.basic_scaffs:
+            basic_scaff.setOffset(offset)
 
     def getLowCostEstimate(self):
         cost = 0
@@ -1710,6 +1724,7 @@ class InputScaff:
         print("number of ordered mid level scaffolds")
         print(len(self.mid_scaffs_ordered))
 
+        offset = 0
         while len(self.mid_scaffs_ordered) < len(self.mid_scaffs):
             self.pickNextScaff()
             print("Num Ordered:")
@@ -1718,6 +1733,8 @@ class InputScaff:
             print(self.mid_scaffs_ordered[0])
             print(self.mid_scaffs_ordered[-1])
             self.mid_scaffs_ordered[-1].build_execute_conflict_graph()
+            self.mid_scaffs_ordered[-1].setOffset(offset * 90)
+            offset += 1
 
         self.clearConflictChecks()
         self.folded_scaff = [False for i in range(size)]
@@ -2874,14 +2891,14 @@ def test_two_bottom_one_top():
         for basic_scaff in mid_scaff.basic_scaffs:
             # print("FOLD PATCH COORDS")
             # print(basic_scaff.f_patch.coords)
-            offset = indexTime * 90
+            # offset = indexTime * 90
 
             print("FOLD SOLUTION FOR: " + str(basic_scaff.id) + "===================")
             sol: FoldOption = basic_scaff.optimal_fold_option
             print("start time:")
-            print(offset + basic_scaff.start_time)
+            print(basic_scaff.offset + basic_scaff.start_time)
             print("end time:")
-            print(offset + basic_scaff.end_time)
+            print(basic_scaff.offset + basic_scaff.end_time)
             print("num hinges: ")
             print(sol.modification.num_hinges)
             print("num shrinks: ")

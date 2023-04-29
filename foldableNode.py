@@ -485,7 +485,9 @@ class MayaBasicScaffoldWrapper():
     def translateWithParentScaff(self, translateVector: OpenMaya.MVector):
         print("Translating with parent scaff: " + str(self.basicScaffold.id))
         if (len(self.shapeOriginalTransforms) == 0):
-            raise Exception("No original transforms in the scaffol!")
+            #raise Exception("No original transforms in the scaffol!")
+            print("No original transforms but need them. Going to make them now")
+            self.restoreInitialState()
 
         for shapeKey in self.shapeOriginalTransforms.keys():
             # Get the original translation
@@ -1021,9 +1023,14 @@ class MayaBasicScaffoldWrapper():
     # Fold test for non hard coded transforms: Part 1 of the logic from foldTest, calls foldKeyframe()
     # AT this point should already have the best fold option
     def foldAnimateBasic(self, time: int, recreatePatches: bool):
+        print("FoldAnimateBasic for id: " + str(self.basicScaffold.id))
+
         foldOption = self.basicScaffold.optimal_fold_option
-        startTime = foldOption.fold_transform.start_time
-        endTime = foldOption.fold_transform.end_time
+        startTime = self.basicScaffold.offset + foldOption.fold_transform.start_time
+        endTime = self.basicScaffold.offset + foldOption.fold_transform.end_time
+
+        print("StartTime: " + str(startTime))
+        print("EndTime: " + str(endTime))
 
         self.inInitialPatches = self.getPatchesIncludeBase()
 
@@ -1645,7 +1652,12 @@ class MayaInputScaffoldWrapper():
         self.inputScaffold.gen_mid_scaffs()
 
         # generate solutions. After this step, each basic scaffold should have its favorite solution
-        self.inputScaffold.fold()
+        # self.inputScaffold.fold()
+        self.inputScaffold.gen_fold_options()
+        self.inputScaffold.order_folds()
+
+        # Extract basic scaffold wrappers from inputScaffold's mid_scaffs_ordered
+        # self.extractFoldOrder()
 
         # TODO: iterate over each inputScaffold and generate the overall start and end time
         for bScaff in self.basicScaffoldWrappers:
@@ -1662,7 +1674,7 @@ class MayaInputScaffoldWrapper():
         print("Normalized time: " + str(normalizedTime))
 
         for bScaff in self.basicScaffoldWrappers:
-            print("Folding basic scaffold: " + str(bScaff.basicScaffold.id))
+            # print("Folding basic scaffold: " + str(bScaff.basicScaffold.id))
             bScaff.foldAnimateBasic(normalizedTime, recreatePatches)
 
 
@@ -1753,9 +1765,6 @@ class foldableNode(OpenMayaMPx.MPxNode):
 
         if (len(patches) == 0):
             raise Exception("No patches inputted")
-
-        # TODO: hard code push axis for now
-        # pushAxis = [0, -1, 0]
 
         recreatePatches = False
 
