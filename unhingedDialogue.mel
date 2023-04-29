@@ -1,3 +1,8 @@
+global string $radioX;
+global string $radioY;
+global string $radioZ;
+global string $radioCollection;
+
 global proc string stringArrayToString(string $array[], string $separator)
 {
     string $result = "";
@@ -15,6 +20,11 @@ global int $foldNodeId = 0;
 
 global proc int genFoldNode()
 {        
+    global string $radioCollection;
+    global string $radioX;
+    global string $radioY;
+    global string $radioZ;
+    
     global int $foldNodeId;
     string $selected[] = `ls -sl`;
     print($selected);
@@ -34,10 +44,27 @@ global proc int genFoldNode()
         setAttr ($nodeName + ".patchList") -type "string" $patches;
         setAttr -lock true ($nodeName + ".patchList");
         
-        print("Node name: ");
-        print($nodeName);
-        print("Instancer Name: ");
-        print($instanceName);
+        string $selectedRadio = `radioCollection -query -select $radioCollection`;
+        print("Selected Radio: \n");
+        print($selectedRadio + "\n");
+        print("RadioX: \n");
+        print($radioX + "\n");
+        
+        string $selectedAxis = "";
+        if ($selectedRadio == $radioX)
+        {
+            $selectedAxis = "x";
+        } else if ($selectedRadio == $radioY)
+        {
+            $selectedAxis = "y";
+        } else if ($selectedRadio == $radioZ)
+        {
+            $selectedAxis = "z";
+        } else {
+            print("no correct axis!");
+            return false;
+        }
+        setAttr ($nodeName + ".inPushAxis") -type "string" $selectedAxis;
         
         // string $nodeInTime = $nodeName + ".inTime";
         string $nodeOutPoints = $nodeName + ".outPoint";
@@ -79,11 +106,6 @@ global proc createScaleMonitor(string $polyPlane) {
 
     // Create a scriptJob to monitor the scale attribute of the polyplane
     int $jobID = `scriptJob -attributeChange ($polyPlane + ".scale") $commandString`;
-    
-    // scriptJob -e nameChanged ($polyPlane) "onNameChanged";
-
-    // Print the scriptJob ID
-    // print ("Created scriptJob with ID: " + $jobID + "\n");
 }
 
 // Call the createScaleMonitor function with the name of your polyplane
@@ -108,10 +130,6 @@ global proc int genFoldPatch()
     setAttr ($displayRotatePivot) 1;
     
     // Move the rotate pivot to the local position (0.5, 0, 0) in world space
-    //string $rotatePivotAttr = $newName + ".rotatePivot";
-    //setAttr ($rotatePivotAttr + "X") 0.5;
-    //setAttr ($rotatePivotAttr + "Y") 0;
-    //setAttr ($rotatePivotAttr + "Z") 0;
     xform -os -rp 0.5 0.0 0.0 $newName;
 
     // Increment the global ID
@@ -196,7 +214,12 @@ global proc int onScaleSnap(int $checked)
 }
 
 global proc int genMenu()
-{
+{   
+    global string $radioX;
+    global string $radioY;
+    global string $radioZ;
+    global string $radioCollection;
+        
     window -title "Unhinged Plugin: Di Lu and David Li CIS 660";
     	columnLayout -w 500;
     		button -label "Create Fold Patch" -command "genFoldPatch";
@@ -206,7 +229,17 @@ global proc int genMenu()
     	           -changeCommand "densifyGrid #1"; 
             checkBox -label "Snap to Grid" -changeCommand "onTranslateSnap #1" snapTranslateBox;
             checkBox -label "Snap Rotations" -changeCommand "onRotateSnap #1" snapRotateBox;
-            
+            rowLayout -nc 3 -adjustableColumn 2;
+                $radioCollection = `radioCollection`;
+                $radioX = `radioButton -label "X" -collection $radioCollection`;
+                $radioY = `radioButton -label "Y" -select -collection $radioCollection`;
+                $radioZ = `radioButton -label "Z" -collection $radioCollection`;
+                
+                // Get the name of the radioButton without the entire path
+                $radioX = `match "[^|]*$" $radioX`;
+                $radioY = `match "[^|]*$" $radioY`;
+                $radioZ = `match "[^|]*$" $radioZ`;
+                setParent ..;
     	setParent ..;
     showWindow;
     return true;

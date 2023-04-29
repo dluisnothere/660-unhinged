@@ -1682,13 +1682,17 @@ class foldableNode(OpenMayaMPx.MPxNode):
     # maximum number of shrinks
     inNumShrinks = OpenMaya.MObject()
 
-    inPatchList = OpenMaya.MObject()  # TODO make into inInitialpatches
-
-    # Dummy output plug that can be connected to the input of an instancer node so our node can live somewhere
-    outPoint = OpenMaya.MObject()
+    # Input patch list
+    inPatchList = OpenMaya.MObject()
 
     # Float for alpha preference
     inAlpha = OpenMaya.MObject()
+
+    # Push Axis
+    inPushAxis = OpenMaya.MObject()
+
+    # Dummy output plug that can be connected to the input of an instancer node so our node can live somewhere
+    outPoint = OpenMaya.MObject()
 
     # TODO: later on we will iterate through basicScaffolds instead
     defaultInputScaffWrapper: MayaInputScaffoldWrapper = None
@@ -1743,11 +1747,15 @@ class foldableNode(OpenMayaMPx.MPxNode):
         alphaData = data.inputValue(self.inAlpha)
         alpha = alphaData.asFloat()
 
+        pushAxisData = data.inputValue(self.inPushAxis)
+        pushAxisStr = pushAxisData.asString()
+        pushAxis = self.getPushAxisFromString(pushAxisStr)
+
         if (len(patches) == 0):
             raise Exception("No patches inputted")
 
         # TODO: hard code push axis for now
-        pushAxis = [0, -1, 0]
+        # pushAxis = [0, -1, 0]
 
         recreatePatches = False
 
@@ -1786,6 +1794,17 @@ class foldableNode(OpenMayaMPx.MPxNode):
         # Mandatory data clean
         data.setClean(plug)
 
+    def getPushAxisFromString(self, string) -> list[float]:
+        if (string == 'x'):
+            return [-1, 0, 0]
+        elif (string == 'y'):
+            return [0, -1, 0]
+        elif (string == 'z'):
+            return [0, 0, -1]
+        else:
+            print("Push axis enum: " + str(string) + " is invalid")
+            raise Exception("Invalid push axis enum")
+
 
 # initializer
 def nodeInitializer():
@@ -1823,7 +1842,8 @@ def nodeInitializer():
         nAttr.setDefault(0.0)  # Default value for the slider
         MAKE_INPUT(nAttr)
 
-        foldableNode.textList = tAttr.create("textList", "tL", OpenMaya.MFnStringArrayData.kStringArray)
+        defaultAxis = OpenMaya.MFnStringData().create("y")
+        foldableNode.inPushAxis = tAttr.create("inPushAxis", "pA", OpenMaya.MFnNumericData.kString, defaultAxis)
         MAKE_INPUT(tAttr)
 
         foldableNode.outPoint = tAttr.create("outPoint", "oP", OpenMaya.MFnArrayAttrsData.kDynArrayAttrs)
@@ -1842,6 +1862,7 @@ def nodeInitializer():
         foldableNode.addAttribute(foldableNode.inNumShrinks)
         foldableNode.addAttribute(foldableNode.inPatchList)
         foldableNode.addAttribute(foldableNode.inAlpha)
+        foldableNode.addAttribute(foldableNode.inPushAxis)
         foldableNode.addAttribute(foldableNode.outPoint)
 
         foldableNode.attributeAffects(foldableNode.inTime, foldableNode.outPoint)
@@ -1850,6 +1871,7 @@ def nodeInitializer():
         foldableNode.attributeAffects(foldableNode.inNumShrinks, foldableNode.outPoint)
         foldableNode.attributeAffects(foldableNode.inPatchList, foldableNode.outPoint)
         foldableNode.attributeAffects(foldableNode.inAlpha, foldableNode.outPoint)
+        foldableNode.attributeAffects(foldableNode.inPushAxis, foldableNode.outPoint)
 
     except Exception as e:
         print(e)
