@@ -2201,7 +2201,7 @@ def test_cube_shape():
             print(sol.projected_region)
 
 
-test_cube_shape()
+# test_cube_shape()
 
 
 def test_input_scaff():
