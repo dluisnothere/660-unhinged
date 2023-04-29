@@ -144,7 +144,7 @@ def getClosestVertices(vertices: dict, p: OpenMaya.MVector, n: int) -> list:
     return distList[:n]
 
 
-def getClosestVerticesTopBase(vertices: dict, base: str, n: int) -> list:
+def getClosestVerticesBaseFold(foldVertices: dict, base: str, n: int) -> list:
     print("finding closest vertices top base")
     print("base: {}".format(base))
 
@@ -161,14 +161,14 @@ def getClosestVerticesTopBase(vertices: dict, base: str, n: int) -> list:
         # Create an MFnMesh function set
         fnMesh = OpenMaya.MFnMesh(transformDagPath)
         distList = []
-        for vertex_name, vertex_position in vertices.items():
+        for vertex_name, vertex_position in foldVertices.items():
             vertexPoint = OpenMaya.MPoint(vertex_position[0], vertex_position[1], vertex_position[2])
             closestPointOnPlane = OpenMaya.MPoint()
 
             fnMesh.getClosestPoint(vertexPoint, closestPointOnPlane, OpenMaya.MSpace.kWorld)
 
             dist = OpenMaya.MVector(vertexPoint - closestPointOnPlane).length()
-            distList.append((vertex_name, dist, OpenMaya.MVector(closestPointOnPlane)))
+            distList.append((vertex_name, dist, OpenMaya.MVector(vertexPoint)))
 
         distList.sort(key=lambda x: x[1])
         return distList[:n]
@@ -186,8 +186,8 @@ def checkScaffoldConnection(pivot: OpenMaya.MVector, middlepoint: OpenMaya.MVect
 
 
 # Need to keep this function because it is a special condition that Idk how to fix yet
-def checkScaffoldConnectionTopBase(parent, childPatch: str, pushAxis: OpenMaya.MVector):
-    childVertices = getObjectVerticeNamesAndPositions(childPatch)
+def checkScaffoldConnectionBaseFold(foldable, base: str, pushAxis: OpenMaya.MVector):
+    baseVertices = getObjectVerticeNamesAndPositions(base)
 
     # [baseLevel, minAxis1, minAxis2]
     idxSet = []
@@ -208,47 +208,47 @@ def checkScaffoldConnectionTopBase(parent, childPatch: str, pushAxis: OpenMaya.M
     print("idxSet: {}".format(idxSet))
     # Get child's global Y position
     # TODO: make this more generic in the future
-    childY = float(childVertices["{}.vtx[0]".format(childPatch)][baseLevel])
+    baseY = float(baseVertices["{}.vtx[0]".format(base)][baseLevel])
 
     # Get child's max x and min x
-    childMaxA = max(childVertices.values(), key=lambda x: x[span1])[span1]
-    childMinA = min(childVertices.values(), key=lambda x: x[span1])[span1]
+    baseMaxA = max(baseVertices.values(), key=lambda x: x[span1])[span1]
+    baseMinA = min(baseVertices.values(), key=lambda x: x[span1])[span1]
 
     # Get child's max z and min z
-    childMaxB = max(childVertices.values(), key=lambda x: x[span2])[span2]
-    childMinB = min(childVertices.values(), key=lambda x: x[span2])[span2]
+    baseMaxB = max(baseVertices.values(), key=lambda x: x[span2])[span2]
+    baseMinB = min(baseVertices.values(), key=lambda x: x[span2])[span2]
 
     # check if both of the parent's vertices are within the child's bounding box
     connected = True
-    for element in parent:
+    for element in foldable:
         vertex = element[2]
         # print("vertex: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
-        if abs(vertex[baseLevel] - childY) > 0.0001:
+        if abs(vertex[baseLevel] - baseY) > 0.0001:
             print("baseLevel values are not the same!")
-            print("Parent Y: {}".format(vertex[1]))
-            print("Child Y: {}".format(childY))
+            print("Parent BaseLevel: {}".format(vertex[1]))
+            print("Child BaseLevel: {}".format(baseY))
             connected = False
             break
-        if vertex[span1] < childMinA - EPS:
-            print("X value is less than minX")
+        if vertex[span1] < baseMinA - EPS:
+            print("A value is less than minX")
             connected = False
             break
-        if vertex[span1] > childMaxA + EPS:
-            print("X value is larger than maxX")
+        if vertex[span1] > baseMaxA + EPS:
+            print("A value is larger than maxX")
             connected = False
             break
-        if vertex[span2] < childMinB - EPS:
-            print("Z value is smaller childMinZ")
+        if vertex[span2] < baseMinB - EPS:
+            print("B value is smaller childMinZ")
             connected = False
             break
-        if vertex[span2] > childMaxB + EPS:
-            print("Z value is larger than childMaxZ")
+        if vertex[span2] > baseMaxB + EPS:
+            print("B value is larger than childMaxZ")
             connected = False
             break
-
-    if not connected:
-        print("Error TOPBASE: Patches are not connected")
-        exit(1)
+    return connected
+    # if not connected:
+    #     print("Error TOPBASE: Patches are not connected")
+    #     exit(1)
 
 
 def checkScaffoldConnectionBaseNoErr(base: str, foldable: OpenMaya.MPoint, pushAxis: OpenMaya.MVector) -> bool:
@@ -294,26 +294,26 @@ def checkScaffoldConnectionBaseNoErr(base: str, foldable: OpenMaya.MPoint, pushA
         print("verices in foldable closest to base: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
         if abs(vertex[baseLevel] - childLevel) > 0.0001:
             print("baseLevel values are not the same!")
-            print("Parent Y: {}".format(vertex[baseLevel]))
-            print("Child Y: {}".format(childLevel))
+            print("Parent baseLevel: {}".format(vertex[baseLevel]))
+            print("Child baseLevel: {}".format(childLevel))
             connected = False
             break
         if (vertex[span1] < baseMinA - EPS):
-            print("X value is less than minX")
-            print("X value: {}".format(vertex[span1]))
+            print("A value is less than minX")
+            print("A value: {}".format(vertex[span1]))
             print("minX: {}".format(baseMinA))
             connected = False
             break
         if vertex[span1] > baseMaxA + EPS:
-            print("X value is larger than maxX")
+            print("A value is larger than maxX")
             connected = False
             break
         if vertex[span2] < baseMinB - EPS:
-            print("Z value is smaller childMinZ")
+            print("B value is smaller childMinZ")
             connected = False
             break
         if vertex[span2] > baseMaxB + EPS:
-            print("Z value is larger than childMaxZ")
+            print("B value is larger than childMaxZ")
             connected = False
             break
     return connected
@@ -1199,9 +1199,9 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
             # find two vertices that are closest to childPivot. Print their name, location, and distance.
             vertId = len(closestVertices)
             if (i == 0):
-                currentClosest = getClosestVerticesTopBase(childVertices, shape, 2)
+                currentClosest = getClosestVerticesBaseFold(childVertices, shape, 2)
             elif (i == len(shapeTraverseOrder) - 2):
-                currentClosest = getClosestVerticesTopBase(bottomVertices, child, 2)
+                currentClosest = getClosestVerticesBaseFold(bottomVertices, child, 2)
             else:
                 # TODO: figure out why commenting the top line ends up shifting a scaffold for nor eaosn
                 # currentClosest = getClosestVerticesTopBase(bottomVertices, child, 2)
@@ -1329,9 +1329,9 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
             # find two vertices that are closest to childPivot. Print their name, location, and distance.
             vertId = len(closestVertices)
             if (i == 0):
-                currentClosest = getClosestVerticesTopBase(childVertices, shape, 2)
+                currentClosest = getClosestVerticesBaseFold(childVertices, shape, 2)
             elif (i == len(shapeTraverseOrder) - 2):
-                currentClosest = getClosestVerticesTopBase(bottomVertices, child, 2)
+                currentClosest = getClosestVerticesBaseFold(bottomVertices, child, 2)
             else:
                 # TODO: figure out why commenting the top line ends up shifting a scaffold for nor eaosn
                 # currentClosest = getClosestVerticesTopBase(bottomVertices, child, 2)
@@ -1363,7 +1363,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
                 checkScaffoldConnectionBaseNoErr(shape, currentClosest, self.pushAxis)
             elif (i == len(shapeTraverseOrder) - 2):
                 # THE ONLY DIFFERENCE AND THE T BASIC SCAFF IS THAT WE DO A BASIC PATCH CHECK
-                checkScaffoldConnectionTopBase(currentClosest, child, self.pushAxis)
+                checkScaffoldConnectionBaseFold(currentClosest, child, self.pushAxis)
             else:
                 checkScaffoldConnection(childPivot, middlePoint)
 
@@ -1458,15 +1458,21 @@ class MayaInputScaffoldWrapper():
                 # vertices = list
                 # pivot = mpoint
                 # vertices: dict, base: str, n: int
-                closestVertices = getClosestVerticesTopBase(vertices, baseObj.name, 2)
+                closestFoldVertices = getClosestVerticesBaseFold(vertices, baseObj.name, 2)
                 # closestVertices = getClosestVertices(vertices, pivot, 2)
 
                 # TODO: might get scaffolds where they're not connected like this..
-                status = checkScaffoldConnectionBaseNoErr(baseObj.name, closestVertices, self.pushAxis)
+                # status = checkScaffoldConnectionBaseNoErr(baseObj.name, closestVertices, self.pushAxis)
+                status = checkScaffoldConnectionBaseFold(closestFoldVertices, baseObj.name, self.pushAxis)
                 if status:
                     # generate edges using patch ids
                     edgesObjs.append([baseObj, foldpatchObj])
-                    # print("Adding edges to the list: ", baseObj.name, foldpatchObj.name)
+                    print("Adding edges to the list: ", baseObj.name, foldpatchObj.name)
+
+        # Print all edges
+        print("Edges: ")
+        for e in edgesObjs:
+            print(e[0].name, e[1].name)
 
         self.edgesObjs = edgesObjs
 
