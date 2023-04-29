@@ -768,9 +768,9 @@ class HMidScaff(MidScaff):
             print("h0 - h: " + str(h0 - h))
             print("h0 - b: " + str(h0 - b))
 
-            basic_scaff.start_time = (h0 - h) * self.end_time / abs(h0)
+            basic_scaff.start_time = abs(h0 - h) * self.end_time / abs(h0)
             print("start time: " + str(basic_scaff.start_time))
-            basic_scaff.end_time = (h0 - b) * self.end_time / abs(h0)
+            basic_scaff.end_time = abs(h0 - b) * self.end_time / abs(h0)
             print("end time: " + str(basic_scaff.end_time))
 
         print("Finished generating fold times for HMidScaff")

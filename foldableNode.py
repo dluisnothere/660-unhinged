@@ -754,7 +754,7 @@ class MayaBasicScaffoldWrapper():
             # Pivot the patches.
             for i in range(0, len(newPatches)):
                 # Set the pivot location to the bottom of the patch
-                newPivot = [0, 0, newPatchScale * 0.5]
+                newPivot = [0, 0, -newPatchScale * 0.5]
                 transform = getObjectTransformFromDag(newPatches[i])
                 transform.setRotatePivot(OpenMaya.MPoint(newPivot[0], newPivot[1], newPivot[2]),
                                          OpenMaya.MSpace.kTransform,
@@ -966,8 +966,8 @@ class MayaBasicScaffoldWrapper():
         #     for vertex in allVertices:
         #         print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
-        # print("start time: " + str(startTime))
-        # print("end time: " + str(endTime))
+        print("start time: " + str(startTime))
+        print("end time: " + str(endTime))
 
         # Compute angle
         if (endTime > t >= startTime):
@@ -1233,6 +1233,7 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
                 checkScaffoldConnectionBaseNoErr(shape, currentClosest, self.pushAxis)
             # THE ONLY DIFFERENCE AND THE H BASIC SCAFF IS THAT WE DON'T DO A SPECIAL CHECK WITH TOP BASE PATCH
             else:
+                print("check scaffold connection 1236")
                 checkScaffoldConnection(childPivot, middlePoint)
 
         return closestVertices, midPoints
@@ -1365,6 +1366,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
                 # THE ONLY DIFFERENCE AND THE T BASIC SCAFF IS THAT WE DO A BASIC PATCH CHECK
                 checkScaffoldConnectionBaseFold(currentClosest, child, self.pushAxis)
             else:
+                print("checkScaffoldConnection 1369")
                 checkScaffoldConnection(childPivot, middlePoint)
 
         return closestVertices, midPoints
