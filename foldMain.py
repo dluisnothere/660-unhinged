@@ -1628,8 +1628,8 @@ class InputScaff:
             raise Exception("No basic scaffolds to fold")
 
         # First, generate time zones for basic scaffolds
-        # for mid_scaff in self.mid_scaffs:
-        #     mid_scaff.gen_fold_times(self.push_dir)
+        for mid_scaff in self.mid_scaffs:
+            mid_scaff.gen_fold_times(self.push_dir)
 
         # First, generate basic scaffold solutions
         for scaff in self.basic_scaffs:
@@ -2204,7 +2204,7 @@ def test_cube_shape():
             print(sol.projected_region)
 
 
-test_cube_shape()
+# test_cube_shape()
 
 
 def test_input_scaff():
