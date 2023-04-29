@@ -1128,12 +1128,15 @@ class HMidScaff(MidScaff):
         # In-place sorting should be okay for now...
         if (abs(np.dot(push_dir, XAxis)) == 1):
             self.basic_scaffs.sort(reverse=True, key=lambda x: x.t_patch.coords[0][0])
+            print("SORTED BY X")
             heightIndex = 0
         elif (abs(np.dot(push_dir, YAxis)) == 1):
+            print("SORTED BY Y")
             self.basic_scaffs.sort(reverse=True, key=lambda x: x.t_patch.coords[0][1])
             heightIndex = 1
         elif (abs(np.dot(push_dir, ZAxis)) == 1):
             self.basic_scaffs.sort(reverse=True, key=lambda x: x.t_patch.coords[0][2])
+            print("SORTED BY Z")
             heightIndex = 2
         else:
             raise Exception("Push direction is not a cardinal direction!")
@@ -1141,7 +1144,11 @@ class HMidScaff(MidScaff):
         # self.basic_scaffs.sort(reverse=True, key=lambda x: x.t_patch.coords[0][1])
 
         highest_patch = self.basic_scaffs[0].t_patch
+        lowest_patch = self.basic_scaffs[-1].b_patch
+        print("highest patch coords:")
+        print(highest_patch.coords)
         h0 = highest_patch.coords[0][heightIndex]
+        b0 = lowest_patch.coords[0][heightIndex]
 
         print("h0: " + str(h0))
 
@@ -1159,9 +1166,9 @@ class HMidScaff(MidScaff):
             print("h0 - h: " + str(h0 - h))
             print("h0 - b: " + str(h0 - b))
 
-            basic_scaff.start_time = abs(h0 - h) * self.end_time / abs(h0)
+            basic_scaff.start_time = abs(h0 - h) * self.end_time / abs(h0 - b0)
             print("start time: " + str(basic_scaff.start_time))
-            basic_scaff.end_time = abs(h0 - b) * self.end_time / abs(h0)
+            basic_scaff.end_time = abs(h0 - b) * self.end_time / abs(h0 - b0)
             print("end time: " + str(basic_scaff.end_time))
 
         print("Finished generating fold times for HMidScaff")
@@ -2208,9 +2215,9 @@ def test_cube_shape():
 
 
 def test_input_scaff():
-    coords1 = np.array([(0, 3, 0), (1, 3, 0), (1, 3, 1), (0, 3, 1)])  # base 0
-    coords2 = np.array([(0, 2, 0), (1, 2, 0), (1, 2, 1), (0, 2, 1)])  # base 1
-    coords3 = np.array([(0, 1, 0), (1, 1, 0), (1, 1, 1), (0, 1, 1)])  # base 2
+    coords1 = np.array([(0, 2, 0), (1, 2, 0), (1, 2, 1), (0, 2, 1)])  # base 0
+    coords2 = np.array([(0, 1, 0), (1, 1, 0), (1, 1, 1), (0, 1, 1)])  # base 1
+    coords3 = np.array([(0, 0, 0), (1, 0, 0), (1,0, 1), (0, 0, 1)])  # base 2
     # coords4 = np.array([(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)])  # base 3
 
     coords5 = np.array([(0.5, 0, 1), (0.5, 0, 0), (0.5, 1, 0), (0.5, 1, 1)])  # fold 0
@@ -2246,7 +2253,7 @@ def test_input_scaff():
 
     push_dir = YAxis
 
-    input = InputScaff(nodes, edges, push_dir, 2, 4)
+    input = InputScaff(nodes, edges, push_dir, 1, 1, 2, 0.5)
 
     input.gen_hinge_graph()
 
@@ -2301,6 +2308,11 @@ def test_input_scaff():
             print("Projected region of solution: ")
             print(sol.projected_region)
 
+    for mid_scaff in input.mid_scaffs_ordered:
+        print("MID SCAFF ID")
+        for basic_scaff in mid_scaff.basic_scaffs:
+            print("FOLD PATCH COORDS")
+            print(basic_scaff.f_patch.coords)
 # test_input_scaff()
 
 def test_side_by_side_input():
@@ -2766,4 +2778,4 @@ def test_side_by_side_optimal_sequence_input():
             print("FOLD PATCH COORDS")
             print(basic_scaff.f_patch.coords)
 
-test_side_by_side_optimal_sequence_input()
+# test_side_by_side_optimal_sequence_input()
