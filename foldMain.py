@@ -1675,7 +1675,7 @@ class InputScaff:
                         best_Scaff = scaff1
                         bestId = id1
                     # Case where we have one left
-                    elif id1 == id2 and len(self.mid_scaffs_ordered) - 1 == len(self.mid_scaffs):
+                    elif id1 == id2 and len(self.mid_scaffs_ordered) == len(self.mid_scaffs) - 1:
                         self.mid_scaffs_ordered.append(scaff1)
                         self.folded_scaff[id1] = True
                         return
@@ -2201,7 +2201,7 @@ def test_cube_shape():
             print(sol.projected_region)
 
 
-# test_cube_shape()
+test_cube_shape()
 
 
 def test_input_scaff():
@@ -2667,7 +2667,7 @@ def test_side_by_side_one_high_input():
             print("FOLD PATCH COORDS")
             print(basic_scaff.f_patch.coords)
 
-test_side_by_side_one_high_input()
+# test_side_by_side_one_high_input()
 
 def test_side_by_side_optimal_sequence_input():
     coords1 = np.array([(0, 0, 0), (2, 0, 0), (2, 0, 1), (0, 0, 1)])  # base 0
