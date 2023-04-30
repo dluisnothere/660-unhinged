@@ -981,7 +981,14 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
         if not isLeft:
             angle = -angle
 
-        for i in range(0, len(shapeTraverseOrder) - 1):
+        if (self.upsideDown):
+            startIdx = 0
+            endIdx = len(shapeTraverseOrder) - 1
+        else:
+            startIdx = 1
+            endIdx = len(shapeTraverseOrder)
+
+        for i in range(startIdx, endIdx):
             shape = shapeTraverseOrder[i]
             pTransform = getObjectTransformFromDag(shape)
 
@@ -1161,10 +1168,9 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
             # find two vertices that are closest to childPivot. Print their name, location, and distance.
             vertId = len(closestVertices)
-            # if (i == 0):
-            #     currentClosest = getClosestVerticesBaseFold(childVertices, shape, 2)
-            # elif (i == len(shapeTraverseOrder) - 2):
-            if (i == len(shapeTraverseOrder) - 2):
+            if (i == 0 and not self.upsideDown):
+                 currentClosest = getClosestVerticesBaseFold(childVertices, shape, 2)
+            elif (i == len(shapeTraverseOrder) - 2):
                 currentClosest = getClosestVerticesBaseFold(bottomVertices, child, 2)
             else:
                 # TODO: figure out why commenting the top line ends up shifting a scaffold for nor eaosn
@@ -1210,6 +1216,13 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
         print("patchPivots:")
         print(patchPivots)
+
+        if (self.upsideDown):
+            startIdx = 0
+            endIdx = len(shapeTraverseOrder) - 1
+        else:
+            startIdx = 1
+            endIdx = len(shapeTraverseOrder)
 
         for i in range(0, len(patchPivots) - 1):
             # Obtain child pivot so we can use it later for translation
