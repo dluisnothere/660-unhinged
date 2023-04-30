@@ -209,8 +209,7 @@ class FoldOption:
 
         self.gen_fold_transform()
         self.gen_projected_region(self.rot_axis)
-        self.construct_bvh(self.rot_axis)
-        self.construct_foldedState()
+        self.construct_bvh()
 
     def gen_fold_transform(self):
         print("Entered gen_fold_transform...")
@@ -472,7 +471,7 @@ class FoldOption:
 
         self.projected_region = np.array([newBottomVerts[0], newBottomVerts[1], additionalVerts[1], additionalVerts[0]])
 
-    def construct_bvh(self, rotAxis: np.ndarray(float)):
+    def construct_bvh(self):
         bvh: list[list[float]] = []
         plane: list[list[float]] = []
 
@@ -505,13 +504,13 @@ class FoldOption:
             minZ = min(minZ, minZT)
             #print(maxX)
 
-            for option in self.scaff.folded_option_above:
-                maxX = max(maxX, option.foldedState[1][0])
-                minX = min(minX, option.foldedState[0][0])
-                maxY = max(maxY, option.foldedState[1][1])
-                minY = min(minY, option.foldedState[0][1])
-                maxZ = max(maxZ, option.foldedState[1][2])
-                minZ = min(minZ, option.foldedState[0][2])
+            # for option in self.scaff.folded_option_above:
+            #     maxX = max(maxX, option.foldedState[1][0])
+            #     minX = min(minX, option.foldedState[0][0])
+            #     maxY = max(maxY, option.foldedState[1][1])
+            #     minY = min(minY, option.foldedState[0][1])
+            #     maxZ = max(maxZ, option.foldedState[1][2])
+            #     minZ = min(minZ, option.foldedState[0][2])
 
         if (abs(np.dot(norm, XAxis)) == 1):
             bvh.append([minX + smoothbrainiqNumber, minY, minZ])
@@ -1660,6 +1659,8 @@ class InputScaff:
         # print(self.basic_mappings)
         for idx in range(0, len(tracker)):
             # print(idx)
+            # print(len(tracker))
+            # print(len(self.basic_mappings))
             if not tracker[idx]:
                 if len(self.basic_mappings[idx]) == 3:
                     self.mid_scaffs.append(HMidScaff([self.basic_scaffs[idx]], self.basic_mappings[idx]))
@@ -1713,7 +1714,7 @@ class InputScaff:
         for mid_scaff in remaining_list:
             basic_scaffs.extend(mid_scaff.basic_scaffs)
 
-        merged_scaff = HMidScaff(basic_scaffs)
+        merged_scaff = HMidScaff(basic_scaffs, [])
         merged_scaff.isMerged = True
         self.mid_scaffs_ordered.append(merged_scaff)
 
@@ -1753,9 +1754,9 @@ class InputScaff:
 
         if best_Scaff == None:
             self.mergeMidScaffs()
-  
-        self.mid_scaffs_ordered.append(best_Scaff)
-        self.folded_scaff[bestId] = True
+        else:
+            self.mid_scaffs_ordered.append(best_Scaff)
+            self.folded_scaff[bestId] = True
 
     def mergeFoldedPatches(self):
         for option in self.mid_scaffs_ordered[-1].best_clique:
@@ -2842,4 +2843,101 @@ def test_side_by_side_optimal_sequence_input():
             print("FOLD PATCH COORDS")
             print(basic_scaff.f_patch.coords)
 
-test_side_by_side_optimal_sequence_input()
+# test_side_by_side_optimal_sequence_input()
+
+def test_fold_hh_scaff():
+    coords1 = np.array([(0, 1, 0), (2, 1, 0), (2, 1, 1), (0, 1, 1)])  # base 1
+
+    coords2 = np.array([(0.5, 0, 1), (0.5, 0, 0), (0.5, 1, 0), (0.5, 1, 1)])  # fold1
+    coords3 = np.array([(1.5, 0, 1), (1.5, 0, 0), (1.5, 1, 0), (1.5, 1, 1)])  # fold2
+
+    coords4 = np.array([(0, 0, 0), (0.8, 0, 0), (0.8, 0, 1), (0, 0, 1)])  # base 2
+    coords5 = np.array([(1.2, 0, 0), (2, 0, 0), (2, 0, 1), (1.2, 0, 1)])  # fold3
+
+    b1 = Patch(coords1)
+    b2 = Patch(coords4)
+    b3 = Patch(coords5)
+
+    f1 = Patch(coords2)
+    f2 = Patch(coords3)
+
+    b1.id = 0
+    b2.id = 1
+    b3.id = 2
+
+    f1.id = 3
+    f2.id = 4
+
+    nodes = [b1, b2, b3, f1, f2]
+
+    edges = [[1, 3], [3, 0], [2, 4], [4, 0]]
+
+    push_dir = YAxis
+
+    input = InputScaff(nodes, edges, push_dir, 1, 1, 2, 0.5)
+
+    input.gen_hinge_graph()
+
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+
+    print(input.hinge_graph)
+
+    input.gen_basic_scaffs()
+
+    print(input.basic_scaffs)
+
+    print("MIDSCAFFS")
+
+    input.gen_mid_scaffs()
+
+    print(input.mid_scaffs)
+
+    input.gen_fold_options()
+
+    input.order_folds()
+
+    # Generate solutions
+    # input.fold()
+
+    for mid_scaff in input.mid_scaffs_ordered:
+        print("MID SCAFF ID")
+        for basic_scaff in mid_scaff.basic_scaffs:
+            # print("FOLD PATCH COORDS")
+            # print(basic_scaff.f_patch.coords)
+            # offset = indexTime * 90
+
+            print("FOLD SOLUTION FOR: " + str(basic_scaff.id) + "===================")
+            sol: FoldOption = basic_scaff.optimal_fold_option
+            print("start time:")
+            # print(basic_scaff.offset + basic_scaff.start_time)
+            print("end time:")
+            # print(basic_scaff.offset + basic_scaff.end_time)
+            print("num hinges: ")
+            print(sol.modification.num_hinges)
+            print("num shrinks: ")
+            print(sol.modification.num_pieces)
+            print("range start: ")
+            print(sol.modification.range_start)
+            print("range end: ")
+            print(sol.modification.range_end)
+            print("isleft:")
+            print(sol.isleft)
+            print("original vertices: ")
+            print(basic_scaff.f_patch.coords)
+            print("Projected region of solution: ")
+            print(sol.projected_region)
+
+        for option in mid_scaff.best_clique:
+            print("Length: ")
+            print(len(mid_scaff.best_clique))
+            print("original vertices: ")
+            print(basic_scaff.f_patch.coords)
+            print("Projected region of solution: ")
+            print(sol.projected_region)
+
+
+test_fold_hh_scaff()
