@@ -4,12 +4,16 @@ import networkx as nx
 import numpy as np
 from enum import Enum
 from typing import Dict, List, Set
+import sys
 
 # Predefined constants
 
 XAxis = np.array([-1, 0, 0])
 YAxis = np.array([0, -1, 0])
 ZAxis = np.array([0, 0, -1])
+
+MAX_F = sys.float_info.max
+MIN_F = sys.float_info.min  
 
 smoothbrainiqNumber = .00001
 bigChungusNumber = 10000
@@ -200,9 +204,13 @@ class FoldOption:
         # Box defined by minimum and maximum points
         self.bvh: np.ndarray(np.ndarray(float)) = None
 
+        # This is a plane that defines the folded state
+        self.foldedState: np.ndarray(np.ndarray(float)) = None
+
         self.gen_fold_transform()
         self.gen_projected_region(self.rot_axis)
         self.construct_bvh(self.rot_axis)
+        self.construct_foldedState()
 
     def gen_fold_transform(self):
         print("Entered gen_fold_transform...")
@@ -466,6 +474,8 @@ class FoldOption:
 
     def construct_bvh(self, rotAxis: np.ndarray(float)):
         bvh: list[list[float]] = []
+        plane: list[list[float]] = []
+
         norm = normalize(calc_normal(self.projected_region))
         proj = self.projected_region
 
@@ -495,20 +505,36 @@ class FoldOption:
             minZ = min(minZ, minZT)
             #print(maxX)
 
+            for option in self.scaff.folded_option_above:
+                maxX = max(maxX, option.foldedState[1][0])
+                minX = min(minX, option.foldedState[0][0])
+                maxY = max(maxY, option.foldedState[1][1])
+                minY = min(minY, option.foldedState[0][1])
+                maxZ = max(maxZ, option.foldedState[1][2])
+                minZ = min(minZ, option.foldedState[0][2])
+
         if (abs(np.dot(norm, XAxis)) == 1):
             bvh.append([minX + smoothbrainiqNumber, minY, minZ])
             bvh.append([minX + self.height - smoothbrainiqNumber, maxY, maxZ])
+            plane.append([MAX_F, minY, minZ])
+            plane.append([MIN_F, maxY, maxZ])
         elif (abs(np.dot(norm, YAxis)) == 1):
             print("Y Option")
             bvh.append([minX, minY + smoothbrainiqNumber, minZ])
             bvh.append([maxX, minY + self.height - smoothbrainiqNumber, maxZ])
+            plane.append([minX, MAX_F, minZ])
+            plane.append([maxX, MIN_F, maxZ])
         elif (abs(np.dot(norm, ZAxis)) == 1):
             bvh.append([minX, minY, minZ + smoothbrainiqNumber])
             bvh.append([maxX, maxY, minZ + self.height - smoothbrainiqNumber])
+            plane.append([minX, minY, MAX_F])
+            plane.append([maxX, maxY, MIN_F])
         else:
             raise Exception("Couldn't find fold direction when constructing BVH")
 
         self.bvh = np.array(bvh)
+        self.foldedState = np.array(plane)
+
 
     def randomstuffIdontwannadelete(self):
          # print("OPTION==================")
@@ -695,6 +721,7 @@ class BasicScaff():
         self.conflict_id = -1
 
         self.aabb = self.gen_aabb()
+        self.folded_option_above = []
 
         # To be filled by gen_fold_times
         # TODO: this logic may not even be correct to have them here.
@@ -750,7 +777,6 @@ class BasicScaff():
                 print("IS VALID")
                 return (True, min_cost)
         return (False, min_cost)
-
 
 """
 TBasicScaff: A basic scaffold of type T
@@ -928,6 +954,16 @@ class HBasicScaff(BasicScaff):
                         self.fold_options.append(fo_left)
                         self.fold_options.append(fo_right)
 
+    def mergeFoldedPatches(self, option):
+        option_bs = option.scaff
+        base_id = option_bs.b_patch
+        if self.t_patch.id == base_id:
+            self.folded_option_above.append(option)
+            # Taking the aboves from recently folded options
+            for above in option_bs:
+                self.folded_option_above.append(above)
+        for op in self.fold_options:
+            op.construct_bvh()
 
 """
 MidScaff: a mid level folding unit that contains basic scaffolds
@@ -947,6 +983,8 @@ class MidScaff:
         self.non_conflicting_options = []
 
         self.best_clique = []
+
+        self.isMerged = False
 
     def getLowCostEstimate(self):
         cost = 0
@@ -972,6 +1010,10 @@ class MidScaff:
     def clearConflictChecks(self):
         for bs in self.basic_scaffs:
             bs.clearConflicts()
+
+    def clearFoldedOptionAbove(self):
+        for bs in self.basic_scaffs:
+            bs.folded_option_above = []
 
 
 class TMidScaff(MidScaff):
@@ -1196,7 +1238,7 @@ class HMidScaff(MidScaff):
         for (scaff, idx) in zip(self.basic_scaffs, range(0, len(self.basic_scaffs))):
             for option in scaff.fold_options:
                 # Ensuring that the option has no external conflicts
-                if scaff.no_external_conflicts[idx]:
+                if scaff.no_external_conflicts[idx] or self.isMerged:
                     patch_area = rectangle_area(scaff.f_patch.coords)
                     lambda_i = patch_area / sum_fold_area
                     cost_vj = lambda_i * option.modification.cost
@@ -1292,6 +1334,11 @@ class HMidScaff(MidScaff):
         clique, weight = self.run_mwisp()
         self.best_clique = clique
         return clique, weight
+
+    def mergeFoldedPatches(self, option):
+        for bs in self.basic_scaffs:
+            if type(bs) == HBasicScaff:
+                bs.mergeFoldedPatches(option)
 
     def fold(self):
         self.gen_conflict_graph()
@@ -1651,6 +1698,25 @@ class InputScaff:
         print("1643 Check Valid")
         return self.mid_scaffs[index].checkValid(index, self.mid_scaffs, self.folded_scaff)
 
+    def clearAboveOptions(self):
+        for ms in self.mid_scaffs:
+            ms.clearFoldedOptionAbove()
+
+    def mergeMidScaffs(self):
+        remaining_list = []
+        for (scaff, id) in zip(self.mid_scaffs, range(0, len(self.mid_scaffs))):
+            if not self.folded_scaff[id]:
+                self.folded_scaff[id] = True
+                remaining_list.append(scaff)
+
+        basic_scaffs = []
+        for mid_scaff in remaining_list:
+            basic_scaffs.extend(mid_scaff.basic_scaffs)
+
+        merged_scaff = HMidScaff(basic_scaffs)
+        merged_scaff.isMerged = True
+        self.mid_scaffs_ordered.append(merged_scaff)
+
     def pickNextScaff(self):
         c1 = bigChungusNumber
         c2 = bigChungusNumber
@@ -1686,12 +1752,19 @@ class InputScaff:
         print("Adding mid level scaff: " + str(bestId))
 
         if best_Scaff == None:
-            remaining_list = []
-        
+            self.mergeMidScaffs()
+  
         self.mid_scaffs_ordered.append(best_Scaff)
         self.folded_scaff[bestId] = True
 
+    def mergeFoldedPatches(self):
+        for option in self.mid_scaffs_ordered[-1].best_clique:
+            for ms in self.mid_scaffs:
+                ms.mergeFoldedPatches(option)
+
+
     def order_folds(self):
+        self.clearAboveOptions()
         size = len(self.mid_scaffs)
         print("number of mid level scaffs:")
         print(size)
@@ -1710,7 +1783,11 @@ class InputScaff:
             print(self.mid_scaffs_ordered[0])
             print(self.mid_scaffs_ordered[-1])
             self.mid_scaffs_ordered[-1].build_execute_conflict_graph()
-
+            self.mergeFoldedPatches()
+            if self.mid_scaffs_ordered[-1].isMerged:
+                break
+                
+        self.clearAboveOptions()
         self.clearConflictChecks()
         self.folded_scaff = [False for i in range(size)]
 
