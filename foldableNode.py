@@ -1678,28 +1678,67 @@ class MayaInputScaffoldWrapper():
         return hasParentOrChild
 
     def setDependencyScaffoldT(self, basePatchObj: fold.Patch, basicScaffWrapper: MayaTBasicScaffoldWrapper) -> bool:
+        # BasePatchObj is the base patch on the T scaffold
+
         hasParentOrChild: bool = False
-        for scaffWrapper in self.basicScaffoldWrappers:
-            if basePatchObj.name == scaffWrapper.basePatch:
-                if basicScaffWrapper.upsideDown:
-                    # Then basicScaffWrapper must be parent
-                    if scaffWrapper.parent is None:
-                        scaffWrapper.setParent(basicScaffWrapper)
-                    basicScaffWrapper.addChild(scaffWrapper)
+        for otherScaffWrapper in self.basicScaffoldWrappers:
+
+            # If it's an H scaffold, then it should also have a topMostPatch we need to compare it ot that is not stored in the class.
+            topMostPatch = otherScaffWrapper.patches[-1]
+
+            if (basicScaffWrapper.upsideDown):
+                # Can only be parent
+                if basePatchObj.name == otherScaffWrapper.basePatch:
+                    if otherScaffWrapper.parent is None:
+                        otherScaffWrapper.setParent(basicScaffWrapper)
+
+                    basicScaffWrapper.addChild(otherScaffWrapper)
                     hasParentOrChild = True
                     print(
                         "Parent child pairing found: parent: " + str(
                             basicScaffWrapper.basicScaffold.id) + " child: " + str(
-                            scaffWrapper.basicScaffold.id))
-                else:
-                    # Then scaffWrapper must be parent
+                            otherScaffWrapper.basicScaffold.id))
+                elif basePatchObj.name == topMostPatch:
+                    print("T and another scaff share the same topMostpatch!")
+
+            else:
+                # can only be child
+                if basePatchObj.name == topMostPatch:
                     if basicScaffWrapper.parent is None:
-                        basicScaffWrapper.setParent(scaffWrapper)
-                    scaffWrapper.addChild(basicScaffWrapper)
+                        basicScaffWrapper.setParent(otherScaffWrapper)
+
+                    otherScaffWrapper.addChild(basicScaffWrapper)
                     hasParentOrChild = True
                     print(
-                        "Parent child pairing ofund: parent: " + str(scaffWrapper.basicScaffold.id) + " child: " + str(
+                        "Parent child pairing ofund: parent: " + str(otherScaffWrapper.basicScaffold.id) + " child: " + str(
                             basicScaffWrapper.basicScaffold.id))
+                elif basePatchObj.name == otherScaffWrapper.basePatch:
+                    print("T and another scaff share the same bottom patch!")
+
+            # if basePatchObj.name == otherScaffWrapper.basePatch:
+            #     if basicScaffWrapper.upsideDown:
+            #         # Then basicScaffWrapper must be parent
+            #         if otherScaffWrapper.parent is None:
+            #             otherScaffWrapper.setParent(basicScaffWrapper)
+            #         basicScaffWrapper.addChild(otherScaffWrapper)
+            #         hasParentOrChild = True
+            #         print(
+            #             "Parent child pairing found: parent: " + str(
+            #                 basicScaffWrapper.basicScaffold.id) + " child: " + str(
+            #                 otherScaffWrapper.basicScaffold.id))
+            #     else:
+            #         # Then scaffWrapper must be parent
+            #         if basicScaffWrapper.parent is None:
+            #             basicScaffWrapper.setParent(otherScaffWrapper)
+            #         otherScaffWrapper.addChild(basicScaffWrapper)
+            #         hasParentOrChild = True
+            #         print(
+            #             "Parent child pairing ofund: parent: " + str(otherScaffWrapper.basicScaffold.id) + " child: " + str(
+            #                 basicScaffWrapper.basicScaffold.id))
+
+        if not hasParentOrChild:
+            print("NO PARENT OR CHILD FOUND!")
+
         return hasParentOrChild
 
     def genBasicScaffolds(self):
