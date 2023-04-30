@@ -482,12 +482,16 @@ class MayaBasicScaffoldWrapper():
 
     # When a parent scaffold translates, the child scaffold must also translate with it on every reset to treat it
     # as the new origin
-    def translateWithParentScaff(self, translateVector: OpenMaya.MVector):
+    def translateWithParentScaff(self, translateVector: OpenMaya.MVector, parentId: int):
         print("Translating with parent scaff: " + str(self.basicScaffold.id))
+        if (parentId != self.parent.basicScaffold.id):
+            print("Not the recognized parent")
+            return
+        
         if (len(self.shapeOriginalTransforms) == 0):
             #raise Exception("No original transforms in the scaffol!")
             print("No original transforms but need them. Going to make them now")
-            self.restoreInitialState()
+            # self.restoreInitialState()
 
         for shapeKey in self.shapeOriginalTransforms.keys():
             # Get the original translation
@@ -522,8 +526,8 @@ class MayaBasicScaffoldWrapper():
         if (len(self.children) == 0):
             print("Scaffold " + str(self.basicScaffold.id) + " has no children=============================")
 
-        for child in self.children:
-            child.translateWithParentScaff(translateVector)
+        # for child in self.children:
+        #     child.translateWithParentScaff(translateVector)
 
     def setUpGenericScene(self, upperPatches: List[str]):
         print("Setting up Generic scene...")
@@ -901,11 +905,12 @@ class MayaBasicScaffoldWrapper():
             # for vertex in allVertices:
             #     print("POST Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
+
             if (i == len(shapeTraverseOrder) - 2):
                 # If we are on the second to last patch, then we updated the top patch's location
                 # and we need to update the children's reset locations.
                 for child in self.children:
-                    child.translateWithParentScaff(translation)
+                    child.translateWithParentScaff(translation, self.basicScaffold.id)
 
     # Splits the foldTest function into two parts.
     def foldKeyframe(self, time, shapeTraverseOrder: List[str], foldSolution: fold.FoldOption, recreatePatches: bool,
@@ -1661,8 +1666,8 @@ class MayaInputScaffoldWrapper():
 
         # TODO: iterate over each inputScaffold and generate the overall start and end time
         for bScaff in self.basicScaffoldWrappers:
-            self.minTime = min(self.minTime, bScaff.basicScaffold.start_time)
-            self.maxTime = max(self.maxTime, bScaff.basicScaffold.end_time)
+            self.minTime = min(self.minTime, bScaff.basicScaffold.offset + bScaff.basicScaffold.start_time)
+            self.maxTime = max(self.maxTime, bScaff.basicScaffold.offset + bScaff.basicScaffold.end_time)
 
     def foldAnimate(self, time, recreatePatches):
         # TODO: need to later figure out how to do this with mid level scaffolds first
