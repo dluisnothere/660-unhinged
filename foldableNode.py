@@ -145,7 +145,7 @@ def getClosestVertices(vertices: dict, p: OpenMaya.MVector, n: int) -> list:
 
 
 def getClosestVerticesBaseFold(foldVertices: dict, base: str, n: int) -> list:
-    print("finding closest vertices top base")
+    print("finding closest vertices base fold")
     print("base: {}".format(base))
 
     transformDagPath = getObjectObjectFromDag(base)
@@ -459,10 +459,7 @@ class MayaBasicScaffoldWrapper():
     def getPatches(self) -> List[str]:
         return self.patches
 
-    def getPatchesIncludeBase(self) -> List[str]:
-        patches = [self.basePatch]
-        patches.extend(self.patches)
-        return patches
+    # Get patches including the base patch
 
     # TODO: why is this a list list list?
     def getAllPatchVertices(self) -> List[List[List[float]]]:
@@ -557,30 +554,7 @@ class MayaBasicScaffoldWrapper():
             original_rotate = original_transforms[patch_name][1]
             cmds.setAttr(patch_name + ".rotate", original_rotate[0][0], original_rotate[0][1], original_rotate[0][2])
 
-    def restoreInitialState(self):
-        # Sets the shapeTraverseOrder to the original scaff's patches
-        # Sets
-        # print("Restoring Initial State...")
-        self.shapeTraverseOrder = self.getPatchesIncludeBase()
-
-        # Clears self.shapeResetTransforms
-        self.shapeResetTransforms = {}
-        self.additionalTransforms = {}
-
-        # fill new_translation and new_rotation with original values
-        for shape in self.shapeTraverseOrder:
-            transform = getObjectTransformFromDag(shape)
-            translate = transform.translation(OpenMaya.MSpace.kWorld)
-            rotate = cmds.getAttr(shape + ".rotate")
-
-            # Reset self.shapeResetTransforms
-            self.shapeResetTransforms[shape] = [[translate[0], translate[1], translate[2]], rotate]
-
-        # ShapeOriginalTransforms will be used to calculate shapeResetTransforms when parent scaffolds move
-        self.shapeOriginalTransforms = copy.deepcopy(self.shapeResetTransforms)
-
-        # Reset back to original shapes so you can break them again
-        self.cleanUpSplitPatches()
+    # restore initial state implemented by child class
 
     # TODO: Refactor there must be a better way to do this
     # Width of the patch is the distance along the rotation axis
@@ -827,63 +801,7 @@ class MayaBasicScaffoldWrapper():
         angle = endAngles[0] - math.degrees(asin)
         return angle
 
-    def updatePatchTranslations(self, closestVertices: List, midPoints: List, patchPivots: List, patchTransforms: List,
-                                shapeTraverseOrder: List[str]):
-        print("updating patch translations... ===========")
-        # Get the new closest vertices without changing the original closest vertices
-        newClosestVertices = closestVertices.copy()
-        for i in range(0, len(patchPivots) - 1):
-            # Obtain child pivot so we can use it later for translation
-            for j in range(0, len(newClosestVertices[
-                                      i])):  # index and use information from updated vertex positions. There should only be 2 verts here
-                vertex_name, dist, vertexPoint = newClosestVertices[i][j]
-
-                # Get the world position of the vertex and convert it to an MVector
-                vertexPoint = cmds.pointPosition(vertex_name, world=True)
-                vertexPoint = OpenMaya.MVector(vertexPoint[0], vertexPoint[1], vertexPoint[2])
-
-                # print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertexPoint[0], vertexPoint[1], vertexPoint[2]))
-
-                newClosestVertices[i][j] = (
-                    vertex_name, 0,  # not sure if dist is important anymore
-                    vertexPoint)
-
-            # Midpoint formula to solve for the midpoint betwen the two closest vertices.
-            verticeDistNew = newClosestVertices[i][0][2] + newClosestVertices[i][1][2]
-            middlePointNew = (verticeDistNew * 0.5)
-            # print(
-            #     "Middle Point: {:.6f}, {:.6f}, {:.6f}".format(middlePointNew[0], middlePointNew[1], middlePointNew[2]))
-
-            # Get the translation from the old middle point to the new middle point.
-            ogMidPoint = midPoints[i]
-            translation = middlePointNew - ogMidPoint
-            # print("Middle point translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1],
-            #                                                                 translation[2]))
-
-            # Translate child patch by the translation.
-            # print("TRANSLATING THE CHILD PATCH CALLED: " + shapeTraverseOrder[i + 1])
-            childPatchTransform = patchTransforms[i + 1]
-
-            # print the childPatch's transform before translation
-            # print("SHAPE: " + shapeTraverseOrder[i + 1])
-            allVertices = list(getObjectVerticeNamesAndPositions(shapeTraverseOrder[i + 1]).values())
-            # for vertex in allVertices:
-            #     print("PRE Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
-
-            # print("Translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
-            childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
-
-            # print the childPatch's transform afer translation
-            # allVertices = list(getObjectVerticeNamesAndPositions(shapeTraverseOrder[i + 1]).values())
-            # for vertex in allVertices:
-            #     print("POST Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
-
-
-            if (i == len(shapeTraverseOrder) - 2):
-                # If we are on the second to last patch, then we updated the top patch's location
-                # and we need to update the children's reset locations.
-                for child in self.children:
-                    child.translateWithParentScaff(translation, self.basicScaffold.id)
+    # update patch translations updated in child class
 
     # Splits the foldTest function into two parts.
     def foldKeyframe(self, time, shapeTraverseOrder: List[str], foldSolution: fold.FoldOption, recreatePatches: bool,
@@ -891,13 +809,6 @@ class MayaBasicScaffoldWrapper():
         # Get the relevant information from the fold_solution
         startAngles = foldSolution.fold_transform.startAngles  # TODO: lowkey aren't start angles always 0??
         endAngles = foldSolution.fold_transform.endAngles
-
-        # Get vertices of "kFold4_0" and print
-        # print("VERTICES OF kFold4_0 - FOLD KEYFRAME ")
-        # if cmds.objExists("kFold4_0"):
-        #     allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
-        #     for vertex in allVertices:
-        #         print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
         isLeft = foldSolution.isleft
 
@@ -921,13 +832,6 @@ class MayaBasicScaffoldWrapper():
         if (recreatePatches and numHinges > 0):
             self.breakPatches(shapeTraverseOrder, numHinges)
 
-            # Get vertices of "kFold4_0" and print
-            # print("VERTICES OF kFold4_0 - BREAK PATCHES")
-            # if cmds.objExists("kFold4_0"):
-            #     allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
-            #     for vertex in allVertices:
-            #         print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
-
         # Moved from the recreate_patches condition because we always want this to be visible if no hinges
         # TODO: ventually move this to a better place
         if (numHinges == 0):
@@ -939,12 +843,6 @@ class MayaBasicScaffoldWrapper():
 
         # Find the closest vertices to the patch pivots and calculate the midPoints, also check scaff is connected
         closestVertices, midPoints = self.findClosestMidpointsOnPatches(patchPivots, shapeTraverseOrder)
-
-        # print("VERTICES OF kFold4_0 - FIND CLOSEST POINT")
-        # if cmds.objExists("kFold4_0"):
-        #     allVertices = list(getObjectVerticeNamesAndPositions("kFold4_0").values())
-        #     for vertex in allVertices:
-        #         print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
         print("start time: " + str(startTime))
         print("end time: " + str(endTime))
@@ -1039,15 +937,51 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
         # To be set by the input
         self.upsideDown = self.isUpsideDown(patchObjects[0], patchObjects[1], pushAxis)
+        print("Upside down: " + str(self.upsideDown))
 
         self.basicScaffold: fold.TBasicScaff = fold.TBasicScaff(patchObjects[0], patchObjects[1])
+
+    def getPatchesIncludeBase(self) -> List[str]:
+        if (self.upsideDown):
+            patches = copy.deepcopy(self.patches)
+            patches.append(self.basePatch)
+            return patches
+        else:
+            patches = [self.basePatch]
+            patches.extend(self.patches)
+            return patches
+
+    def restoreInitialState(self):
+        # Sets the shapeTraverseOrder to the original scaff's patches
+        # Sets
+        # print("Restoring Initial State...")
+        self.shapeTraverseOrder = self.getPatchesIncludeBase()
+
+        # Clears self.shapeResetTransforms
+        self.shapeResetTransforms = {}
+        self.additionalTransforms = {}
+
+        # fill new_translation and new_rotation with original values
+        for shape in self.shapeTraverseOrder:
+            transform = getObjectTransformFromDag(shape)
+            translate = transform.translation(OpenMaya.MSpace.kWorld)
+            rotate = cmds.getAttr(shape + ".rotate")
+
+            # Reset self.shapeResetTransforms
+            self.shapeResetTransforms[shape] = [[translate[0], translate[1], translate[2]], rotate]
+
+        # ShapeOriginalTransforms will be used to calculate shapeResetTransforms when parent scaffolds move
+        self.shapeOriginalTransforms = copy.deepcopy(self.shapeResetTransforms)
+
+        # Reset back to original shapes so you can break them again
+        self.cleanUpSplitPatches()
 
     def rotatePatches(self, angle: float, shapeTraverseOrder: List[str], isLeft: bool):
         print("rotating patches... ===========")
         if not isLeft:
             angle = -angle
 
-        for i in range(1, len(shapeTraverseOrder)):
+        for i in range(0, len(shapeTraverseOrder) - 1):
             shape = shapeTraverseOrder[i]
             pTransform = getObjectTransformFromDag(shape)
 
@@ -1068,7 +1002,17 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
         # print("break patches called")
         # Break every patch except the last one
-        for j in range(1, len(shapeTraverseOrder)):  # every patch except last guy is foldable
+        # startIdx = 0
+        # endIdx = len(shapeTraverseOrder)
+
+        if (self.upsideDown):
+            startIdx = 0
+            endIdx = len(shapeTraverseOrder) - 1
+        else:
+            startIdx = 1
+            endIdx = len(shapeTraverseOrder)
+
+        for j in range(startIdx, endIdx):  # every patch except last guy is foldable
             foldablePatch = shapeTraverseOrder[
                 j]  # TODO: make more generic, currently assumes foldable patch is at the center
 
@@ -1207,6 +1151,9 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
             shape = shapeTraverseOrder[i]
             child = shapeTraverseOrder[i + 1]
 
+            print("getting the closest midpoints between shape: " + shape + " AND " + child)
+
+
             bottomVertices = getObjectVerticeNamesAndPositions(shape)
             childVertices = getObjectVerticeNamesAndPositions(child)
 
@@ -1214,9 +1161,10 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
             # find two vertices that are closest to childPivot. Print their name, location, and distance.
             vertId = len(closestVertices)
-            if (i == 0):
-                currentClosest = getClosestVerticesBaseFold(childVertices, shape, 2)
-            elif (i == len(shapeTraverseOrder) - 2):
+            # if (i == 0):
+            #     currentClosest = getClosestVerticesBaseFold(childVertices, shape, 2)
+            # elif (i == len(shapeTraverseOrder) - 2):
+            if (i == len(shapeTraverseOrder) - 2):
                 currentClosest = getClosestVerticesBaseFold(bottomVertices, child, 2)
             else:
                 # TODO: figure out why commenting the top line ends up shifting a scaffold for nor eaosn
@@ -1254,6 +1202,69 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
         return closestVertices, midPoints
 
+    def updatePatchTranslations(self, closestVertices: List, midPoints: List, patchPivots: List, patchTransforms: List,
+                                shapeTraverseOrder: List[str]):
+        print("updating patch translations... ===========")
+        # Get the new closest vertices without changing the original closest vertices
+        newClosestVertices = closestVertices.copy()
+
+        print("patchPivots:")
+        print(patchPivots)
+
+        for i in range(0, len(patchPivots) - 1):
+            # Obtain child pivot so we can use it later for translation
+            for j in range(0, len(newClosestVertices[
+                                      i])):  # index and use information from updated vertex positions. There should only be 2 verts here
+                vertex_name, dist, vertexPoint = newClosestVertices[i][j]
+                print("Vertex Name: {}".format(vertex_name))
+
+                # Get the world position of the vertex and convert it to an MVector
+                vertexPoint = cmds.pointPosition(vertex_name, world=True)
+                vertexPoint = OpenMaya.MVector(vertexPoint[0], vertexPoint[1], vertexPoint[2])
+
+                print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertexPoint[0], vertexPoint[1], vertexPoint[2]))
+
+                newClosestVertices[i][j] = (
+                    vertex_name, 0,  # not sure if dist is important anymore
+                    vertexPoint)
+
+            # Midpoint formula to solve for the midpoint betwen the two closest vertices.
+            verticeDistNew = newClosestVertices[i][0][2] + newClosestVertices[i][1][2]
+            middlePointNew = (verticeDistNew * 0.5)
+            print(
+                "Middle Point: {:.6f}, {:.6f}, {:.6f}".format(middlePointNew[0], middlePointNew[1], middlePointNew[2]))
+
+            # Get the translation from the old middle point to the new middle point.
+            ogMidPoint = midPoints[i]
+            translation = middlePointNew - ogMidPoint
+            print("Middle point translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1],
+                                                                            translation[2]))
+
+            # Translate child patch by the translation.
+            print("TRANSLATING THE CHILD PATCH CALLED: " + shapeTraverseOrder[i + 1])
+            childPatchTransform = patchTransforms[i + 1]
+
+            # print the childPatch's transform before translation
+            # print("SHAPE: " + shapeTraverseOrder[i + 1])
+            allVertices = list(getObjectVerticeNamesAndPositions(shapeTraverseOrder[i + 1]).values())
+            for vertex in allVertices:
+                print("PRE Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+
+            print("Translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
+            childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
+
+            # print the childPatch's transform afer translation
+            # allVertices = list(getObjectVerticeNamesAndPositions(shapeTraverseOrder[i + 1]).values())
+            # for vertex in allVertices:
+            #     print("POST Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+
+
+            if (i == len(shapeTraverseOrder) - 2):
+                # If we are on the second to last patch, then we updated the top patch's location
+                # and we need to update the children's reset locations.
+                for child in self.children:
+                    child.translateWithParentScaff(translation, self.basicScaffold.id)
+
 
 class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
@@ -1277,6 +1288,36 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
         # TODO: currently basicScaffolds are being created by the inputScaffold manually for testing purposes.
         super().__init__(patchObjects, basePatch, patches, pushAxis, maxHinges, minHinges, shrinks)
         self.basicScaffold: fold.HBasicScaff = fold.HBasicScaff(patchObjects[0], patchObjects[1], patchObjects[2])
+
+    def getPatchesIncludeBase(self) -> List[str]:
+        patches = [self.basePatch]
+        patches.extend(self.patches)
+        return patches
+
+    def restoreInitialState(self):
+        # Sets the shapeTraverseOrder to the original scaff's patches
+        # Sets
+        # print("Restoring Initial State...")
+        self.shapeTraverseOrder = self.getPatchesIncludeBase()
+
+        # Clears self.shapeResetTransforms
+        self.shapeResetTransforms = {}
+        self.additionalTransforms = {}
+
+        # fill new_translation and new_rotation with original values
+        for shape in self.shapeTraverseOrder:
+            transform = getObjectTransformFromDag(shape)
+            translate = transform.translation(OpenMaya.MSpace.kWorld)
+            rotate = cmds.getAttr(shape + ".rotate")
+
+            # Reset self.shapeResetTransforms
+            self.shapeResetTransforms[shape] = [[translate[0], translate[1], translate[2]], rotate]
+
+        # ShapeOriginalTransforms will be used to calculate shapeResetTransforms when parent scaffolds move
+        self.shapeOriginalTransforms = copy.deepcopy(self.shapeResetTransforms)
+
+        # Reset back to original shapes so you can break them again
+        self.cleanUpSplitPatches()
 
     def rotatePatches(self, angle: float, shapeTraverseOrder: List[str], isLeft: bool):
         print("rotating patches... ===========")
@@ -1417,6 +1458,64 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
             # Shrink patch by numPieces in the hard coded z direction
             shrinkFactor = (endPiece - startPiece) / numPieces
             cmds.setAttr(fPatchName + ".scaleZ", shrinkFactor)
+
+    def updatePatchTranslations(self, closestVertices: List, midPoints: List, patchPivots: List, patchTransforms: List,
+                                shapeTraverseOrder: List[str]):
+        print("updating patch translations... ===========")
+        # Get the new closest vertices without changing the original closest vertices
+        newClosestVertices = closestVertices.copy()
+        for i in range(0, len(patchPivots) - 1):
+            # Obtain child pivot so we can use it later for translation
+            for j in range(0, len(newClosestVertices[
+                                      i])):  # index and use information from updated vertex positions. There should only be 2 verts here
+                vertex_name, dist, vertexPoint = newClosestVertices[i][j]
+
+                # Get the world position of the vertex and convert it to an MVector
+                vertexPoint = cmds.pointPosition(vertex_name, world=True)
+                vertexPoint = OpenMaya.MVector(vertexPoint[0], vertexPoint[1], vertexPoint[2])
+
+                # print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertexPoint[0], vertexPoint[1], vertexPoint[2]))
+
+                newClosestVertices[i][j] = (
+                    vertex_name, 0,  # not sure if dist is important anymore
+                    vertexPoint)
+
+            # Midpoint formula to solve for the midpoint betwen the two closest vertices.
+            verticeDistNew = newClosestVertices[i][0][2] + newClosestVertices[i][1][2]
+            middlePointNew = (verticeDistNew * 0.5)
+            # print(
+            #     "Middle Point: {:.6f}, {:.6f}, {:.6f}".format(middlePointNew[0], middlePointNew[1], middlePointNew[2]))
+
+            # Get the translation from the old middle point to the new middle point.
+            ogMidPoint = midPoints[i]
+            translation = middlePointNew - ogMidPoint
+            # print("Middle point translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1],
+            #                                                                 translation[2]))
+
+            # Translate child patch by the translation.
+            # print("TRANSLATING THE CHILD PATCH CALLED: " + shapeTraverseOrder[i + 1])
+            childPatchTransform = patchTransforms[i + 1]
+
+            # print the childPatch's transform before translation
+            # print("SHAPE: " + shapeTraverseOrder[i + 1])
+            allVertices = list(getObjectVerticeNamesAndPositions(shapeTraverseOrder[i + 1]).values())
+            # for vertex in allVertices:
+            #     print("PRE Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+
+            # print("Translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
+            childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
+
+            # print the childPatch's transform afer translation
+            # allVertices = list(getObjectVerticeNamesAndPositions(shapeTraverseOrder[i + 1]).values())
+            # for vertex in allVertices:
+            #     print("POST Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+
+
+            if (i == len(shapeTraverseOrder) - 2):
+                # If we are on the second to last patch, then we updated the top patch's location
+                # and we need to update the children's reset locations.
+                for child in self.children:
+                    child.translateWithParentScaff(translation, self.basicScaffold.id)
 
 
 class MayaInputScaffoldWrapper():
@@ -1955,3 +2054,4 @@ def uninitializePlugin(mobject):
         mplugin.deregisterNode(foldableNodeId)
     except:
         sys.stderr.write("Failed to unregister node: %s\n" % kPluginNodeTypeName)
+
