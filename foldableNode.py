@@ -487,7 +487,7 @@ class MayaBasicScaffoldWrapper():
         if (parentId != self.parent.basicScaffold.id):
             print("Not the recognized parent")
             return
-        
+
         if (len(self.shapeOriginalTransforms) == 0):
             #raise Exception("No original transforms in the scaffol!")
             print("No original transforms but need them. Going to make them now")
@@ -526,8 +526,8 @@ class MayaBasicScaffoldWrapper():
         if (len(self.children) == 0):
             print("Scaffold " + str(self.basicScaffold.id) + " has no children=============================")
 
-        # for child in self.children:
-        #     child.translateWithParentScaff(translateVector)
+        for child in self.children:
+            child.translateWithParentScaff(translateVector, self.basicScaffold.id)
 
     def setUpGenericScene(self, upperPatches: List[str]):
         print("Setting up Generic scene...")
