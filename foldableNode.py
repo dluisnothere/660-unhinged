@@ -444,6 +444,8 @@ class MayaBasicScaffoldWrapper():
         self.parent = None
         self.children = []
 
+        # basic scaffold object is in the subclasses
+
     def setParent(self, parent: MayaHBasicScaffoldWrapper):
         self.parent = parent
 
@@ -628,36 +630,7 @@ class MayaBasicScaffoldWrapper():
         else:
             raise Exception("ERROR: Invalid rotation axis")
 
-    def shrinkPatch(self, shapeTraverseOrder, endPiece, numPieces, startPiece):
-        # print("shrinking patches...")
-
-        # TODO: shrink only the middle patch
-        # Shrink the patches except first and last
-        for i in range(1, len(shapeTraverseOrder) - 1):
-            print("shrink patch: " + shapeTraverseOrder[i])
-
-            fPatchName = shapeTraverseOrder[i]
-
-            # Always use their original patch coordinates
-            foldable_patch_coords = self.patchesObjs[1].coords
-
-            # Translate patch to the new midpoint
-            originalPatchWidth = self.getPatchWidth(foldable_patch_coords)
-            middle = originalPatchWidth / 2
-
-            pieceWidth = originalPatchWidth / numPieces
-            newMiddle = (startPiece + endPiece) * pieceWidth / 2
-
-            transform = getObjectTransformFromDag(fPatchName)
-
-            shrinkAxis = self.rotAxis
-
-            translation = shrinkAxis * newMiddle - shrinkAxis * middle
-            transform.translateBy(translation, OpenMaya.MSpace.kTransform)
-
-            # Shrink patch by numPieces in the hard coded z direction
-            shrinkFactor = (endPiece - startPiece) / numPieces
-            cmds.setAttr(fPatchName + ".scaleZ", shrinkFactor)
+    # def shrink Patch is implemented by subclasses
 
     # def rotatePatches is implemented by the subclasses
 
@@ -1119,6 +1092,37 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
                 # Keep track of the new patches just created so we can delete it on the next iteration
                 self.newShapes.append(newPatches[i])
 
+    def shrinkPatch(self, shapeTraverseOrder, endPiece, numPieces, startPiece):
+        # print("shrinking patches...")
+
+        # TODO: shrink only the middle patch
+        # Shrink the patches except first and last
+        for i in range(1, len(shapeTraverseOrder)):
+            print("shrink patch: " + shapeTraverseOrder[i])
+
+            fPatchName = shapeTraverseOrder[i]
+
+            # Always use their original patch coordinates
+            foldable_patch_coords = self.patchesObjs[1].coords
+
+            # Translate patch to the new midpoint
+            originalPatchWidth = self.getPatchWidth(foldable_patch_coords)
+            middle = originalPatchWidth / 2
+
+            pieceWidth = originalPatchWidth / numPieces
+            newMiddle = (startPiece + endPiece) * pieceWidth / 2
+
+            transform = getObjectTransformFromDag(fPatchName)
+
+            shrinkAxis = self.rotAxis
+
+            translation = shrinkAxis * newMiddle - shrinkAxis * middle
+            transform.translateBy(translation, OpenMaya.MSpace.kTransform)
+
+            # Shrink patch by numPieces in the hard coded z direction
+            shrinkFactor = (endPiece - startPiece) / numPieces
+            cmds.setAttr(fPatchName + ".scaleZ", shrinkFactor)
+
     # TODO: probalby not going to be used if we only fol din the -y direction.
     def isUpsideDown(self, basePatch: fold.Patch, foldPatch: fold.Patch, pushAxis: OpenMaya.MVector) -> bool:
 
@@ -1382,6 +1386,37 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
                 checkScaffoldConnection(childPivot, middlePoint)
 
         return closestVertices, midPoints
+
+    def shrinkPatch(self, shapeTraverseOrder, endPiece, numPieces, startPiece):
+        # print("shrinking patches...")
+
+        # TODO: shrink only the middle patch
+        # Shrink the patches except first and last
+        for i in range(1, len(shapeTraverseOrder) - 1):
+            print("shrink patch: " + shapeTraverseOrder[i])
+
+            fPatchName = shapeTraverseOrder[i]
+
+            # Always use their original patch coordinates
+            foldable_patch_coords = self.patchesObjs[1].coords
+
+            # Translate patch to the new midpoint
+            originalPatchWidth = self.getPatchWidth(foldable_patch_coords)
+            middle = originalPatchWidth / 2
+
+            pieceWidth = originalPatchWidth / numPieces
+            newMiddle = (startPiece + endPiece) * pieceWidth / 2
+
+            transform = getObjectTransformFromDag(fPatchName)
+
+            shrinkAxis = self.rotAxis
+
+            translation = shrinkAxis * newMiddle - shrinkAxis * middle
+            transform.translateBy(translation, OpenMaya.MSpace.kTransform)
+
+            # Shrink patch by numPieces in the hard coded z direction
+            shrinkFactor = (endPiece - startPiece) / numPieces
+            cmds.setAttr(fPatchName + ".scaleZ", shrinkFactor)
 
 
 class MayaInputScaffoldWrapper():

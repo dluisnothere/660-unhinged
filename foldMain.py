@@ -13,6 +13,7 @@ ZAxis = np.array([0, 0, -1])
 
 smoothbrainiqNumber = .00001
 bigChungusNumber = 10000
+smallChungusNumber = -1
 
 
 class PatchType(Enum):
@@ -714,14 +715,31 @@ class BasicScaff():
                 low = option.modification.cost
         return low
 
-    def getBestOption(self):
+    def getLeastExpensiveOption(self):
         cost = bigChungusNumber
         base = None
         for option in self.fold_options:
             if option.modification.cost < cost:
                 base = option
+                cost = option.modification.cost
+        print("Least expensive option")
+        print(base)
+        return base
 
-        return [base]
+    def getMostExpensiveOption(self) -> FoldOption:
+        cost = smallChungusNumber
+        base = None
+        for option in self.fold_options:
+            print(option.modification.cost)
+
+            if option.modification.cost > cost:
+                cost = option.modification.cost
+                base = option
+
+        print("Most expensive option")
+        print(base)
+
+        return base
 
     def initConflicts(self):
         self.no_external_conflicts = [False for i in range(len(self.fold_options))]
@@ -768,6 +786,9 @@ class TBasicScaff(BasicScaff):
         self.f_patch = f_patch
         self.b_patch = b_patch
 
+        # this has to be done after the patches are set
+        super().__init__()
+
         self.rot_axis = np.cross(calc_normal(f_patch.coords), calc_normal(b_patch.coords))
 
     def gen_aabb(self) -> list[list[float]]:
@@ -791,20 +812,6 @@ class TBasicScaff(BasicScaff):
                 maxZ = coord[2]
             elif coord[2] < minZ:
                 minZ = coord[2]
-
-        # for coord in self.f_patch.coords:
-        #     if coord[0] > maxX:
-        #         maxX = coord[0]
-        #     elif coord[0] < minX:
-        #         minX = coord[0]
-        #     elif coord[1] > maxY:
-        #         maxY = coord[1]
-        #     elif coord[1] < minY:
-        #         minY = coord[1]
-        #     elif coord[2] > maxZ:
-        #         maxZ = coord[2]
-        #     elif coord[2] < minZ:
-        #         minZ = coord[2]
 
         return [[minX, minY, minZ], [maxX, maxY, maxZ]]
 
@@ -841,6 +848,7 @@ class HBasicScaff(BasicScaff):
         self.b_patch = b_patch
         self.t_patch = t_patch
 
+        # this must be called after the patches are set
         super().__init__()
 
         self.rot_axis: np.ndarray = np.cross(calc_normal(f_patch.coords), calc_normal(b_patch.coords))
@@ -852,20 +860,6 @@ class HBasicScaff(BasicScaff):
         minY = self.f_patch.coords[0][1]
         maxZ = self.f_patch.coords[0][2]
         minZ = self.f_patch.coords[0][2]
-
-        # for coord in self.b_patch.coords:
-        #     if coord[0] > maxX:
-        #         maxX = coord[0]
-        #     elif coord[0] < minX:
-        #         minX = coord[0]
-        #     elif coord[1] > maxY:
-        #         maxY = coord[1]
-        #     elif coord[1] < minY:
-        #         minY = coord[1]
-        #     elif coord[2] > maxZ:
-        #         maxZ = coord[2]
-        #     elif coord[2] < minZ:
-        #         minZ = coord[2]
 
         for coord in self.f_patch.coords:
             if coord[0] > maxX:
@@ -992,15 +986,31 @@ class TMidScaff(MidScaff):
     def __init__(self, bs, nm):
         super().__init__(bs, nm)
 
-    def gen_fold_times(self):
+    # Need this parameter otherwise the function signature is different from the sibling class
+    def gen_fold_times(self, push_axis):
         # There should only be one scaffold
         self.basic_scaffs[0].start_time = self.start_time
         self.basic_scaffs[0].end_time = self.end_time
 
     def build_execute_conflict_graph(self):
-        clique, weight = self.basic_scaffs[0].getBestOption()
-        self.best_clique = clique
-        return clique, weight
+        # TODO: tscaff's getBestOption() seems ot only return one item.
+        print("T SCAFF BUILD_EXECUTE_CONFLICT_GRAPH")
+        print(self.basic_scaffs[0].getLeastExpensiveOption())
+
+        # clique of one item
+        # clique, weight = self.basic_scaffs[0].getBestOption()
+        fold_option: FoldOption = self.basic_scaffs[0].getLeastExpensiveOption()
+        most_expensive_option: FoldOption = self.basic_scaffs[0].getMostExpensiveOption()
+
+        self.best_clique = fold_option # clique
+        weight = most_expensive_option.modification.cost - fold_option.modification.cost + 1
+        print("COST: " + str(fold_option.modification.cost))
+        print("LEAST EXPENSIVE fold_option: " + str(fold_option.scaff.f_patch.coords))
+        print("COST: " + str(most_expensive_option.modification.cost))
+        print("MOST EXPENSIVE fold_option: " + str(most_expensive_option.scaff.f_patch.coords))
+
+        self.basic_scaffs[0].optimal_fold_option = fold_option
+        return fold_option, weight
 
     # Only one solution? Is there any case where this solution could impact another guy?
     # Probably not since they all fold at different times? Sequentially?
@@ -2915,4 +2925,85 @@ def test_two_bottom_one_top():
             print(sol.projected_region)
 
         indexTime += 1
+
+        print("TEST COMPLETE ======================================================")
 # test_two_bottom_one_top()
+
+def test_fold_t_scaff():
+    print("TEST FOLD T_SCAFF======================================================")
+    coords1 = np.array([(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)])  # base 1
+
+    coords2 = np.array([(0.5, 0, 1), (0.5, 0, 0), (0.5, 1, 0), (0.5, 1, 1)])  # fold 0
+
+    b1 = Patch(coords1)
+    f1 = Patch(coords2)
+
+    b1.id = 0
+    f1.id = 1
+
+    nodes = [b1, f1]
+
+    edges = [[0,1]]
+
+    push_dir = YAxis
+
+    input = InputScaff(nodes, edges, push_dir, 1, 1, 2, 0.5)
+
+    input.gen_hinge_graph()
+
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+    print(input.hinge_graph)
+    input.gen_basic_scaffs()
+    print(input.basic_scaffs)
+
+    print("MIDSCAFFS")
+    input.gen_mid_scaffs()
+    print(input.mid_scaffs)
+    for mid_scaff in input.mid_scaffs:
+        print(mid_scaff.node_mappings)
+        for basic_scaff in mid_scaff.basic_scaffs:
+            print("SCAFF =================== ")
+            # print("base high: " + str(basic_scaff.t_patch.id))
+            print("foldable: " + str(basic_scaff.f_patch.id))
+            print("base low: " + str(basic_scaff.b_patch.id))
+
+    input.gen_fold_options()
+
+    input.order_folds()
+
+    # Generate solutions
+    # input.fold()
+
+    for mid_scaff in input.mid_scaffs_ordered:
+        print("MID SCAFF ID")
+        for basic_scaff in mid_scaff.basic_scaffs:
+            # print("FOLD PATCH COORDS")
+            # print(basic_scaff.f_patch.coords)
+            # offset = indexTime * 90
+
+            print("FOLD SOLUTION FOR: " + str(basic_scaff.id) + "===================")
+            sol: FoldOption = basic_scaff.optimal_fold_option
+            print("start time:")
+            print(basic_scaff.offset + basic_scaff.start_time)
+            print("end time:")
+            print(basic_scaff.offset + basic_scaff.end_time)
+            print("num hinges: ")
+            print(sol.modification.num_hinges)
+            print("num shrinks: ")
+            print(sol.modification.num_pieces)
+            print("range start: ")
+            print(sol.modification.range_start)
+            print("range end: ")
+            print(sol.modification.range_end)
+            print("isleft:")
+            print(sol.isleft)
+            print("original vertices: ")
+            print(basic_scaff.f_patch.coords)
+            print("Projected region of solution: ")
+            print(sol.projected_region)
+
+test_fold_t_scaff()
