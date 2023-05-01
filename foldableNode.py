@@ -888,7 +888,7 @@ class MayaBasicScaffoldWrapper():
         #         print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
         # Has to go at the end or something otherwise you'll get a space between top patch and the folds
-        # self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece)
+        self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece)
 
         # print("VERTICES OF kFold4_0 - FINAL SHRINK PATCH")
         # if cmds.objExists("kFold4_0"):
