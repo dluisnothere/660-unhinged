@@ -587,45 +587,83 @@ class FoldOption:
         minZ = min(proj[0][2], proj[1][2], proj[2][2], proj[3][2])
 
 
-        # print("OPTION==================")
-        # print("Checking option against BVH")
-        # print(boxmin)
-        # print(boxmax)
-        # print(self.isleft)
-        # print("Height")
-        # print(self.height)
-        # print("num patches")
-        # print(self.modification.num_hinges)
-        # print("Coords")
-        # print(patch.coords)
+        print("OPTION==================")
+        print("Checking option against BVH")
+        print(boxmin)
+        print(boxmax)
+        print(self.isleft)
+        print("Height")
+        print(self.height)
+        print("num patches")
+        print(self.modification.num_hinges)
+        print("patch checked against")
+        print(patch.coords)
+
+        print("maxX")
+        print(maxX)
+        print("minX")
+        print(minX)
+        print("maxY")
+        print(maxY)
+        print("minY")
+        print(minY)
+        print("maxZ")
+        print(maxZ)
+        print("minZ")
+        print(minZ)
+
+        print("NORM Axis: ")
+        print("isX: " + str(isXAxis))
+        print("isY: " + str(isYAxis))
+        print("isZ: " + str(isZAxis))
+
         if isXAxis:
             if boxmin[0] >= maxX or boxmax[0] <= minX:
+                print("boxmin >= maxX or boxmax <= minX")
+                print("DOES NOT COLLIDE W/ BVH")
                 return True
             else:
                 if boxmax[1] <= minY or boxmin[1] >= maxY:
+                    print("boxmin >= maxY or boxmax <= minY")
+                    print("DOES NOT COLLIDE W/ BVH")
                     return True
                 if boxmax[2] <= minZ or boxmin[2] >= maxZ:
+                    print("boxmin >= maxZ or boxmax <= minZ")
+                    print("DOES NOT COLLIDE W/ BVH")
                     return True
                 
         elif isYAxis:
             if boxmin[1] >= maxY or boxmax[1] <= minY:
+                # print("boxmin >= maxY or boxmax <= minY")
+                # print("DOES NOT COLLIDE W/ BVH")
                 return True
             else:
                 if boxmax[0] <= minX or boxmin[0] >= maxX:
+                    # print("boxmin >= maxX or boxmax <= minX")
+                    # print("DOES NOT COLLIDE W/ BVH")
                     return True
                 if boxmax[2] <= minZ or boxmin[2] >= maxZ:
+                    # print("boxmin >= maxZ or boxmax <= minZ")
+                    # print("DOES NOT COLLIDE W/ BVH")
                     return True
         elif isZAxis:
             if boxmin[2] >= maxZ or boxmax[2] <= minZ:
+                print("boxmin >= maxZ or boxmax <= minZ")
+                print("DOES NOT COLLIDE W/ BVH")
                 return True
             else:
                 if boxmax[0] <= minX or boxmin[0] >= maxX:
+                    print("boxmin >= maxX or boxmax <= minX")
+                    print("DOES NOT COLLIDE W/ BVH")
                     return True
                 if boxmax[1] <= minY or boxmin[1] >= maxY:
+                    print("boxmin >= maxY or boxmax <= minY")
+                    print("DOES NOT COLLIDE W/ BVH")
                     return True
         else:
             raise Exception("Non axis aligned patch detected. Please do not do this!")
-        # print("REJECTED")
+
+        print("COLLIDES AGAINST BVH")
         return False
 
     def checkSelfAgainstSequenced(self, basic_scaffs: List[BasicScaff]):
@@ -637,6 +675,7 @@ class FoldOption:
         # print("checking self against unsequened...")
         for bs in basic_scaffs:
             if type(bs) == HBasicScaff:
+                print("H Scaff check against BVH")
                 base = bs.b_patch
                 fold = bs.f_patch
                 top = bs.t_patch
@@ -650,9 +689,10 @@ class FoldOption:
 
                 if not self.checkPatchAgainstBVH(base) or not self.checkPatchAgainstBVH(
                         fold) or not self.checkPatchAgainstBVH(top):
-                    # print("Returning false at 635")
+                    print("Returning false at 635")
                     return False
             else:
+                print("T Scaff check against BVH")
                 base = bs.b_patch
                 fold = bs.f_patch
 
@@ -660,9 +700,19 @@ class FoldOption:
                     if base.id == self.scaff.t_patch.id:
                         continue
 
-                if not self.checkPatchAgainstBVH(base) or not self.checkPatchAgainstBVH(fold):
+                print("Checking base against BVH")
+                baseAgainstBVH = self.checkPatchAgainstBVH(base)
+                print(baseAgainstBVH)
+                print("Checking fold against BVH")
+                foldAgainstBVH = self.checkPatchAgainstBVH(fold)
+                print(foldAgainstBVH)
+
+                if not baseAgainstBVH or not foldAgainstBVH:
+                    print("REJECTED at 711")
                     return False
-        # print("ACCEPTED")
+                else:
+                    print("PASSED!")
+        print("ACCEPTED")
         return True
 
     def checkValid(self, ownedIndex: int, mid_scaffs: List[MidScaff], folded_scaff: List[bool]) -> (bool, float):
@@ -3071,8 +3121,89 @@ def test_fold_t_h_scaff():
 
 # test_fold_t_h_scaff()
 
-
 def test_fold_tt_scaff():
+    coords1 = np.array([(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)])  # base 1
+
+    coords2 = np.array([(0.25, 0, 1), (0.25, 0, 0), (0.25, 1, 0), (0.25, 1, 1)])  # fold1
+    coords3 = np.array([(0.75, 0, 1), (0.75, 0, 0), (0.75, 1, 0), (0.75, 1, 1)])  # fold2
+
+    b1 = Patch(coords1)
+
+    f1 = Patch(coords2)
+    f2 = Patch(coords3)
+
+    b1.id = 0
+    # b2.id = 1
+
+    f1.id = 1
+    f2.id = 2
+
+    nodes = [b1, f1, f2]
+
+    edges = [[0, 1], [0, 2]]
+
+    push_dir = YAxis
+
+    input = InputScaff(nodes, edges, push_dir, 1, 1, 2, 0.5)
+
+    input.gen_hinge_graph()
+
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+
+    print(input.hinge_graph)
+
+    input.gen_basic_scaffs()
+
+    print(input.basic_scaffs)
+
+    print("MIDSCAFFS")
+
+    input.gen_mid_scaffs()
+
+    print(input.mid_scaffs)
+
+    input.gen_fold_options()
+
+    input.order_folds()
+
+    # Generate solutions
+    # input.fold()
+
+    for mid_scaff in input.mid_scaffs_ordered:
+        print("MID SCAFF ID")
+        for basic_scaff in mid_scaff.basic_scaffs:
+            # print("FOLD PATCH COORDS")
+            # print(basic_scaff.f_patch.coords)
+            # offset = indexTime * 90
+
+            print("FOLD SOLUTION FOR: " + str(basic_scaff.id) + "===================")
+            sol: FoldOption = basic_scaff.optimal_fold_option
+            print("start time:")
+            print(basic_scaff.offset + basic_scaff.start_time)
+            print("end time:")
+            print(basic_scaff.offset + basic_scaff.end_time)
+            print("num hinges: ")
+            print(sol.modification.num_hinges)
+            print("num shrinks: ")
+            print(sol.modification.num_pieces)
+            print("range start: ")
+            print(sol.modification.range_start)
+            print("range end: ")
+            print(sol.modification.range_end)
+            print("isleft:")
+            print(sol.isleft)
+            print("original vertices: ")
+            print(basic_scaff.f_patch.coords)
+            print("Projected region of solution: ")
+            print(sol.projected_region)
+
+# test_fold_tt_scaff()
+
+def test_fold_tt_scaff_upsidedown():
 
     coords1 = np.array([(0, 1, 0), (1, 1, 0), (1, 1, 1), (0, 1, 1)])  # base 1
 
@@ -3153,7 +3284,7 @@ def test_fold_tt_scaff():
             print("Projected region of solution: ")
             print(sol.projected_region)
 
-# test_fold_tt_scaff()
+# test_fold_tt_scaff_upsidedown()
 
 def test_fold_hh_scaff():
     coords1 = np.array([(0, 1, 0), (2, 1, 0), (2, 1, 1), (0, 1, 1)])  # base 1
@@ -3242,12 +3373,12 @@ def test_fold_hh_scaff():
 
 # test_fold_hh_scaff()
 
-def test_fold_tt_scaff():
+def test_fold_tt_scaff_close_together():
 
-    coords1 = np.array([(0, 1, 0), (1, 1, 0), (1, 1, 1), (0, 1, 1)])  # base 1
+    coords1 = np.array([(0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)])  # base 1
 
-    coords2 = np.array([(0.25, 0, 1), (0.25, 0, 0), (0.25, 1, 0), (0.25, 1, 1)])  # fold1
-    coords3 = np.array([(0.75, 0, 1), (0.75, 0, 0), (0.75, 1, 0), (0.75, 1, 1)])  # fold2
+    coords2 = np.array([(0.35, 0, 0), (0.35, 0, 1), (0.35, 1, 1), (0.35, 1, 0)])  # fold1
+    coords3 = np.array([(0.65, 0, 0), (0.65, 0, 1), (0.65, 1, 1), (0.65, 1, 0)])  # fold2
 
     b1 = Patch(coords1)
 
@@ -3257,8 +3388,8 @@ def test_fold_tt_scaff():
     b1.id = 0
     # b2.id = 1
 
-    f1.id = 2
-    f2.id = 3
+    f1.id = 1
+    f2.id = 2
 
     nodes = [b1, f1, f2]
 
@@ -3323,4 +3454,4 @@ def test_fold_tt_scaff():
             print("Projected region of solution: ")
             print(sol.projected_region)
 
-# test_fold_tt_scaff()
+# test_fold_tt_scaff_close_together()
