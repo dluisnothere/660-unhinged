@@ -939,7 +939,7 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
         self.upsideDown = self.isUpsideDown(patchObjects[0], patchObjects[1], pushAxis)
         print("Upside down: " + str(self.upsideDown))
 
-        self.basicScaffold: fold.TBasicScaff = fold.TBasicScaff(patchObjects[0], patchObjects[1])
+        self.basicScaffold: fold.TBasicScaff = fold.TBasicScaff(patchObjects[0], patchObjects[1], np.array([pushAxis[0], pushAxis[1], pushAxis[2]]))
 
     def getPatchesIncludeBase(self) -> List[str]:
         if (self.upsideDown):
@@ -1294,7 +1294,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
         '''
         # TODO: currently basicScaffolds are being created by the inputScaffold manually for testing purposes.
         super().__init__(patchObjects, basePatch, patches, pushAxis, maxHinges, minHinges, shrinks)
-        self.basicScaffold: fold.HBasicScaff = fold.HBasicScaff(patchObjects[0], patchObjects[1], patchObjects[2])
+        self.basicScaffold: fold.HBasicScaff = fold.HBasicScaff(patchObjects[0], patchObjects[1], patchObjects[2], np.array([pushAxis[0], pushAxis[1], pushAxis[2]]))
 
     def getPatchesIncludeBase(self) -> List[str]:
         patches = [self.basePatch]

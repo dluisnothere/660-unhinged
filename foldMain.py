@@ -67,20 +67,35 @@ def calc_normal(rect: np.ndarray(np.ndarray(float))) -> np.ndarray(float):
     return normalize(surf)
 
 
-def check_rectangle_overlap(rect1, rect2):
-    # Find the minimum and maximum x and z values for both rectangles
-    min_rect1_x, max_rect1_x = min(rect1[:, 0]), max(rect1[:, 0])
-    min_rect1_z, max_rect1_z = min(rect1[:, 2]), max(rect1[:, 2])
+def check_rectangle_overlap(rect1, rect2, push_axis):
+    if (abs(np.dot(push_axis, YAxis)) == 1):
+        # base_level = 1
+        aaxis = 0
+        baxis = 2
+    elif (abs(np.dot(push_axis, XAxis)) == 1):
+        # base_level = 0
+        aaxis = 1
+        baxis = 2
+    elif (abs(np.dot(push_axis, ZAxis)) == 1):
+        # base_level = 2
+        aaxis = 0
+        baxis = 1
+    else:
+        raise Exception("could not recognize push axis!")
 
-    min_rect2_x, max_rect2_x = min(rect2[:, 0]), max(rect2[:, 0])
-    min_rect2_z, max_rect2_z = min(rect2[:, 2]), max(rect2[:, 2])
+    # Find the minimum and maximum x and z values for both rectangles
+    min_rect1_a, max_rect1_a = min(rect1[:, aaxis]), max(rect1[:, aaxis])
+    min_rect1_b, max_rect1_b = min(rect1[:, baxis]), max(rect1[:, baxis])
+
+    min_rect2_a, max_rect2_a = min(rect2[:, aaxis]), max(rect2[:, aaxis])
+    min_rect2_b, max_rect2_b = min(rect2[:, baxis]), max(rect2[:, baxis])
 
     # Check if the rectangles overlap in the x and z dimensions
-    x_overlap = min_rect1_x < max_rect2_x and min_rect2_x < max_rect1_x
-    z_overlap = min_rect1_z < max_rect2_z and min_rect2_z < max_rect1_z
+    a_overlap = min_rect1_a < max_rect2_a and min_rect2_a < max_rect1_a
+    b_overlap = min_rect1_b < max_rect2_b and min_rect2_b < max_rect1_b
 
     # If both x and z dimensions overlap, the rectangles overlap
-    return x_overlap and z_overlap
+    return a_overlap and b_overlap
 
 def rectangle_area(rect: np.ndarray(np.ndarray(float))):
     # calculate the area of the rectangle
@@ -179,11 +194,11 @@ FoldOption: An object that contains a modification and the associated fold trans
 
 
 class FoldOption:
-    def __init__(self, isleft, mod: Modification, scaff: BasicScaff, axis: np.ndarray(float)):
+    def __init__(self, isleft, mod: Modification, scaff: BasicScaff, rot_axis: np.ndarray(float)):
         self.modification: Modification = mod
         self.isleft: bool = isleft
         self.fold_transform: FoldTransform = None
-        self.rot_axis = axis
+        self.rot_axis = rot_axis
         self.height = -1
 
         # this patch list should be at least size 2
@@ -295,7 +310,7 @@ class FoldOption:
                 # Check their projected foldable areas for the foldable patches don't overlap
                 self_region_vertices = self.projected_region
                 other_region_vertices = other.projected_region
-                if (check_rectangle_overlap(self_region_vertices, other_region_vertices)):
+                if (check_rectangle_overlap(self_region_vertices, other_region_vertices, self.scaff.push_axis)):
                     # print("Conflict between: " + str(self.scaff.id) + " and " + str(other.scaff.id))
                     # print("Times overlap and rectangle overlap detected!")
                     return True
@@ -682,11 +697,12 @@ BasicScaff: Parent class for TBasicScaff and HBasicScaff
 class BasicScaff():
     id_incr = 0
 
-    def __init__(self):
+    def __init__(self, push_axis: np.ndarray(float)):
         self.fold_options: List[FoldOption] = []
 
         # Says which fold options have external conflicts
         # run init conflicts to initialize
+        self.push_axis = push_axis
         self.no_external_conflicts: List[bool] = []
         self.id = BasicScaff.id_incr
         BasicScaff.id_incr += 1
@@ -782,12 +798,12 @@ TBasicScaff: A basic scaffold of type T
 
 
 class TBasicScaff(BasicScaff):
-    def __init__(self, b_patch, f_patch):
+    def __init__(self, b_patch, f_patch, push_axis: np.ndarray(float)):
         self.f_patch = f_patch
         self.b_patch = b_patch
 
         # this has to be done after the patches are set
-        super().__init__()
+        super().__init__(push_axis)
 
         self.rot_axis = np.cross(calc_normal(f_patch.coords), calc_normal(b_patch.coords))
 
@@ -843,13 +859,13 @@ HBasicScaff: A basic scaffold of type H
 
 
 class HBasicScaff(BasicScaff):
-    def __init__(self, b_patch, f_patch, t_patch):
+    def __init__(self, b_patch, f_patch, t_patch, push_axis):
         self.f_patch = f_patch
         self.b_patch = b_patch
         self.t_patch = t_patch
 
         # this must be called after the patches are set
-        super().__init__()
+        super().__init__(push_axis)
 
         self.rot_axis: np.ndarray = np.cross(calc_normal(f_patch.coords), calc_normal(b_patch.coords))
 
@@ -1436,36 +1452,20 @@ class InputScaff:
                     else:
                         raise Exception("Invalid push direction")
                     fold0 = self.node_list[id]
-                    self.basic_scaffs.append(HBasicScaff(base_lo, fold0, base_hi))
+                    self.basic_scaffs.append(HBasicScaff(base_lo, fold0, base_hi, self.push_dir))
                     self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id,
                                                                      self.node_list[neighbors[1]].id]
                     # print(self.basic_scaffs[-1].id)
                 elif len(neighbors) == 1:
                     base0 = self.node_list[neighbors[0]]
                     fold0 = self.node_list[id]
-                    self.basic_scaffs.append(TBasicScaff(base0, fold0))
+                    self.basic_scaffs.append(TBasicScaff(base0, fold0, self.push_dir))
                     self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id]
                     # print(self.basic_scaffs[-1].id)
                 else:
                     print("wtf, no neighbors in the hinge graph??: " + str(id))
         print("end gen basic scaffs")
 
-    # TODO: ONLY USED FOR UNIT TESTING
-    # def gen_scaffs(self):
-    #     # TODO: Di
-    #
-    #     # generates hinge graph
-    #     self.gen_hinge_graph()
-    #
-    #     # generates basic scaffolds
-    #     # self.gen_basic_scaffs()
-    #
-    #     # generates mid-level scaffolds
-    #     self.gen_mid_scaffs()
-    #
-    #     # generates fold order. Fold order will be stored in self.mid_scaff_ordered
-    #     # Midscaffs will also store the best clique  in Midscaff.best_clique
-    #     # self.order_folds()
 
     def gen_hinge_graph(self):
         # print("gen_hinge_graph...")
@@ -1484,37 +1484,6 @@ class InputScaff:
         for edge in self.edge_list:
             self.hinge_graph.add_edge(edge[0], edge[1])
 
-    # Here for debugging purposes
-    # def gen_basic_scaffs(self):
-    #     print("gen basic scaffs")
-    #     for patch in self.node_list:
-    #         if patch.patch_type == PatchType.Fold:
-    #             id = patch.id
-    #             neighbors = list(self.hinge_graph.neighbors(id))
-    #             if len(neighbors) == 2:
-    #                 base0 = self.node_list[neighbors[0]]
-    #                 base1 = self.node_list[neighbors[1]]
-    #                 fold0 = self.node_list[id]
-    #                 self.basic_scaffs.append(HBasicScaff(base0, fold0, base1))
-    #                 self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id,
-    #                                                                  self.node_list[neighbors[1]].id]
-    #                 # print(self.basic_scaffs[-1].id)
-    #             elif len(neighbors) == 1:
-    #                 base0 = self.node_list[neighbors[0]]
-    #                 fold0 = self.node_list[id]
-    #                 self.basic_scaffs.append(TBasicScaff(base0, fold0))
-    #                 self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id]
-    #                 # print(self.basic_scaffs[-1].id)
-    #             else:
-    #                 print("wtf")
-    #
-    #     for scaff in self.basic_scaffs:
-    #         # TODO: Remove some of these from debugging
-    #         scaff.start_time = 0
-    #         scaff.end_time = 90
-    #         scaff.gen_fold_options(self.num_shrinks, self.max_hinges, .5)
-    #
-    #     # print("end gen basic scaffs")
 
     # Basic scaffold objects already created by the foldNode
     def set_basic_mappings(self):
