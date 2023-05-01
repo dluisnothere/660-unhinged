@@ -888,7 +888,7 @@ class MayaBasicScaffoldWrapper():
         #         print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
         # Has to go at the end or something otherwise you'll get a space between top patch and the folds
-        self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece)
+        # self.shrinkPatch(shapeTraverseOrder, endPiece, numPieces, startPiece)
 
         # print("VERTICES OF kFold4_0 - FINAL SHRINK PATCH")
         # if cmds.objExists("kFold4_0"):
@@ -1218,13 +1218,6 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
         # print("patchPivots:")
         # print(patchPivots)
 
-        if (self.upsideDown):
-            startIdx = 0
-            endIdx = len(shapeTraverseOrder) - 1
-        else:
-            startIdx = 1
-            endIdx = len(shapeTraverseOrder)
-
         for i in range(0, len(patchPivots) - 1):
             # Obtain child pivot so we can use it later for translation
             for j in range(0, len(newClosestVertices[
@@ -1497,8 +1490,8 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
             # Midpoint formula to solve for the midpoint betwen the two closest vertices.
             verticeDistNew = newClosestVertices[i][0][2] + newClosestVertices[i][1][2]
             middlePointNew = (verticeDistNew * 0.5)
-            # print(
-            #     "Middle Point: {:.6f}, {:.6f}, {:.6f}".format(middlePointNew[0], middlePointNew[1], middlePointNew[2]))
+            print(
+                "Middle Point: {:.6f}, {:.6f}, {:.6f}".format(middlePointNew[0], middlePointNew[1], middlePointNew[2]))
 
             # Get the translation from the old middle point to the new middle point.
             ogMidPoint = midPoints[i]
@@ -1516,7 +1509,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
             # for vertex in allVertices:
             #     print("PRE Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
-            # print("Translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
+            print("Translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
             childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
 
             # print the childPatch's transform afer translation
@@ -1632,9 +1625,9 @@ class MayaInputScaffoldWrapper():
                     # print("Adding edges to the list: ", baseObj.name, foldpatchObj.name)
 
         # Print all edges
-        # print("Edges: ")
-        # for e in edgesObjs:
-        #     print(e[0].name, e[1].name)
+        print("Edges: ")
+        for e in edgesObjs:
+            print(e[0].name, e[1].name)
 
         self.edgesObjs = edgesObjs
 
@@ -1726,27 +1719,6 @@ class MayaInputScaffoldWrapper():
                         print(basePatchObj.name + " AND " + otherScaffWrapper.basePatch + " SAME")
                         print("T and another scaff share the same bottom patch!")
 
-            # if basePatchObj.name == otherScaffWrapper.basePatch:
-            #     if basicScaffWrapper.upsideDown:
-            #         # Then basicScaffWrapper must be parent
-            #         if otherScaffWrapper.parent is None:
-            #             otherScaffWrapper.setParent(basicScaffWrapper)
-            #         basicScaffWrapper.addChild(otherScaffWrapper)
-            #         hasParentOrChild = True
-            #         print(
-            #             "Parent child pairing found: parent: " + str(
-            #                 basicScaffWrapper.basicScaffold.id) + " child: " + str(
-            #                 otherScaffWrapper.basicScaffold.id))
-            #     else:
-            #         # Then scaffWrapper must be parent
-            #         if basicScaffWrapper.parent is None:
-            #             basicScaffWrapper.setParent(otherScaffWrapper)
-            #         otherScaffWrapper.addChild(basicScaffWrapper)
-            #         hasParentOrChild = True
-            #         print(
-            #             "Parent child pairing ofund: parent: " + str(otherScaffWrapper.basicScaffold.id) + " child: " + str(
-            #                 basicScaffWrapper.basicScaffold.id))
-
         if not hasParentOrChild:
             print("NO PARENT OR CHILD FOUND!")
 
@@ -1785,16 +1757,25 @@ class MayaInputScaffoldWrapper():
                 basePatch0Vertices = basePatchObj0.coords
                 basePatch1Vertices = basePatchObj1.coords
 
-                # TODO: hard coded to be Y axis but it shouldn't be this way
-                if self.pushAxis[1] > 0:
-                    if basePatch0Vertices[0][1] < basePatch1Vertices[0][1]:
+                # TODO: should only be are vectors equal.
+                if (areVectorsEqual(self.pushAxis, posYAxis) or areVectorsOpposite(self.pushAxis, posYAxis)):
+                    heightIdx = 1
+                elif (areVectorsEqual(self.pushAxis, posXAxis) or areVectorsOpposite(self.pushAxis, posXAxis)):
+                    heightIdx = 0
+                elif (areVectorsEqual(self.pushAxis, posZAxis) or areVectorsOpposite(self.pushAxis, posZAxis)):
+                    heightIdx = 2
+                else:
+                    raise Exception ("Push axis is not aligned with any of the 3 axes!")
+
+                if self.pushAxis[heightIdx] > 0:
+                    if basePatch0Vertices[0][heightIdx] < basePatch1Vertices[0][heightIdx]:
                         topPatchObj = basePatchObj0
                         basePatchObj = basePatchObj1
                     else:
                         topPatchObj = basePatchObj1
                         basePatchObj = basePatchObj0
                 else:
-                    if basePatch0Vertices[0][1] > basePatch1Vertices[0][1]:
+                    if basePatch0Vertices[0][heightIdx] > basePatch1Vertices[0][heightIdx]:
                         topPatchObj = basePatchObj0
                         basePatchObj = basePatchObj1
                     else:
