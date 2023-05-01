@@ -33,13 +33,13 @@ def normalize(vec1):
 
 # Might not even need this for now
 def is_rectangle(coords):
-    print("Checking if input is a rectangle...")
-    print("coords1:")
-    print(coords[1])
-    print("coords0:")
-    print(coords[0])
-    print("coords3:")
-    print(coords[3])
+    # print("Checking if input is a rectangle...")
+    # print("coords1:")
+    # print(coords[1])
+    # print("coords0:")
+    # print(coords[0])
+    # print("coords3:")
+    # print(coords[3])
 
     # Check if coordinates actually create a rectangle shape
     hvec = np.array(coords[1]) - np.array(coords[0])
@@ -206,7 +206,7 @@ class FoldOption:
         self.construct_bvh(self.rot_axis)
 
     def gen_fold_transform(self):
-        print("Entered gen_fold_transform...")
+        # print("Entered gen_fold_transform...")
         # Based on the modification, generate start angle and end angle
         # TODO: Di or David
 
@@ -258,7 +258,7 @@ class FoldOption:
 
         if (self.scaff.start_time == -1 or self.scaff.end_time == -1):
             raise Exception("Error: start or end time not set for scaffold")
-        print("Warning... start or end time not set yet")
+        # print("Warning... start or end time not set yet")
 
         self.fold_transform = FoldTransform(start_config, end_config, self.scaff.start_time, self.scaff.end_time)
         # TODO: the time variables should be set by greedy one step lookahead, which hasn't happened yet
@@ -500,7 +500,7 @@ class FoldOption:
             bvh.append([minX + smoothbrainiqNumber, minY, minZ])
             bvh.append([minX + self.height - smoothbrainiqNumber, maxY, maxZ])
         elif (abs(np.dot(norm, YAxis)) == 1):
-            print("Y Option")
+            # print("Y Option")
             bvh.append([minX, minY + smoothbrainiqNumber, minZ])
             bvh.append([maxX, minY + self.height - smoothbrainiqNumber, maxZ])
         elif (abs(np.dot(norm, ZAxis)) == 1):
@@ -552,7 +552,7 @@ class FoldOption:
         pass 
 
     def checkPatchAgainstBVH(self, patch):
-        print("checking patch against BVH")
+        # print("checking patch against BVH")
         boxmin = self.bvh[0]
         boxmax = self.bvh[1]
         proj = patch.coords
@@ -572,17 +572,17 @@ class FoldOption:
         minZ = min(proj[0][2], proj[1][2], proj[2][2], proj[3][2])
 
 
-        print("OPTION==================")
-        print("Checking option against BVH")
-        print(boxmin)
-        print(boxmax)
-        print(self.isleft)
-        print("Height")
-        print(self.height)
-        print("num patches")
-        print(self.modification.num_hinges)
-        print("Coords")
-        print(patch.coords)
+        # print("OPTION==================")
+        # print("Checking option against BVH")
+        # print(boxmin)
+        # print(boxmax)
+        # print(self.isleft)
+        # print("Height")
+        # print(self.height)
+        # print("num patches")
+        # print(self.modification.num_hinges)
+        # print("Coords")
+        # print(patch.coords)
         if isXAxis:
             if boxmin[0] >= maxX or boxmax[0] <= minX:
                 return True
@@ -610,16 +610,16 @@ class FoldOption:
                     return True
         else:
             raise Exception("Non axis aligned patch detected. Please do not do this!")
-        print("REJECTED")
+        # print("REJECTED")
         return False
 
     def checkSelfAgainstSequenced(self, basic_scaffs: List[BasicScaff]):
         # TODO: Handle edge case
-        print("Check self against sequenced? but not implemented")
+        # print("Check self against sequenced? but not implemented")
         return True
 
     def checkSelfAgainstUnsequenced(self, basic_scaffs: List[BasicScaff]):
-        print("checking self against unsequened...")
+        # print("checking self against unsequened...")
         for bs in basic_scaffs:
             if type(bs) == HBasicScaff:
                 base = bs.b_patch
@@ -635,7 +635,7 @@ class FoldOption:
 
                 if not self.checkPatchAgainstBVH(base) or not self.checkPatchAgainstBVH(
                         fold) or not self.checkPatchAgainstBVH(top):
-                    print("Returning false at 635")
+                    # print("Returning false at 635")
                     return False
             else:
                 base = bs.b_patch
@@ -647,7 +647,7 @@ class FoldOption:
 
                 if not self.checkPatchAgainstBVH(base) or not self.checkPatchAgainstBVH(fold):
                     return False
-        print("ACCEPTED")
+        # print("ACCEPTED")
         return True
 
     def checkValid(self, ownedIndex: int, mid_scaffs: List[MidScaff], folded_scaff: List[bool]) -> (bool, float):
@@ -655,20 +655,20 @@ class FoldOption:
         unsequenced_scaffs = []
         for idx in range(0, len(mid_scaffs)):
             if idx == ownedIndex:
-                print("OWNED INDEX")
+                # print("OWNED INDEX")
                 continue
 
             for bs in mid_scaffs[idx].basic_scaffs:
                 if folded_scaff[idx]:
-                    print("sequenced_scaff")
+                    # print("sequenced_scaff")
                     sequenced_scaffs.append(bs)
                 else:
-                    print("unsequenced_scaff")
+                    # print("unsequenced_scaff")
                     unsequenced_scaffs.append(bs)
-        print("UNSEQUENCED LENGTH==============")
-        print(len(unsequenced_scaffs))
-        print("SEQUENCED LENGTH==============")
-        print(len(sequenced_scaffs))
+        # print("UNSEQUENCED LENGTH==============")
+        # print(len(unsequenced_scaffs))
+        # print("SEQUENCED LENGTH==============")
+        # print(len(sequenced_scaffs))
         return (
         self.checkSelfAgainstSequenced(sequenced_scaffs) and self.checkSelfAgainstUnsequenced(unsequenced_scaffs),
         self.modification.cost)
@@ -722,22 +722,22 @@ class BasicScaff():
             if option.modification.cost < cost:
                 base = option
                 cost = option.modification.cost
-        print("Least expensive option")
-        print(base)
+        # print("Least expensive option")
+        # print(base)
         return base
 
     def getMostExpensiveOption(self) -> FoldOption:
         cost = smallChungusNumber
         base = None
         for option in self.fold_options:
-            print(option.modification.cost)
+            # print(option.modification.cost)
 
             if option.modification.cost > cost:
                 cost = option.modification.cost
                 base = option
 
-        print("Most expensive option")
-        print(base)
+        # print("Most expensive option")
+        # print(base)
 
         return base
 
@@ -750,17 +750,17 @@ class BasicScaff():
     def checkValid(self, ownedIndex: int, mid_scaffs: List[MidScaff], folded_scaff: List[bool]) -> (bool, float):
         # Iterating all fold options to check if one can be foldabalized with current configuration
         min_cost = bigChungusNumber
-        print("Checking valid in Basic Scaff")
-        print(len(self.fold_options))
+        # print("Checking valid in Basic Scaff")
+        # print(len(self.fold_options))
         if (len(self.fold_options) == 0):
             raise Exception("No fold options! yet checking valid...")
 
         for option_idx in range(0, len(self.fold_options)):
             if self.no_external_conflicts[option_idx]:
-                print("Already checked")
+                # print("Already checked")
                 continue
             else:
-                print("Checking external conflicts isvalid 734")
+                # print("Checking external conflicts isvalid 734")
                 self.no_external_conflicts[option_idx], cost = self.fold_options[option_idx].checkValid(ownedIndex,
                                                                                                         mid_scaffs,
                                                                                                         folded_scaff)
@@ -771,7 +771,7 @@ class BasicScaff():
         for status in self.no_external_conflicts:
 
             if status:
-                print("IS VALID")
+                # print("IS VALID")
                 return (True, min_cost)
         return (False, min_cost)
 
@@ -819,7 +819,7 @@ class TBasicScaff(BasicScaff):
         # Generates all possible fold solutions for TBasicScaff
         # ns: max number of patch cuts
         # nh: max number of hinges, let's enforce this to be an odd number for now
-        print("gen_fold_options...")
+        # print("gen_fold_options...")
         for i in range(mh, nh + 1, 2):
             for j in range(1, ns + 1):
                 for h in range(1, j + 1):
@@ -963,13 +963,14 @@ class MidScaff:
         return cost
 
     def checkValid(self, ownedIndex: int, mid_scaffs: List[MidScaff], folded_scaff: List[bool]):
-        print("952 checkValid...")
+        # print("952 checkValid...")
         cost = 0
         for bs in self.basic_scaffs:
             valid, lowest_cost = bs.checkValid(ownedIndex, mid_scaffs, folded_scaff)
             cost += lowest_cost
             if not valid:
-                print("955 checkValid: False")
+
+                # print("955 checkValid: False")
                 return False, bigChungusNumber
         return True, cost
 
@@ -994,8 +995,8 @@ class TMidScaff(MidScaff):
 
     def build_execute_conflict_graph(self):
         # TODO: tscaff's getBestOption() seems ot only return one item.
-        print("T SCAFF BUILD_EXECUTE_CONFLICT_GRAPH")
-        print(self.basic_scaffs[0].getLeastExpensiveOption())
+        # print("T SCAFF BUILD_EXECUTE_CONFLICT_GRAPH")
+        # print(self.basic_scaffs[0].getLeastExpensiveOption())
 
         # clique of one item
         # clique, weight = self.basic_scaffs[0].getBestOption()
@@ -1004,10 +1005,10 @@ class TMidScaff(MidScaff):
 
         self.best_clique = fold_option # clique
         weight = most_expensive_option.modification.cost - fold_option.modification.cost + 1
-        print("COST: " + str(fold_option.modification.cost))
-        print("LEAST EXPENSIVE fold_option: " + str(fold_option.scaff.f_patch.coords))
-        print("COST: " + str(most_expensive_option.modification.cost))
-        print("MOST EXPENSIVE fold_option: " + str(most_expensive_option.scaff.f_patch.coords))
+        # print("COST: " + str(fold_option.modification.cost))
+        # print("LEAST EXPENSIVE fold_option: " + str(fold_option.scaff.f_patch.coords))
+        # print("COST: " + str(most_expensive_option.modification.cost))
+        # print("MOST EXPENSIVE fold_option: " + str(most_expensive_option.scaff.f_patch.coords))
 
         self.basic_scaffs[0].optimal_fold_option = fold_option
         return fold_option, weight
@@ -1070,35 +1071,35 @@ class TMidScaff(MidScaff):
         # TODO: should be able to simplify
         max_clique, weight = nx.algorithms.clique.max_weight_clique(self.conflict_graph, weight="weight")
 
-        print("RESULTING MAX CLIQUE")
-        print(max_clique)
+        # print("RESULTING MAX CLIQUE")
+        # print(max_clique)
 
         for fold_option in max_clique:
             # TODO: clean this up messy.
             fold_option.scaff.optimal_fold_option = fold_option
-            print("FOLD SOLUTION FOR: " + str(fold_option.scaff.id) + "===================")
-            sol: FoldOption = fold_option
-            print("start time:")
-            print(fold_option.scaff.start_time)
-            print("end time:")
-            print(fold_option.scaff.end_time)
-            print("num hinges: ")
-            print(sol.modification.num_hinges)
-            print("num shrinks: ")
-            print(sol.modification.num_pieces)
-            print("range start: ")
-            print(sol.modification.range_start)
-            print("range end: ")
-            print(sol.modification.range_end)
-            print("isleft:")
-            print(sol.isleft)
-            print("original vertices: ")
-            print(fold_option.scaff.f_patch.coords)
-            print("Projected region of solution: ")
-            print(sol.projected_region)
+            # print("FOLD SOLUTION FOR: " + str(fold_option.scaff.id) + "===================")
+            # sol: FoldOption = fold_option
+            # print("start time:")
+            # print(fold_option.scaff.start_time)
+            # print("end time:")
+            # print(fold_option.scaff.end_time)
+            # print("num hinges: ")
+            # print(sol.modification.num_hinges)
+            # print("num shrinks: ")
+            # print(sol.modification.num_pieces)
+            # print("range start: ")
+            # print(sol.modification.range_start)
+            # print("range end: ")
+            # print(sol.modification.range_end)
+            # print("isleft:")
+            # print(sol.isleft)
+            # print("original vertices: ")
+            # print(fold_option.scaff.f_patch.coords)
+            # print("Projected region of solution: ")
+            # print(sol.projected_region)
 
     def fold(self):
-        print("TMidScaff: Implement me!")
+        # print("TMidScaff: Implement me!")
         self.gen_conflict_graph()
         # print conflict graph's edges
         # print("conflict graph edges:")
@@ -1133,7 +1134,7 @@ class TMidScaff(MidScaff):
 
         self.run_mwisp()
 
-        print("Completed running fold on TMidScaff...")
+        # print("Completed running fold on TMidScaff...")
 
 
 class HMidScaff(MidScaff):
@@ -1141,7 +1142,7 @@ class HMidScaff(MidScaff):
         super().__init__(bs, nm)
 
     def gen_fold_times(self, push_dir: list[float]):
-        print("GENERATING FOLD TIMES....")
+        # print("GENERATING FOLD TIMES....")
         # If no basic scaffolds, return with error.
         if len(self.basic_scaffs) == 0:
             raise Exception("No basic scaffolds to gen fold time for!")
@@ -1152,15 +1153,15 @@ class HMidScaff(MidScaff):
         # In-place sorting should be okay for now...
         if (abs(np.dot(push_dir, XAxis)) == 1):
             self.basic_scaffs.sort(reverse=True, key=lambda x: x.t_patch.coords[0][0])
-            print("SORTED BY X")
+            # print("SORTED BY X")
             heightIndex = 0
         elif (abs(np.dot(push_dir, YAxis)) == 1):
-            print("SORTED BY Y")
+            # print("SORTED BY Y")
             self.basic_scaffs.sort(reverse=True, key=lambda x: x.t_patch.coords[0][1])
             heightIndex = 1
         elif (abs(np.dot(push_dir, ZAxis)) == 1):
             self.basic_scaffs.sort(reverse=True, key=lambda x: x.t_patch.coords[0][2])
-            print("SORTED BY Z")
+            # print("SORTED BY Z")
             heightIndex = 2
         else:
             raise Exception("Push direction is not a cardinal direction!")
@@ -1169,8 +1170,8 @@ class HMidScaff(MidScaff):
 
         highest_patch = self.basic_scaffs[0].t_patch
         lowest_patch = self.basic_scaffs[-1].b_patch
-        print("highest patch coords:")
-        print(highest_patch.coords)
+        # print("highest patch coords:")
+        # print(highest_patch.coords)
         h0 = highest_patch.coords[0][heightIndex]
         b0 = lowest_patch.coords[0][heightIndex]
 
@@ -1181,27 +1182,27 @@ class HMidScaff(MidScaff):
             h = basic_scaff.t_patch.coords[0][heightIndex]
             b = basic_scaff.b_patch.coords[0][heightIndex]
 
-            print("h: " + str(h))
-            print("b: " + str(b))
+            # print("h: " + str(h))
+            # print("b: " + str(b))
 
             # print("basic scaff:")
             # print(basic_scaff)
 
-            print("h0 - h: " + str(h0 - h))
-            print("h0 - b: " + str(h0 - b))
+            # print("h0 - h: " + str(h0 - h))
+            # print("h0 - b: " + str(h0 - b))
 
             basic_scaff.start_time = abs(h0 - h) * self.end_time / abs(h0 - b0)
-            print("start time: " + str(basic_scaff.start_time))
+            # print("start time: " + str(basic_scaff.start_time))
             basic_scaff.end_time = abs(h0 - b) * self.end_time / abs(h0 - b0)
-            print("end time: " + str(basic_scaff.end_time))
+            # print("end time: " + str(basic_scaff.end_time))
 
-        print("Finished generating fold times for HMidScaff")
+        # print("Finished generating fold times for HMidScaff")
 
         self.added_tracker = []
         self.fold_Order = []
 
     def gen_conflict_graph(self):
-        print("generating conflict graph...")
+        # print("generating conflict graph...")
 
         # Assuming at this point we havea  list of basic scaffolds
         if (len(self.basic_scaffs) == 0):
@@ -1276,18 +1277,19 @@ class HMidScaff(MidScaff):
                     # if (option.scaff.id == other_option.scaff.id):
                     #     self.conflict_graph.remove_edge(option, other_option)
 
-        print("done generating conflict graph")
+        # print("done generating conflict graph")
 
     def run_mwisp(self):
-        print("running MWISP")
+        # print("running MWISP")
+
 
         # Run MWISP on the conflict graph
         # This will return a list of nodes (FoldOptions) that are in the maximum weight independent set
         # TODO: this might be really slow.
         max_clique, weight = nx.algorithms.clique.max_weight_clique(self.conflict_graph, weight="weight")
 
-        print("RESULTING MAX CLIQU")
-        print(max_clique)
+        # print("RESULTING MAX CLIQU")
+        # print(max_clique)
 
         if len(max_clique) != len(self.basic_scaffs):
             raise Exception("Max clique is missing some options")
@@ -1295,26 +1297,26 @@ class HMidScaff(MidScaff):
         for fold_option in max_clique:
             # TODO: clean this up messy.
             fold_option.scaff.optimal_fold_option = fold_option
-            print("FOLD SOLUTION FOR: " + str(fold_option.scaff.id) + "===================")
-            sol: FoldOption = fold_option
-            print("start time:")
-            print(fold_option.scaff.start_time)
-            print("end time:")
-            print(fold_option.scaff.end_time)
-            print("num hinges: ")
-            print(sol.modification.num_hinges)
-            print("num shrinks: ")
-            print(sol.modification.num_pieces)
-            print("range start: ")
-            print(sol.modification.range_start)
-            print("range end: ")
-            print(sol.modification.range_end)
-            print("isleft:")
-            print(sol.isleft)
-            print("original vertices: ")
-            print(fold_option.scaff.f_patch.coords)
-            print("Projected region of solution: ")
-            print(sol.projected_region)
+            # print("FOLD SOLUTION FOR: " + str(fold_option.scaff.id) + "===================")
+            # sol: FoldOption = fold_option
+            # print("start time:")
+            # print(fold_option.scaff.start_time)
+            # print("end time:")
+            # print(fold_option.scaff.end_time)
+            # print("num hinges: ")
+            # print(sol.modification.num_hinges)
+            # print("num shrinks: ")
+            # print(sol.modification.num_pieces)
+            # print("range start: ")
+            # print(sol.modification.range_start)
+            # print("range end: ")
+            # print(sol.modification.range_end)
+            # print("isleft:")
+            # print(sol.isleft)
+            # print("original vertices: ")
+            # print(fold_option.scaff.f_patch.coords)
+            # print("Projected region of solution: ")
+            # print(sol.projected_region)
 
         return max_clique, weight
 
@@ -1400,7 +1402,7 @@ class InputScaff:
 
     # TODO: FOR UNIT TESTING PURPOSES ONLY DO NOT USE IN PRODUCTION
     def gen_basic_scaffs(self):
-        print("gen basic scaffs")
+        # print("gen basic scaffs")
         for patch in self.node_list:
             if patch.patch_type == PatchType.Fold:
                 id: int = patch.id
@@ -1437,13 +1439,13 @@ class InputScaff:
                     self.basic_scaffs.append(HBasicScaff(base_lo, fold0, base_hi))
                     self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id,
                                                                      self.node_list[neighbors[1]].id]
-                    print(self.basic_scaffs[-1].id)
+                    # print(self.basic_scaffs[-1].id)
                 elif len(neighbors) == 1:
                     base0 = self.node_list[neighbors[0]]
                     fold0 = self.node_list[id]
                     self.basic_scaffs.append(TBasicScaff(base0, fold0))
                     self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id]
-                    print(self.basic_scaffs[-1].id)
+                    # print(self.basic_scaffs[-1].id)
                 else:
                     print("wtf, no neighbors in the hinge graph??: " + str(id))
         print("end gen basic scaffs")
@@ -1466,7 +1468,7 @@ class InputScaff:
     #     # self.order_folds()
 
     def gen_hinge_graph(self):
-        print("gen_hinge_graph...")
+        # print("gen_hinge_graph...")
         for patch in self.node_list:
             ang = abs(np.dot(normalize(self.push_dir), normalize(patch.normal)))
             # print(normalize(patch.normal))
@@ -1516,7 +1518,7 @@ class InputScaff:
 
     # Basic scaffold objects already created by the foldNode
     def set_basic_mappings(self):
-        print("gen basic scaffs")
+        # print("gen basic scaffs")
         if (len(self.basic_scaffs) < 1):
             raise Exception("No basic scaffolds!")
 
@@ -1526,8 +1528,8 @@ class InputScaff:
                 scaffid = basic_scaff.id
                 patchid = basic_scaff.f_patch.id
                 # Produce basic mappings in the same way I produced them foldNode.
-                print("scaffid: " + str(scaffid))
-                print("patch ids: " + str(basic_scaff.b_patch.id) + ", " + str(basic_scaff.t_patch.id))
+                # print("scaffid: " + str(scaffid))
+                # print("patch ids: " + str(basic_scaff.b_patch.id) + ", " + str(basic_scaff.t_patch.id))
                 self.basic_mappings[scaffid] = [patchid, basic_scaff.b_patch.id, basic_scaff.t_patch.id]
             elif (type(basic_scaff) is TBasicScaff):
                 scaffid = basic_scaff.id
@@ -1680,7 +1682,7 @@ class InputScaff:
 
     def checkValid(self, index):
         # TODO: IMPLEMENT
-        print("1643 Check Valid")
+        # print("1643 Check Valid")
         return self.mid_scaffs[index].checkValid(index, self.mid_scaffs, self.folded_scaff)
 
     def pickNextScaff(self):
@@ -1691,20 +1693,20 @@ class InputScaff:
 
         for (scaff1, id1) in zip(self.mid_scaffs, range(0, len(self.mid_scaffs))):
             # check valid sees if the mid scaff can be folded
-            print("In for loop checking: " + str(id1))
+            # print("In for loop checking: " + str(id1))
 
             # If folded_scaff doesn't contain id1
             if not self.folded_scaff[id1]:
                 valid, first_cost = self.checkValid(id1)
                 if not valid:
-                    print("Solution was not valid!")
+                    # print("Solution was not valid!")
                     continue
 
                 weight1 = first_cost
                 for (scaff2, id2) in zip(self.mid_scaffs, range(0, len(self.mid_scaffs))):
                     weight2 = self.mid_scaffs[id2].getLowCostEstimate()
                     if id1 != id2 and c1 + c2 > weight1 + weight2:
-                        print("Setting bestId " + str(id1))
+                        # print("Setting bestId " + str(id1))
                         c1 = weight1
                         c2 = weight2
                         best_Scaff = scaff1
@@ -1715,7 +1717,7 @@ class InputScaff:
                         self.folded_scaff[id1] = True
                         return
 
-        print("Adding mid level scaff: " + str(bestId))
+        # print("Adding mid level scaff: " + str(bestId))
 
         if best_Scaff == None:
             remaining_list = []
@@ -1725,23 +1727,23 @@ class InputScaff:
 
     def order_folds(self):
         size = len(self.mid_scaffs)
-        print("number of mid level scaffs:")
-        print(size)
+        # print("number of mid level scaffs:")
+        # print(size)
 
         self.folded_scaff = [False for i in range(size)]
         self.initConflictChecks()
 
-        print("number of ordered mid level scaffolds")
-        print(len(self.mid_scaffs_ordered))
+        # print("number of ordered mid level scaffolds")
+        # print(len(self.mid_scaffs_ordered))
 
         offset = 0
         while len(self.mid_scaffs_ordered) < len(self.mid_scaffs):
             self.pickNextScaff()
-            print("Num Ordered:")
-            print(len(self.mid_scaffs_ordered))
-            print(self.mid_scaffs_ordered)
-            print(self.mid_scaffs_ordered[0])
-            print(self.mid_scaffs_ordered[-1])
+            # print("Num Ordered:")
+            # print(len(self.mid_scaffs_ordered))
+            # print(self.mid_scaffs_ordered)
+            # print(self.mid_scaffs_ordered[0])
+            # print(self.mid_scaffs_ordered[-1])
             self.mid_scaffs_ordered[-1].build_execute_conflict_graph()
             self.mid_scaffs_ordered[-1].setOffset(offset * 90)
             offset += 1
@@ -3248,7 +3250,6 @@ def test_fold_hh_scaff():
             # print("FOLD PATCH COORDS")
             # print(basic_scaff.f_patch.coords)
             # offset = indexTime * 90
-
             print("FOLD SOLUTION FOR: " + str(basic_scaff.id) + "===================")
             sol: FoldOption = basic_scaff.optimal_fold_option
             print("start time:")
@@ -3270,4 +3271,4 @@ def test_fold_hh_scaff():
             print("Projected region of solution: ")
             print(sol.projected_region)
 
-test_fold_hh_scaff()
+# test_fold_hh_scaff()

@@ -130,23 +130,23 @@ def getClosestVertices(vertices: dict, p: OpenMaya.MVector, n: int) -> list:
     # print each entry in list
     # for entry in distList:
     distListAdj = distList[:n]
-    print("Current Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(distListAdj[0][0],
-                                                                                      distListAdj[0][1],
-                                                                                      distListAdj[0][2][0],
-                                                                                      distListAdj[0][2][1],
-                                                                                      distListAdj[0][2][2]))
-    print("Current Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(distListAdj[1][0],
-                                                                                      distListAdj[1][1],
-                                                                                      distListAdj[1][2][0],
-                                                                                      distListAdj[1][2][1],
-                                                                                      distListAdj[1][2][2]))
+    # print("Current Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(distListAdj[0][0],
+    #                                                                                   distListAdj[0][1],
+    #                                                                                   distListAdj[0][2][0],
+    #                                                                                   distListAdj[0][2][1],
+    #                                                                                   distListAdj[0][2][2]))
+    # print("Current Closest Vertices: {}, dist: {:.6f}, {:.6f}, {:.6f}, {:.6f}".format(distListAdj[1][0],
+    #                                                                                   distListAdj[1][1],
+    #                                                                                   distListAdj[1][2][0],
+    #                                                                                   distListAdj[1][2][1],
+    #                                                                                   distListAdj[1][2][2]))
 
     return distList[:n]
 
 
 def getClosestVerticesBaseFold(foldVertices: dict, base: str, n: int) -> list:
-    print("finding closest vertices base fold")
-    print("base: {}".format(base))
+    # print("finding closest vertices base fold")
+    # print("base: {}".format(base))
 
     transformDagPath = getObjectObjectFromDag(base)
 
@@ -157,7 +157,7 @@ def getClosestVerticesBaseFold(foldVertices: dict, base: str, n: int) -> list:
     # print("Checking if shape node is of type mesh")
     # Check if the shape node is of type "mesh"
     if transformDagPath.node().hasFn(OpenMaya.MFn.kMesh):
-        print("creating mesh")
+        # print("creating mesh")
         # Create an MFnMesh function set
         fnMesh = OpenMaya.MFnMesh(transformDagPath)
         distList = []
@@ -205,7 +205,7 @@ def checkScaffoldConnectionBaseFold(foldable, base: str, pushAxis: OpenMaya.MVec
     span1 = idxSet[1]  # x
     span2 = idxSet[2]  # z
 
-    print("idxSet: {}".format(idxSet))
+    # print("idxSet: {}".format(idxSet))
     # Get child's global Y position
     # TODO: make this more generic in the future
     baseY = float(baseVertices["{}.vtx[0]".format(base)][baseLevel])
@@ -224,25 +224,25 @@ def checkScaffoldConnectionBaseFold(foldable, base: str, pushAxis: OpenMaya.MVec
         vertex = element[2]
         # print("vertex: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
         if abs(vertex[baseLevel] - baseY) > 0.0001:
-            print("baseLevel values are not the same!")
-            print("Parent BaseLevel: {}".format(vertex[1]))
-            print("Child BaseLevel: {}".format(baseY))
+            # print("baseLevel values are not the same!")
+            # print("Parent BaseLevel: {}".format(vertex[1]))
+            # print("Child BaseLevel: {}".format(baseY))
             connected = False
             break
         if vertex[span1] < baseMinA - EPS:
-            print("A value is less than minX")
+            # print("A value is less than minX")
             connected = False
             break
         if vertex[span1] > baseMaxA + EPS:
-            print("A value is larger than maxX")
+            # print("A value is larger than maxX")
             connected = False
             break
         if vertex[span2] < baseMinB - EPS:
-            print("B value is smaller childMinZ")
+            # print("B value is smaller childMinZ")
             connected = False
             break
         if vertex[span2] > baseMaxB + EPS:
-            print("B value is larger than childMaxZ")
+            # print("B value is larger than childMaxZ")
             connected = False
             break
     return connected
@@ -271,13 +271,13 @@ def checkScaffoldConnectionBaseNoErr(base: str, foldable: OpenMaya.MPoint, pushA
     span1 = idxSet[1]  # x
     span2 = idxSet[2]  # z
 
-    print("idxSet: {}".format(idxSet))
+    # print("idxSet: {}".format(idxSet))
 
     # Get child's global Y position
     # TODO: make this more generic in the future
     childLevel = float(baseVertices["{}.vtx[0]".format(base)][baseLevel])
-    print("child's vertices: {}".format(baseVertices["{}.vtx[0]".format(base)]))
-    print("childLevel: {}".format(childLevel))
+    # print("child's vertices: {}".format(baseVertices["{}.vtx[0]".format(base)]))
+    # print("childLevel: {}".format(childLevel))
 
     # Get child's max x and min x
     baseMaxA = max(baseVertices.values(), key=lambda x: x[span1])[span1]
@@ -291,29 +291,29 @@ def checkScaffoldConnectionBaseNoErr(base: str, foldable: OpenMaya.MPoint, pushA
     connected = True
     for element in foldable:
         vertex = element[2]
-        print("verices in foldable closest to base: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+        # print("verices in foldable closest to base: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
         if abs(vertex[baseLevel] - childLevel) > 0.0001:
-            print("baseLevel values are not the same!")
-            print("Parent baseLevel: {}".format(vertex[baseLevel]))
-            print("Child baseLevel: {}".format(childLevel))
+            # print("baseLevel values are not the same!")
+            # print("Parent baseLevel: {}".format(vertex[baseLevel]))
+            # print("Child baseLevel: {}".format(childLevel))
             connected = False
             break
         if (vertex[span1] < baseMinA - EPS):
-            print("A value is less than minX")
-            print("A value: {}".format(vertex[span1]))
-            print("minX: {}".format(baseMinA))
+            # print("A value is less than minX")
+            # print("A value: {}".format(vertex[span1]))
+            # print("minX: {}".format(baseMinA))
             connected = False
             break
         if vertex[span1] > baseMaxA + EPS:
-            print("A value is larger than maxX")
+            # print("A value is larger than maxX")
             connected = False
             break
         if vertex[span2] < baseMinB - EPS:
-            print("B value is smaller childMinZ")
+            # print("B value is smaller childMinZ")
             connected = False
             break
         if vertex[span2] > baseMaxB + EPS:
-            print("B value is larger than childMaxZ")
+            # print("B value is larger than childMaxZ")
             connected = False
             break
     return connected
@@ -482,9 +482,9 @@ class MayaBasicScaffoldWrapper():
     # When a parent scaffold translates, the child scaffold must also translate with it on every reset to treat it
     # as the new origin
     def translateWithParentScaff(self, translateVector: OpenMaya.MVector, parentId: int):
-        print("Translating with parent scaff: " + str(self.basicScaffold.id))
+        # print("Translating with parent scaff: " + str(self.basicScaffold.id))
         if (parentId != self.parent.basicScaffold.id):
-            print("Not the recognized parent")
+            # print("Not the recognized parent")
             return
 
         if (len(self.shapeOriginalTransforms) == 0):
@@ -522,8 +522,8 @@ class MayaBasicScaffoldWrapper():
 
             self.shapeResetTransforms[shapeKey][0] = [translate_vec.x, translate_vec.y, translate_vec.z]
 
-        if (len(self.children) == 0):
-            print("Scaffold " + str(self.basicScaffold.id) + " has no children=============================")
+        # if (len(self.children) == 0):
+            # print("Scaffold " + str(self.basicScaffold.id) + " has no children=============================")
 
         for child in self.children:
             child.translateWithParentScaff(translateVector, self.basicScaffold.id)
@@ -977,7 +977,7 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
         self.cleanUpSplitPatches()
 
     def rotatePatches(self, angle: float, shapeTraverseOrder: List[str], isLeft: bool):
-        print("rotating patches... ===========")
+        print("rotating patches....")
         if not isLeft:
             angle = -angle
 
@@ -1149,7 +1149,7 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
     def findClosestMidpointsOnPatches(self, patchPivots: List[OpenMaya.MPoint], shapeTraverseOrder: List[str]) -> (
             List[List], List[float]):
-        print("finding cloest midpoints on patches... ===========")
+        # print("finding cloest midpoints on patches... ===========")
         closestVertices = []
         midPoints = []
 
@@ -1158,7 +1158,7 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
             shape = shapeTraverseOrder[i]
             child = shapeTraverseOrder[i + 1]
 
-            print("getting the closest midpoints between shape: " + shape + " AND " + child)
+            # print("getting the closest midpoints between shape: " + shape + " AND " + child)
 
 
             bottomVertices = getObjectVerticeNamesAndPositions(shape)
@@ -1201,7 +1201,8 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
             # TODO: generalize to T scaffolds as well
             if (i == 0):
                 checkScaffoldConnectionBaseNoErr(shape, currentClosest, self.pushAxis)
-            # THE ONLY DIFFERENCE AND THE H BASIC SCAFF IS THAT WE DON'T DO A SPECIAL CHECK WITH TOP BASE PATCH
+            elif (i == len(shapeTraverseOrder) - 2 and self.upsideDown):
+                checkScaffoldConnectionBaseFold(currentClosest, child, self.pushAxis)
             else:
                 print("check scaffold connection 1236")
                 checkScaffoldConnection(childPivot, middlePoint)
@@ -1214,8 +1215,8 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
         # Get the new closest vertices without changing the original closest vertices
         newClosestVertices = closestVertices.copy()
 
-        print("patchPivots:")
-        print(patchPivots)
+        # print("patchPivots:")
+        # print(patchPivots)
 
         if (self.upsideDown):
             startIdx = 0
@@ -1229,13 +1230,13 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
             for j in range(0, len(newClosestVertices[
                                       i])):  # index and use information from updated vertex positions. There should only be 2 verts here
                 vertex_name, dist, vertexPoint = newClosestVertices[i][j]
-                print("Vertex Name: {}".format(vertex_name))
+                # print("Vertex Name: {}".format(vertex_name))
 
                 # Get the world position of the vertex and convert it to an MVector
                 vertexPoint = cmds.pointPosition(vertex_name, world=True)
                 vertexPoint = OpenMaya.MVector(vertexPoint[0], vertexPoint[1], vertexPoint[2])
 
-                print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertexPoint[0], vertexPoint[1], vertexPoint[2]))
+                # print("Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertexPoint[0], vertexPoint[1], vertexPoint[2]))
 
                 newClosestVertices[i][j] = (
                     vertex_name, 0,  # not sure if dist is important anymore
@@ -1244,26 +1245,26 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
             # Midpoint formula to solve for the midpoint betwen the two closest vertices.
             verticeDistNew = newClosestVertices[i][0][2] + newClosestVertices[i][1][2]
             middlePointNew = (verticeDistNew * 0.5)
-            print(
-                "Middle Point: {:.6f}, {:.6f}, {:.6f}".format(middlePointNew[0], middlePointNew[1], middlePointNew[2]))
+            # print(
+            #     "Middle Point: {:.6f}, {:.6f}, {:.6f}".format(middlePointNew[0], middlePointNew[1], middlePointNew[2]))
 
             # Get the translation from the old middle point to the new middle point.
             ogMidPoint = midPoints[i]
             translation = middlePointNew - ogMidPoint
-            print("Middle point translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1],
-                                                                            translation[2]))
+            # print("Middle point translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1],
+            #                                                                 translation[2]))
 
             # Translate child patch by the translation.
-            print("TRANSLATING THE CHILD PATCH CALLED: " + shapeTraverseOrder[i + 1])
+            # print("TRANSLATING THE CHILD PATCH CALLED: " + shapeTraverseOrder[i + 1])
             childPatchTransform = patchTransforms[i + 1]
 
             # print the childPatch's transform before translation
             # print("SHAPE: " + shapeTraverseOrder[i + 1])
             allVertices = list(getObjectVerticeNamesAndPositions(shapeTraverseOrder[i + 1]).values())
-            for vertex in allVertices:
-                print("PRE Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
+            # for vertex in allVertices:
+            #     print("PRE Vertex Point: {:.6f}, {:.6f}, {:.6f}".format(vertex[0], vertex[1], vertex[2]))
 
-            print("Translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
+            # print("Translation: {:.6f}, {:.6f}, {:.6f}".format(translation[0], translation[1], translation[2]))
             childPatchTransform.translateBy(translation, OpenMaya.MSpace.kWorld)
 
             # print the childPatch's transform afer translation
@@ -1333,8 +1334,8 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
         self.cleanUpSplitPatches()
 
     def rotatePatches(self, angle: float, shapeTraverseOrder: List[str], isLeft: bool):
-        print("rotating patches... ===========")
-        print("angle is: {}".format(angle))
+        # print("rotating patches... ===========")
+        # print("angle is: {}".format(angle))
         if not isLeft:
             angle = -angle
 
@@ -1348,7 +1349,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
             angle = -angle
 
     def breakPatches(self, shapeTraverseOrder: List[str], numHinges: int):
-        print("breaking patches....")
+        # print("breaking patches....")
         # Render the original foldable patch invisible
         # Take every guy except the last guy and hide it
         # TODO: now, i know that since this is a basic patch, there should only ever be one of these guys.
@@ -1383,7 +1384,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
     def findClosestMidpointsOnPatches(self, patchPivots: List[OpenMaya.MPoint], shapeTraverseOrder: List[str]) -> (
             List[List], List[float]):
-        print("finding cloest midpoints on patches... ===========")
+        # print("finding cloest midpoints on patches... ===========")
         closestVertices = []
         midPoints = []
 
@@ -1436,7 +1437,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
                 # THE ONLY DIFFERENCE AND THE T BASIC SCAFF IS THAT WE DO A BASIC PATCH CHECK
                 checkScaffoldConnectionBaseFold(currentClosest, child, self.pushAxis)
             else:
-                print("checkScaffoldConnection 1369")
+                # print("checkScaffoldConnection 1369")
                 checkScaffoldConnection(childPivot, middlePoint)
 
         return closestVertices, midPoints
@@ -1447,7 +1448,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
         # TODO: shrink only the middle patch
         # Shrink the patches except first and last
         for i in range(1, len(shapeTraverseOrder) - 1):
-            print("shrink patch: " + shapeTraverseOrder[i])
+            # print("shrink patch: " + shapeTraverseOrder[i])
 
             fPatchName = shapeTraverseOrder[i]
 
@@ -1474,7 +1475,7 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
     def updatePatchTranslations(self, closestVertices: List, midPoints: List, patchPivots: List, patchTransforms: List,
                                 shapeTraverseOrder: List[str]):
-        print("updating patch translations... ===========")
+        # print("updating patch translations... ===========")
         # Get the new closest vertices without changing the original closest vertices
         newClosestVertices = closestVertices.copy()
         for i in range(0, len(patchPivots) - 1):
@@ -1628,23 +1629,23 @@ class MayaInputScaffoldWrapper():
                 if status:
                     # generate edges using patch ids
                     edgesObjs.append([baseObj, foldpatchObj])
-                    print("Adding edges to the list: ", baseObj.name, foldpatchObj.name)
+                    # print("Adding edges to the list: ", baseObj.name, foldpatchObj.name)
 
         # Print all edges
-        print("Edges: ")
-        for e in edgesObjs:
-            print(e[0].name, e[1].name)
+        # print("Edges: ")
+        # for e in edgesObjs:
+        #     print(e[0].name, e[1].name)
 
         self.edgesObjs = edgesObjs
 
     def cleanUpSplitPatches(self):
-        print("InputScaff: cleaning up split patches...")
+        # print("InputScaff: cleaning up split patches...")
         for bScaff in self.basicScaffoldWrappers:
             bScaff.cleanUpSplitPatches()
 
     def genInputScaffold(self):
         # Generate the input scaffold
-        print("Generating Input Scaffold...")
+        # print("Generating Input Scaffold...")
         npAxis = np.array([self.pushAxis.x, self.pushAxis.y, self.pushAxis.z])
         edgesIds = [[e[0].id, e[1].id] for e in self.edgesObjs]
 
@@ -1679,41 +1680,51 @@ class MayaInputScaffoldWrapper():
 
     def setDependencyScaffoldT(self, basePatchObj: fold.Patch, basicScaffWrapper: MayaTBasicScaffoldWrapper) -> bool:
         # BasePatchObj is the base patch on the T scaffold
+        print("SETTING DEPENDENCY SCAFFOLD FOR: " + str(basicScaffWrapper.basicScaffold.id))
+        print("Its patches are: ")
+        print("Updown is: " + str(basicScaffWrapper.upsideDown))
+        print(basicScaffWrapper.getPatchesIncludeBase())
 
         hasParentOrChild: bool = False
         for otherScaffWrapper in self.basicScaffoldWrappers:
+            if (otherScaffWrapper.basicScaffold.id != basicScaffWrapper.basicScaffold.id):
+                print("CHECKING AGAINST... " + str(otherScaffWrapper.basicScaffold.id))
+                # If it's an H scaffold, then it should also have a topMostPatch we need to compare it ot that is not stored in the class.
+                topMostPatch = otherScaffWrapper.getPatchesIncludeBase()[-1]
 
-            # If it's an H scaffold, then it should also have a topMostPatch we need to compare it ot that is not stored in the class.
-            topMostPatch = otherScaffWrapper.patches[-1]
+                if (basicScaffWrapper.upsideDown):
+                    # Can only be parent
+                    print("my base patch: " + basePatchObj.name)
+                    print("other scaff topmost: " + topMostPatch)
 
-            if (basicScaffWrapper.upsideDown):
-                # Can only be parent
-                if basePatchObj.name == otherScaffWrapper.basePatch:
-                    if otherScaffWrapper.parent is None:
-                        otherScaffWrapper.setParent(basicScaffWrapper)
+                    if basePatchObj.name == topMostPatch:
+                        print(basePatchObj.name + " AND " + topMostPatch + " SAME")
+                        print("T and another scaff share the same topMostpatch!")
+                    elif basePatchObj.name == otherScaffWrapper.basePatch:
+                        if otherScaffWrapper.parent is None:
+                            otherScaffWrapper.setParent(basicScaffWrapper)
 
-                    basicScaffWrapper.addChild(otherScaffWrapper)
-                    hasParentOrChild = True
-                    print(
-                        "Parent child pairing found: parent: " + str(
-                            basicScaffWrapper.basicScaffold.id) + " child: " + str(
-                            otherScaffWrapper.basicScaffold.id))
-                elif basePatchObj.name == topMostPatch:
-                    print("T and another scaff share the same topMostpatch!")
+                        basicScaffWrapper.addChild(otherScaffWrapper)
+                        hasParentOrChild = True
+                        print(
+                            "Parent child pairing found: parent: " + str(
+                                basicScaffWrapper.basicScaffold.id) + " child: " + str(
+                                otherScaffWrapper.basicScaffold.id))
 
-            else:
-                # can only be child
-                if basePatchObj.name == topMostPatch:
-                    if basicScaffWrapper.parent is None:
-                        basicScaffWrapper.setParent(otherScaffWrapper)
+                else:
+                    # can only be child
+                    if basePatchObj.name == topMostPatch:
+                        if basicScaffWrapper.parent is None:
+                            basicScaffWrapper.setParent(otherScaffWrapper)
 
-                    otherScaffWrapper.addChild(basicScaffWrapper)
-                    hasParentOrChild = True
-                    print(
-                        "Parent child pairing ofund: parent: " + str(otherScaffWrapper.basicScaffold.id) + " child: " + str(
-                            basicScaffWrapper.basicScaffold.id))
-                elif basePatchObj.name == otherScaffWrapper.basePatch:
-                    print("T and another scaff share the same bottom patch!")
+                        otherScaffWrapper.addChild(basicScaffWrapper)
+                        hasParentOrChild = True
+                        print(
+                            "Parent child pairing ofund: parent: " + str(otherScaffWrapper.basicScaffold.id) + " child: " + str(
+                                basicScaffWrapper.basicScaffold.id))
+                    elif basePatchObj.name == otherScaffWrapper.basePatch:
+                        print(basePatchObj.name + " AND " + otherScaffWrapper.basePatch + " SAME")
+                        print("T and another scaff share the same bottom patch!")
 
             # if basePatchObj.name == otherScaffWrapper.basePatch:
             #     if basicScaffWrapper.upsideDown:
@@ -1743,7 +1754,7 @@ class MayaInputScaffoldWrapper():
 
     def genBasicScaffolds(self):
 
-        print("Generating Basic Scaffolds...")
+        # print("Generating Basic Scaffolds...")
         if (self.inputScaffold == None):
             raise Exception("Input scaffold is not set yet!")
 
@@ -1804,7 +1815,7 @@ class MayaInputScaffoldWrapper():
 
                 # TODO: DO THE SAME FOR T SCAFF UGH
             elif (len(foldPatchObjDiction[foldPatchObj]) == 1):
-                print("Found a T scaffold!")
+                # print("Found a T scaffold!")
                 basePatchObj = foldPatchObjDiction[foldPatchObj][0]
 
                 basePatch = basePatchObj.name
@@ -1824,10 +1835,10 @@ class MayaInputScaffoldWrapper():
                 self.addBasicScaffold(basicScaffWrapper)
 
         self.inputScaffold.set_basic_mappings()
-        print("end gen basic scaffs")
+        # print("end gen basic scaffs")
 
     def genFoldSolutions(self):
-        print("Genearating Fold Solutions...")
+        # print("Genearating Fold Solutions...")
         # Responsible for invoking the foldMain APIs
 
         # generate connectivity info
@@ -1862,7 +1873,7 @@ class MayaInputScaffoldWrapper():
         # Recompute time based on self.minTime and self.maxTime
         # AT this point, time is a value between 0 and 1
         normalizedTime = int(time * self.maxTime)
-        print("Normalized time: " + str(normalizedTime))
+        # print("Normalized time: " + str(normalizedTime))
 
         for bScaff in self.basicScaffoldWrappers:
             # print("Folding basic scaffold: " + str(bScaff.basicScaffold.id))
@@ -2002,7 +2013,7 @@ class foldableNode(OpenMayaMPx.MPxNode):
         elif (string == 'z'):
             return [0, 0, -1]
         else:
-            print("Push axis enum: " + str(string) + " is invalid")
+            # print("Push axis enum: " + str(string) + " is invalid")
             raise Exception("Invalid push axis enum")
 
 
