@@ -978,6 +978,14 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
     def rotatePatches(self, angle: float, shapeTraverseOrder: List[str], isLeft: bool):
         print("rotating patches....")
+        # if (areVectorsEqual(self.pushAxis, posXAxis) or areVectorsOpposite(self.pushAxis, posXAxis)):
+        #     print("X AXIS AND SOL IS LEFT")
+        #     angle = -angle
+        # elif not isLeft:
+        #     angle = -angle
+
+        # angle = -angle
+
         if not isLeft:
             angle = -angle
 

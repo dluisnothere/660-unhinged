@@ -205,19 +205,21 @@ global proc int genFoldPatchXY()
     setAttr ($displayRotatePivot) 1;
     
     // Move the rotate pivot to the local position (0.5, 0, 0) in world space
-    xform -os -rp 0.5 0.0 0.0 $newName;
+    // xform -os -rp 0.5 0.0 0.0 $newName;
 
     // Increment the global ID
     $planeID++;
     
     // Translate back to the origin
-    setAttr ($newName + ".translateY") -0.5;
-    rotate -r -90 0 0 $polyPlaneCurr;
+    //setAttr ($newName + ".translateY") -0.5;
+    rotate -r 0 90 0 $polyPlaneCurr;
+    xform -os -rp 0.5 0.0 0.0 $newName;
+    // move -r -0.5 0 -0.5 $polyPlaneCurr;
     
     // Make this the new origin
     makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 -pn 1;
     
-    setAttr ($newName + ".translateY") 0.5;
+    rotate -r 0 0 90 $polyPlaneCurr;
     
     createScaleMonitor($polyPlaneCurr);
     
