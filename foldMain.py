@@ -207,6 +207,9 @@ class FoldOption:
         # This is a plane that defines the folded state
         self.foldedState: np.ndarray(np.ndarray(float)) = None
 
+        #This is to dynamically update the height from its original position
+        self.height_offset = 0
+
         self.gen_fold_transform()
         self.gen_projected_region(self.rot_axis)
         self.construct_bvh()
@@ -472,6 +475,7 @@ class FoldOption:
         self.projected_region = np.array([newBottomVerts[0], newBottomVerts[1], additionalVerts[1], additionalVerts[0]])
 
     def construct_bvh(self):
+        
         bvh: list[list[float]] = []
         plane: list[list[float]] = []
 
@@ -504,28 +508,31 @@ class FoldOption:
             minZ = min(minZ, minZT)
             #print(maxX)
 
-            # for option in self.scaff.folded_option_above:
-            #     maxX = max(maxX, option.foldedState[1][0])
-            #     minX = min(minX, option.foldedState[0][0])
-            #     maxY = max(maxY, option.foldedState[1][1])
-            #     minY = min(minY, option.foldedState[0][1])
-            #     maxZ = max(maxZ, option.foldedState[1][2])
-            #     minZ = min(minZ, option.foldedState[0][2])
+            for option in self.scaff.folded_option_above:
+                maxX = max(maxX, option.foldedState[1][0])
+                minX = min(minX, option.foldedState[0][0])
+                maxY = max(maxY, option.foldedState[1][1])
+                minY = min(minY, option.foldedState[0][1])
+                maxZ = max(maxZ, option.foldedState[1][2])
+                minZ = min(minZ, option.foldedState[0][2])
+
+        minOffset = smoothbrainiqNumber + self.height_offset
+        maxOffset = smoothbrainiqNumber + self.height_offset
 
         if (abs(np.dot(norm, XAxis)) == 1):
-            bvh.append([minX + smoothbrainiqNumber, minY, minZ])
-            bvh.append([minX + self.height - smoothbrainiqNumber, maxY, maxZ])
+            bvh.append([minX + minOffset, minY, minZ])
+            bvh.append([minX + self.height + maxOffset, maxY, maxZ])
             plane.append([MAX_F, minY, minZ])
             plane.append([MIN_F, maxY, maxZ])
         elif (abs(np.dot(norm, YAxis)) == 1):
             print("Y Option")
-            bvh.append([minX, minY + smoothbrainiqNumber, minZ])
-            bvh.append([maxX, minY + self.height - smoothbrainiqNumber, maxZ])
+            bvh.append([minX, minY + minOffset, minZ])
+            bvh.append([maxX, minY + self.height + maxOffset, maxZ])
             plane.append([minX, MAX_F, minZ])
             plane.append([maxX, MIN_F, maxZ])
         elif (abs(np.dot(norm, ZAxis)) == 1):
-            bvh.append([minX, minY, minZ + smoothbrainiqNumber])
-            bvh.append([maxX, maxY, minZ + self.height - smoothbrainiqNumber])
+            bvh.append([minX, minY, minZ + minOffset])
+            bvh.append([maxX, maxY, minZ + self.height + maxOffset])
             plane.append([minX, minY, MAX_F])
             plane.append([maxX, maxY, MIN_F])
         else:
@@ -534,6 +541,8 @@ class FoldOption:
         self.bvh = np.array(bvh)
         self.foldedState = np.array(plane)
 
+        if self.scaff.f_patch.id == 4:
+            pass
 
     def randomstuffIdontwannadelete(self):
          # print("OPTION==================")
@@ -665,6 +674,9 @@ class FoldOption:
                 base = bs.b_patch
                 fold = bs.f_patch
 
+                if self.scaff.f_patch.id == 4:
+                    pass
+
                 if type(self.scaff) == HBasicScaff:
                     if base.id == self.scaff.t_patch.id:
                         continue
@@ -727,6 +739,9 @@ class BasicScaff():
         self.start_time = -1
         self.end_time = -1
 
+        self.appliedHeightOffset = False
+        self.partOfFoldedMidScaff = False
+
     def getLowestCostEsimate(self):
         low = bigChungusNumber
         for option in self.fold_options:
@@ -741,7 +756,7 @@ class BasicScaff():
             if option.modification.cost < cost:
                 base = option
 
-        return [base]
+        return ([base], cost)
 
     def initConflicts(self):
         self.no_external_conflicts = [False for i in range(len(self.fold_options))]
@@ -777,6 +792,16 @@ class BasicScaff():
                 return (True, min_cost)
         return (False, min_cost)
 
+    def applyHeightOffsets(self, height):
+        if not self.partOfFoldedMidScaff and not self.appliedHeightOffset:
+            self.appliedHeightOffset = True
+            for option in self.fold_options:
+                option.height_offset -= height
+                option.construct_bvh()
+
+            for bs in self.folded_option_above:
+                bs.applyHeightOffsets(height)
+    
 """
 TBasicScaff: A basic scaffold of type T
 """
@@ -786,6 +811,8 @@ class TBasicScaff(BasicScaff):
     def __init__(self, b_patch, f_patch):
         self.f_patch = f_patch
         self.b_patch = b_patch
+
+        super().__init__()
 
         self.rot_axis = np.cross(calc_normal(f_patch.coords), calc_normal(b_patch.coords))
 
@@ -863,6 +890,8 @@ class HBasicScaff(BasicScaff):
         super().__init__()
 
         self.rot_axis: np.ndarray = np.cross(calc_normal(f_patch.coords), calc_normal(b_patch.coords))
+
+        self.above_scaffs = []
 
     def gen_aabb(self) -> list[list[float]]:
         maxX = self.f_patch.coords[0][0]
@@ -1013,19 +1042,25 @@ class MidScaff:
     def clearFoldedOptionAbove(self):
         for bs in self.basic_scaffs:
             bs.folded_option_above = []
+            for option in bs.fold_options:
+                option.height_offset = 0
 
+
+            
 
 class TMidScaff(MidScaff):
     def __init__(self, bs, nm):
         super().__init__(bs, nm)
 
-    def gen_fold_times(self):
+    def gen_fold_times(self, push_dir: list[float]):
         # There should only be one scaffold
         self.basic_scaffs[0].start_time = self.start_time
         self.basic_scaffs[0].end_time = self.end_time
 
     def build_execute_conflict_graph(self):
         clique, weight = self.basic_scaffs[0].getBestOption()
+        self.basic_scaffs[0].optimal_fold_option = clique[0]
+        print("SET BEST CLIQUE========================================")
         self.best_clique = clique
         return clique, weight
 
@@ -1331,6 +1366,7 @@ class HMidScaff(MidScaff):
     def build_execute_conflict_graph(self):
         self.gen_conflict_graph()
         clique, weight = self.run_mwisp()
+        print("SET BEST CLIQUE========================================")
         self.best_clique = clique
         return clique, weight
 
@@ -1402,7 +1438,7 @@ class InputScaff:
 
         # debug purposes for ease of our test algorithm
         # for now we manually define basic scaffolds
-        self.basic_scaffs = []
+        self.basic_scaffs: List[BasicScaff] = []
 
         # This is for mapping for basic scaffs ids (ints) to node ids (list of ints)
         self.basic_mappings = {}
@@ -1471,6 +1507,7 @@ class InputScaff:
 
         # generates basic scaffolds
         # self.gen_basic_scaffs()
+        self.set_top_bot_relations()
 
         # generates mid-level scaffolds
         self.gen_mid_scaffs()
@@ -1497,36 +1534,36 @@ class InputScaff:
             self.hinge_graph.add_edge(edge[0], edge[1])
 
     # Here for debugging purposes
-    # def gen_basic_scaffs(self):
-    #     print("gen basic scaffs")
-    #     for patch in self.node_list:
-    #         if patch.patch_type == PatchType.Fold:
-    #             id = patch.id
-    #             neighbors = list(self.hinge_graph.neighbors(id))
-    #             if len(neighbors) == 2:
-    #                 base0 = self.node_list[neighbors[0]]
-    #                 base1 = self.node_list[neighbors[1]]
-    #                 fold0 = self.node_list[id]
-    #                 self.basic_scaffs.append(HBasicScaff(base0, fold0, base1))
-    #                 self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id,
-    #                                                                  self.node_list[neighbors[1]].id]
-    #                 # print(self.basic_scaffs[-1].id)
-    #             elif len(neighbors) == 1:
-    #                 base0 = self.node_list[neighbors[0]]
-    #                 fold0 = self.node_list[id]
-    #                 self.basic_scaffs.append(TBasicScaff(base0, fold0))
-    #                 self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id]
-    #                 # print(self.basic_scaffs[-1].id)
-    #             else:
-    #                 print("wtf")
-    #
-    #     for scaff in self.basic_scaffs:
-    #         # TODO: Remove some of these from debugging
-    #         scaff.start_time = 0
-    #         scaff.end_time = 90
-    #         scaff.gen_fold_options(self.num_shrinks, self.max_hinges, .5)
-    #
-    #     # print("end gen basic scaffs")
+    def gen_basic_scaffs_old(self):
+        print("gen basic scaffs")
+        for patch in self.node_list:
+            if patch.patch_type == PatchType.Fold:
+                id = patch.id
+                neighbors = list(self.hinge_graph.neighbors(id))
+                if len(neighbors) == 2:
+                    base0 = self.node_list[neighbors[0]]
+                    base1 = self.node_list[neighbors[1]]
+                    fold0 = self.node_list[id]
+                    self.basic_scaffs.append(HBasicScaff(base0, fold0, base1))
+                    self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id,
+                                                                     self.node_list[neighbors[1]].id]
+                    # print(self.basic_scaffs[-1].id)
+                elif len(neighbors) == 1:
+                    base0 = self.node_list[neighbors[0]]
+                    fold0 = self.node_list[id]
+                    self.basic_scaffs.append(TBasicScaff(base0, fold0))
+                    self.basic_mappings[self.basic_scaffs[-1].id] = [id, self.node_list[neighbors[0]].id]
+                    # print(self.basic_scaffs[-1].id)
+                else:
+                    print("wtf")
+    
+        for scaff in self.basic_scaffs:
+            # TODO: Remove some of these from debugging
+            scaff.start_time = 0
+            scaff.end_time = 90
+            scaff.gen_fold_options(self.num_shrinks, self.max_hinges, .5)
+    
+        # print("end gen basic scaffs")
 
     # Basic scaffold objects already created by the foldNode
     def set_basic_mappings(self):
@@ -1595,6 +1632,14 @@ class InputScaff:
                                     if id2 not in merged_cycles[working_cycle_id]:
                                         merged_cycles[working_cycle_id].append(id2)
         return merged_cycles
+
+    def set_top_bot_relations(self):
+        for (scaff1, id1) in zip(self.basic_scaffs, range(0, len(self.basic_scaffs))):
+            for (scaff2, id2) in zip(self.basic_scaffs, range(0, len(self.basic_scaffs))):
+                if id1 != id2 and type(scaff1) == HBasicScaff:
+                    if scaff1.t_patch.id == scaff2.b_patch.id:
+                        scaff1.above_scaffs.append(scaff2)
+                    
 
     def gen_mid_scaffs(self):
         # If there are no basic scaffolds, return with an error
@@ -1676,7 +1721,9 @@ class InputScaff:
             raise Exception("No basic scaffolds to fold")
 
         # First, generate time zones for basic scaffolds
+        print("MAKING FOLD OPTIONS=====================================")
         for mid_scaff in self.mid_scaffs:
+            print("SETTING TIME ZONE")
             mid_scaff.gen_fold_times(self.push_dir)
 
         # First, generate basic scaffold solutions
@@ -1702,6 +1749,11 @@ class InputScaff:
     def clearAboveOptions(self):
         for ms in self.mid_scaffs:
             ms.clearFoldedOptionAbove()
+
+    def resetBasicOffsetChecks(self):
+        for bs in self.basic_scaffs:
+            bs.appliedHeightOffset = False
+            bs.partOfFoldedMidScaff = False
 
     def mergeMidScaffs(self):
         remaining_list = []
@@ -1759,9 +1811,37 @@ class InputScaff:
             self.folded_scaff[bestId] = True
 
     def mergeFoldedPatches(self):
-        for option in self.mid_scaffs_ordered[-1].best_clique:
+        print("DECISIVE AREA FOR MERGING FOLDED PATHCES=====================")
+        folded_mid = self.mid_scaffs_ordered[-1]
+        for bs in folded_mid.basic_scaffs:
+            bs.partOfFoldedMidScaff = True
+
+        patch_dict = {}
+        for option in folded_mid.best_clique:
+            print(option)
+            scaff = option.scaff
+            if type(scaff) == HBasicScaff:
+                top_id = scaff.t_patch.id
+                height = option.height
+                if top_id not in patch_dict:
+                    patch_dict[top_id] = (height, scaff)
+                else:
+                    h, s = patch_dict[top_id]
+                    if h < height:
+                        patch_dict[top_id] = (height, scaff)
+
+        print("best clique")
+        print(folded_mid.best_clique)
+        print("DICT LIST")
+        print(patch_dict)
+        for key, val in patch_dict.items():
+            for scaff in val[1].above_scaffs:
+                scaff.applyHeightOffsets(val[0])
+
+        for option in folded_mid.best_clique:
             for ms in self.mid_scaffs:
-                ms.mergeFoldedPatches(option)
+                if type(ms) == HMidScaff:
+                    ms.mergeFoldedPatches(option)
 
 
     def order_folds(self):
@@ -1771,12 +1851,14 @@ class InputScaff:
         print(size)
 
         self.folded_scaff = [False for i in range(size)]
-        self.initConflictChecks()
+        
 
         print("number of ordered mid level scaffolds")
         print(len(self.mid_scaffs_ordered))
 
         while len(self.mid_scaffs_ordered) < len(self.mid_scaffs):
+            self.clearConflictChecks()
+            self.initConflictChecks()
             self.pickNextScaff()
             print("Num Ordered:")
             print(len(self.mid_scaffs_ordered))
@@ -1784,6 +1866,7 @@ class InputScaff:
             print(self.mid_scaffs_ordered[0])
             print(self.mid_scaffs_ordered[-1])
             self.mid_scaffs_ordered[-1].build_execute_conflict_graph()
+            self.resetBasicOffsetChecks()
             self.mergeFoldedPatches()
             if self.mid_scaffs_ordered[-1].isMerged:
                 break
@@ -2791,7 +2874,8 @@ def test_side_by_side_optimal_sequence_input():
 
     print(input.hinge_graph)
 
-    
+    input.set_top_bot_relations()
+
     input.gen_basic_scaffs()
 
     print(input.basic_scaffs)
@@ -2939,5 +3023,99 @@ def test_fold_hh_scaff():
             print("Projected region of solution: ")
             print(sol.projected_region)
 
+# test_fold_hh_scaff()
 
-test_fold_hh_scaff()
+def test_fold_collission():
+    coords1 = np.array([(1, 0, 0), (-1, 0, 0), (1, 0, 1), (-1, 0, 1)])  # base 1
+    coords2 = np.array([(0, 1, 0), (-1, 1, 0), (0, 1, 1), (-1, 1, 1)])  # base 2
+    coords3 = np.array([(1, 2, 0), (-1, 2, 0), (1, 2, 1), (-1, 2, 1)])  # base 3
+
+    coords4 = np.array([(-.5, 1, 0), (-.5, 0, 0), (-.5, 1, 1), (-.5, 0, 1)])  # fold 1
+    coords5 = np.array([(-.5, 2, 0), (-.5, 1, 0), (-.5, 2, 1), (-.5, 1, 1)])  # fold 2
+    coords6 = np.array([(.5, 1, 0), (.5, 0, 0), (.5, 1, 1), (.5, 0, 1)])  # fold 3
+
+    b1 = Patch(coords1)
+    b2 = Patch(coords2)
+    b3 = Patch(coords3)
+
+    f1 = Patch(coords4)
+    f2 = Patch(coords5)
+    f3 = Patch(coords6)
+
+    b1.id = 0
+    b2.id = 1
+    b3.id = 2
+
+    f1.id = 3
+    f2.id = 4
+    f3.id = 5
+
+    nodes = [b1, b2, b3, f1, f2, f3]
+
+    edges = [[0, 3], [1, 3], [1, 4], [2, 4], [0, 5]]
+
+    push_dir = YAxis
+
+    input = InputScaff(nodes, edges, push_dir, 1, 1, 1, 0.5)
+
+    input.gen_hinge_graph()
+
+    for l in range(0, len(input.node_list)):
+        print(input.node_list[l].id)
+        print(input.node_list[l].patch_type)
+        print(list(input.hinge_graph.neighbors(l)))
+        print("------------")
+
+    print(input.hinge_graph)
+
+    
+    input.gen_basic_scaffs()
+
+    print(input.basic_scaffs)
+
+    input.set_top_bot_relations()
+
+    print("MIDSCAFFS")
+    input.gen_mid_scaffs()
+    print(input.mid_scaffs)
+    for mid_scaff in input.mid_scaffs:
+        print(mid_scaff.node_mappings)
+        for basic_scaff in mid_scaff.basic_scaffs:
+            print("SCAFF =================== ")
+            print("foldable: " + str(basic_scaff.f_patch.id))
+            print("base low: " + str(basic_scaff.b_patch.id))
+
+    input.gen_fold_options()
+    input.order_folds()
+
+    for mid_scaff in input.mid_scaffs_ordered:
+        print("MID SCAFF ID")
+        for basic_scaff in mid_scaff.basic_scaffs:
+            # print("FOLD PATCH COORDS")
+            # print(basic_scaff.f_patch.coords)
+            # offset = indexTime * 90
+
+            print("FOLD SOLUTION FOR: " + str(basic_scaff.id) + "===================")
+            sol: FoldOption = basic_scaff.optimal_fold_option
+            print("BVH:")
+            print(sol.bvh)
+            print("start time:")
+            # print(basic_scaff.offset + basic_scaff.start_time)
+            print("end time:")
+            # print(basic_scaff.offset + basic_scaff.end_time)
+            print("num hinges: ")
+            print(sol.modification.num_hinges)
+            print("num shrinks: ")
+            print(sol.modification.num_pieces)
+            print("range start: ")
+            print(sol.modification.range_start)
+            print("range end: ")
+            print(sol.modification.range_end)
+            print("isleft:")
+            print(sol.isleft)
+            print("original vertices: ")
+            print(basic_scaff.f_patch.coords)
+            print("Projected region of solution: ")
+            print(sol.projected_region)
+
+test_fold_collission()
