@@ -1046,9 +1046,14 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
     def shrinkPatch(self, shapeTraverseOrder, endPiece, numPieces, startPiece):
         # print("shrinking patches...")
 
-        # TODO: shrink only the middle patch
-        # Shrink the patches except first and last
-        for i in range(1, len(shapeTraverseOrder)):
+        if (self.upsideDown):
+            startIdx = 0
+            endIdx = len(shapeTraverseOrder) - 1
+        else:
+            startIdx = 1
+            endIdx = len(shapeTraverseOrder)
+
+        for i in range(startIdx, endIdx):
             print("shrink patch: " + shapeTraverseOrder[i])
 
             fPatchName = shapeTraverseOrder[i]
@@ -1072,7 +1077,12 @@ class MayaTBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
             # Shrink patch by numPieces in the hard coded z direction
             shrinkFactor = (endPiece - startPiece) / numPieces
-            cmds.setAttr(fPatchName + ".scaleZ", shrinkFactor)
+
+            if (areVectorsEqual(self.pushAxis, posZAxis) or areVectorsOpposite(self.pushAxis, posZAxis)):
+                print("SCALING X")
+                cmds.setAttr(fPatchName + ".scaleX", shrinkFactor)
+            else:
+                cmds.setAttr(fPatchName + ".scaleZ", shrinkFactor)
 
     # TODO: probalby not going to be used if we only fol din the -y direction.
     def isUpsideDown(self, basePatch: fold.Patch, foldPatch: fold.Patch, pushAxis: OpenMaya.MVector) -> bool:
@@ -1464,7 +1474,11 @@ class MayaHBasicScaffoldWrapper(MayaBasicScaffoldWrapper):
 
             # Shrink patch by numPieces in the hard coded z direction
             shrinkFactor = (endPiece - startPiece) / numPieces
-            cmds.setAttr(fPatchName + ".scaleZ", shrinkFactor)
+            if (areVectorsEqual(self.pushAxis, posZAxis) or areVectorsOpposite(self.pushAxis, posZAxis)):
+                print("SCALING X")
+                cmds.setAttr(fPatchName + ".scaleX", shrinkFactor)
+            else:
+                cmds.setAttr(fPatchName + ".scaleZ", shrinkFactor)
 
     def updatePatchTranslations(self, closestVertices: List, midPoints: List, patchPivots: List, patchTransforms: List,
                                 shapeTraverseOrder: List[str]):
