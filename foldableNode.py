@@ -1647,9 +1647,9 @@ class MayaInputScaffoldWrapper():
                     # print("Adding edges to the list: ", baseObj.name, foldpatchObj.name)
 
         # Print all edges
-        print("Edges: ")
-        for e in edgesObjs:
-            print(e[0].name, e[1].name)
+        # print("Edges: ")
+        # for e in edgesObjs:
+        #     print(e[0].name, e[1].name)
 
         self.edgesObjs = edgesObjs
 
@@ -1753,7 +1753,9 @@ class MayaInputScaffoldWrapper():
             raise Exception("Input scaffold is not set yet!")
 
         if (len(self.edgesObjs) == 0):
-            print("Error! No edges, yet genBasicScaffolds is called!")
+            # print("Error! No edges, yet genBasicScaffolds is called!")
+            cmds.confirmDialog(title="Error", message="Could not find edges! Try another fold axis or make sure scaff pieces are connected."
+                               , button=['OK'])
             exit(1)
 
         # Create a dictionary where the key is the foldablePatch and the values are the patches it is connected to

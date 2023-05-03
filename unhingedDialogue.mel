@@ -113,7 +113,7 @@ global proc createScaleMonitor(string $polyPlane) {
 global int $planeID = 0;
 
 
-global proc int genFoldPatchYZ()
+global proc int genFoldPatchXZ()
 {
     // Access the global variable for the ID increment
     global int $planeID;
@@ -151,7 +151,7 @@ global proc int genFoldPatchYZ()
     return true;
 }
 
-global proc int genFoldPatchYX()
+global proc int genFoldPatchZX()
 {
     // Access the global variable for the ID increment
     global int $planeID;
@@ -205,16 +205,13 @@ global proc int genFoldPatchXY()
     setAttr ($displayRotatePivot) 1;
     
     // Move the rotate pivot to the local position (0.5, 0, 0) in world space
-    // xform -os -rp 0.5 0.0 0.0 $newName;
 
     // Increment the global ID
     $planeID++;
     
-    // Translate back to the origin
-    //setAttr ($newName + ".translateY") -0.5;
+
     rotate -r 0 90 0 $polyPlaneCurr;
     xform -os -rp 0.5 0.0 0.0 $newName;
-    // move -r -0.5 0 -0.5 $polyPlaneCurr;
     
     // Make this the new origin
     makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 -pn 1;
@@ -226,7 +223,7 @@ global proc int genFoldPatchXY()
     return true;
 }
 
-global proc int genFoldPatchXZ()
+global proc int genFoldPatchYZ()
 {
     // Access the global variable for the ID increment
     global int $planeID;
@@ -243,25 +240,17 @@ global proc int genFoldPatchXZ()
     setAttr ($displayRotatePivot) 1;
     
     // Move the rotate pivot to the local position (0.5, 0, 0) in world space
-    xform -os -rp 0.5 0.0 0.0 $newName;
+    xform -os -rp -0.5 0.0 0.0 $newName;
 
     // Increment the global ID
     $planeID++;
-    
-    // Translate back to the origin
-    setAttr ($newName + ".translateY") -0.5;
-    
-    // Make this the new origin
-    makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 -pn 1;
-    
-    setAttr ($newName + ".translateY") 0.5;
     
     createScaleMonitor($polyPlaneCurr);
     
     return true;
 }
 
-global proc int genFoldPatchZX()
+global proc int genFoldPatchYX()
 {
     // Access the global variable for the ID increment
     global int $planeID;
@@ -278,18 +267,10 @@ global proc int genFoldPatchZX()
     setAttr ($displayRotatePivot) 1;
     
     // Move the rotate pivot to the local position (0.5, 0, 0) in world space
-    xform -os -rp 0.0 0.0 0.5 $newName;
+    xform -os -rp 0.0 0.0 -0.5 $newName;
 
     // Increment the global ID
     $planeID++;
-    
-    // Translate back to the origin
-    setAttr ($newName + ".translateY") -0.5;
-    
-    // Make this the new origin
-    makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 -pn 1;
-    
-    setAttr ($newName + ".translateY") 0.5;
     
     createScaleMonitor($polyPlaneCurr);
     
@@ -313,20 +294,13 @@ global proc int genFoldPatchZY()
     setAttr ($displayRotatePivot) 1;
     
     // Move the rotate pivot to the local position (0.5, 0, 0) in world space
-    xform -os -rp 0.0 0.0 0.5 $newName;
+    xform -os -rp -0.5 0.0 0.0 $newName;
 
     // Increment the global ID
     $planeID++;
     
-    // Translate back to the origin
-    setAttr ($newName + ".translateY") -0.5;
-    
-    // Make this the new origin
-    makeIdentity -apply true -t 1 -r 1 -s 1 -n 0 -pn 1;
-    
-    setAttr ($newName + ".translateY") 0.5;
-    
-    rotate -r 0 0 -90 $polyPlaneCurr;
+
+    rotate -r 90 0 0 $polyPlaneCurr;
     createScaleMonitor($polyPlaneCurr);
     
     return true;
@@ -402,31 +376,44 @@ global proc int genMenu()
     global string $radioCollection;
         
     window -title "Unhinged Plugin: Di Lu and David Li CIS 660";
-    	columnLayout -w 500;
-    		button -label "Create Fold Patch YZ" -command "genFoldPatchYZ";
-    		button -label "Create Fold Patch YX" -command "genFoldPatchYX";
-    		button -label "Create Fold Patch XY" -command "genFoldPatchXY";
-    		button -label "Create Fold Patch XZ" -command "genFoldPatchXZ";
-    		button -label "Create Fold Patch ZX" -command "genFoldPatchZX";
-    		button -label "Create Fold Patch ZY" -command "genFoldPatchZY";
-    		
-    		button -label "Create Base Patch" -command "genBasePatch";
-    	    button -label "Create Foldable Node" -command "genFoldNode";
-    	    intSliderGrp -label "Grid Density" -field true -fieldMinValue 1 -fieldMaxValue 20 -minValue 1 -maxValue 20 -value 1
-    	           -changeCommand "densifyGrid #1"; 
-            checkBox -label "Snap to Grid" -changeCommand "onTranslateSnap #1" snapTranslateBox;
-            checkBox -label "Snap Rotations" -changeCommand "onRotateSnap #1" snapRotateBox;
-            rowLayout -nc 3 -adjustableColumn 2;
-                $radioCollection = `radioCollection`;
-                $radioX = `radioButton -label "X" -collection $radioCollection`;
-                $radioY = `radioButton -label "Y" -select -collection $radioCollection`;
-                $radioZ = `radioButton -label "Z" -collection $radioCollection`;
-                
-                // Get the name of the radioButton without the entire path
-                $radioX = `match "[^|]*$" $radioX`;
-                $radioY = `match "[^|]*$" $radioY`;
-                $radioZ = `match "[^|]*$" $radioZ`;
-                setParent ..;
+    	columnLayout -w 500 -adjustableColumn true;
+    	    frameLayout -w 500 -collapsable true -label "Patch Creation";
+        	    rowLayout -numberOfColumns 6 -columnWidth6 80 80 80 80 80 80;
+            	    symbolButton -image "ZXbutton.bmp" -command "genFoldPatchZX" -width 64 -height 64; 
+            		symbolButton -image "XZbutton.bmp" -command "genFoldPatchXZ" -width 64 -height 64; 
+            		symbolButton -image "ZYbutton.bmp" -command "genFoldPatchZY" -width 64 -height 64;
+            		symbolButton -image "XYbutton.bmp" -command "genFoldPatchXY" -width 64 -height 64;
+            		symbolButton -image "YXbutton.bmp" -command "genFoldPatchYX" -width 64 -height 64;
+            		symbolButton -image "YZbutton.bmp" -command "genFoldPatchYZ" -width 64 -height 64;
+            		setParent ..;
+            	rowLayout -numberOfColumns 1;
+        		    button -label "Create Base Patch" -command "genBasePatch" -width 150;
+        		    setParent ..;
+            separator -width 10 -style "none";
+
+            frameLayout -w 500 -collapsable true -label "Node Creation";
+                rowLayout -numberOfColumns 1;
+        	        button -label "Create Foldable Node" -command "genFoldNode" -width 150; 
+        	        setParent ..; 
+                rowLayout -nc 3 -adjustableColumn 3;
+                    $radioCollection = `radioCollection`;
+                    $radioX = `radioButton -label "X" -collection $radioCollection`;
+                    $radioY = `radioButton -label "Y" -select -collection $radioCollection`;
+                    $radioZ = `radioButton -label "Z" -collection $radioCollection`;
+                    
+                    // Get the name of the radioButton without the entire path
+                    $radioX = `match "[^|]*$" $radioX`;
+                    $radioY = `match "[^|]*$" $radioY`;
+                    $radioZ = `match "[^|]*$" $radioZ`;
+                    setParent ..;
+            separator -width 10 -style "none";
+
+    	    frameLayout -w 500 -collapsable true -label "Maya Settings";
+        	    intSliderGrp -label "Grid Density" -field true -fieldMinValue 1 -fieldMaxValue 20 -minValue 1 -maxValue 20 -value 1
+        	           -changeCommand "densifyGrid #1"; 
+        	    separator -height 10 -style "none";
+                checkBox -label "Snap to Grid" -changeCommand "onTranslateSnap #1" snapTranslateBox;
+                checkBox -label "Snap Rotations" -changeCommand "onRotateSnap #1" snapRotateBox;
     	setParent ..;
     showWindow;
     return true;
